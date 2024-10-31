@@ -87,7 +87,7 @@ const wchar_t *mods_file_search(const wchar_t *path) {
     for (int i = 0; i < mod_count; i++) {
         wchar_t full_path[MAX_PATH];
         _snwprintf(full_path, MAX_PATH, L"%s%s", mods[i].base_path, cpath);
-        if (PathFileExistsW(full_path)) {
+        if (PathFileExistsW(full_path) && !PathIsDirectoryW(full_path)) {
             return filecache_add(path, full_path);
         }
     }
@@ -107,7 +107,7 @@ const wchar_t *mods_file_search_prefixed(const wchar_t *path) {
     for (int i = 0; i < mod_count; i++) {
         wchar_t full_path[MAX_PATH];
         _snwprintf(full_path, MAX_PATH, L"%s%s", mods[i].base_path, cpath);
-        if (PathFileExistsW(full_path)) {
+        if (PathFileExistsW(full_path) && !PathIsDirectoryW(full_path)) {
             return filecache_add(path, full_path);
         }
     }

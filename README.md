@@ -26,6 +26,11 @@ This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github
      3. Modify `YAERModLoader.ini` to fit your needs.
      4. Run the game [w/o EAC](https://steamcommunity.com/sharedfiles/filedetails/?id=2763986548).
 - You can also remove `YAERModLoader.ini` and put ModEngine2's `config_eldenring.toml` in the same folder as `YAERModLoader.dll` to use old config file as well.
+- You can add parameters to `YAERModLoader.exe` to change some behaviors:
+  - `-c` or `--config`: Specify the path of the config file.
+  - `-p` or `--game-path`: Specify the path of the game, you can set it to full-path of `eldenring.exe`, or its `Game` folder, or even the upper-level folder(normally `ELDEN RING`).
+  - `-d` or `--modengine-dll` or `--modloader-dll`: Specify the path of the replacement dll for loading. Note: `--modengine-dll` is just a compatibility option for ModEngine2.
+  - `-s` or `--suspend`: Start game in suspended mode, only for debugging purpose.
 
 ## Credits
 - [ModEngine](https://github.com/soulsmods/ModEngine2): The original mod loader for Souls games.
@@ -34,3 +39,4 @@ This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github
 - [inih](https://github.com/benhoyt/inih): The library used to parse ini files.
 - [toml-c](https://github.com/arp242/toml-c): The library used to parse toml files, for ModEngine config file compatibility.
 - [wingetopt](https://github.com/alex85k/wingetopt): The library used to parse command line arguments.
+- [libofdf](https://github.com/Jan200101/libofdf): The library used to parse Valve's VDF files, for locating game folder.

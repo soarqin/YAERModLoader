@@ -142,7 +142,7 @@ void config_load(void *module) {
     GetEnvironmentVariableW(L"MODLOADER_CONFIG", config_path, MAX_PATH);
     if (config_path[0] == L'\0') {
         config_full_path(config_path, L"YAERModLoader.ini");
-        if (!PathFileExistsW(config_path)) {
+        if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
             config_full_path(config_path, L"config_eldenring.toml");
         }
     } else {

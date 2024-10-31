@@ -28,8 +28,9 @@ bool parse_args(int argc, wchar_t *argv[]) {
         {L"launch-target", required_argument, NULL, 't'},
         {L"game-path", required_argument, NULL, 'p'},
         {L"config", required_argument, NULL, 'c'},
-        {L"modengine-dll", required_argument, NULL, 'd'},
+        {L"modloader-dll", required_argument, NULL, 'd'},
         {L"suspend", no_argument, NULL, 's'},
+        {L"modengine-dll", required_argument, NULL, 'd'},
         {NULL, 0, NULL, 0},
     };
     int opt;
@@ -63,6 +64,34 @@ bool parse_args(int argc, wchar_t *argv[]) {
     return true;
 }
 
+static bool fix_and_locate_game_path(wchar_t *game_path) {
+    wchar_t temp[MAX_PATH];
+    if (PathFileExistsW(game_path) && !PathIsDirectoryW(game_path)) return true;
+    if (wcschr(game_path, L':') == NULL && game_path[0] != L'\\' && game_path[0] != L'/') {
+        GetModuleFileNameW(NULL, temp, MAX_PATH);
+        PathRemoveFileSpecW(temp);
+        PathAppendW(temp, game_path);
+        wcscpy(game_path, temp);
+        if (PathFileExistsW(game_path) && !PathIsDirectoryW(game_path)) {
+            return true;
+        }
+    }
+    wcscpy(temp, game_path);
+    PathAppendW(temp, L"eldenring.exe");
+    if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
+        wcscpy(game_path, temp);
+        return true;
+    }
+    wcscpy(temp, game_path);
+    PathAppendW(temp, L"Game");
+    PathAppendW(temp, L"eldenring.exe");
+    if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
+        wcscpy(game_path, temp);
+        return true;
+    }
+    return false;
+}
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
 /*
     wchar_t game_path[MAX_PATH];
@@ -77,7 +106,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     BOOL success;
 
     parse_args(__argc, __wargv);
-    if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll)) {
+    if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
         GetModuleFileNameA(hInstance, filepath, MAX_PATH);
         PathRemoveFileSpecA(filepath);
         PathAppendA(filepath, "YAERModLoader.dll");
@@ -95,7 +124,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     kernel32 = LoadLibraryW(L"kernel32.dll");
     create_process_addr = GetProcAddress(kernel32, "CreateProcessW");
 
-    if (full_game_path[0] == L'\0' || !PathFileExistsW(full_game_path)) {
+    if (full_game_path[0] == L'\0' || !fix_and_locate_game_path(full_game_path)) {
         app_find_game_path(ER_APP_ID, game_folder);
         PathAppendW(game_folder, L"Game");
         wcscpy(full_game_path, game_folder);
