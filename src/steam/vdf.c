@@ -1,3 +1,5 @@
+/* Codes from: [libofdf](https://github.com/Jan200101/libofdf), licensed under MIT */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
