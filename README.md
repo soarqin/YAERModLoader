@@ -43,3 +43,4 @@ This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github
 - [toml-c](https://github.com/arp242/toml-c): The library used to parse toml files, for ModEngine config file compatibility.
 - [wingetopt](https://github.com/alex85k/wingetopt): The library used to parse command line arguments.
 - [libofdf](https://github.com/Jan200101/libofdf): The library used to parse Valve's VDF files, for locating game folder.
+- exe LOGO from [logowik](https://logowik.com/elden-ring-logo-vector-svg-pdf-ai-eps-cdr-free-download-12207.html)
