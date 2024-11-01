@@ -1,5 +1,7 @@
 # Yet Another Elden Ring Mod Loader
 
+[中文说明](README.zhCN.md)
+
 ## Introduction
 This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github.com/soulsmods/ModEngine2), and is designed to be simple and easy to use.
 
@@ -21,10 +23,11 @@ This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github
      3. Run `YAERModLoader.exe` to start the game.
      4. This is recommended because you can start the loader only when you need it and it won't pollute your game folder.
   2. Load the loader with game automatically
-     1. Extract `YAERModLoader.dll` and `YAERModLoader.ini` to the game folder.
+     1. Extract `YAERModLoader.dll` and `YAERModLoader.ini` to the game folder (where `eldenring.exe` is).
      2. Rename `YAERModLoader.dll` to either `dxgi.dll`, `dinput8.dll` or `winhttp.dll`.
      3. Modify `YAERModLoader.ini` to fit your needs.
-     4. Run the game [w/o EAC](https://steamcommunity.com/sharedfiles/filedetails/?id=2763986548).
+     4. Run the game [w/o EAC](https://steamcommunity.com/sharedfiles/filedetails/?id=2763986548):
+        - Create a text file `steam_appid.txt` in the same folder as `eldenring.exe`, put `1245620` in it, save and close, then **start the game with eldenring.exe**. 
 - You can also remove `YAERModLoader.ini` and put ModEngine2's `config_eldenring.toml` in the same folder as `YAERModLoader.dll` to use old config file as well.
 - You can add parameters to `YAERModLoader.exe` to change some behaviors:
   - `-c` or `--config`: Specify the path of the config file.
