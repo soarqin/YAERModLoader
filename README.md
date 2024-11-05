@@ -37,7 +37,8 @@ This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github
 
 ## Credits
 - [ModEngine](https://github.com/soulsmods/ModEngine2): The original mod loader for Souls games.
-- [Detours](https://github.com/microsoft/Detours): The library used to hook functions. I modified it not to use C++ features at all.
+- [Detours](https://github.com/microsoft/Detours): I stripped this library to a subset of its functions, to do dll injections only.
+- [minhook](https://github.com/TsudaKageyu/minhook): Used to hook functions in the game.
 - [uthash](https://github.com/troydhanson/uthash): The library used to handle hash tables.
 - [inih](https://github.com/benhoyt/inih): The library used to parse ini files.
 - [toml-c](https://github.com/arp242/toml-c): The library used to parse toml files, for ModEngine config file compatibility.

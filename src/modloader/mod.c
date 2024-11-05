@@ -8,7 +8,6 @@
 
 #include "mod.h"
 
-#include "config.h"
 #include "filecache.h"
 
 #define WIN32_LEAN_AND_MEAN

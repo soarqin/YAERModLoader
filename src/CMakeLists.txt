@@ -14,6 +14,7 @@ generate_version_info(exe_res_files
 
 add_executable(modlauncher WIN32
     launcher.c
+    detours_subset.h
 
     steam/app.c steam/app.h
     steam/vdf.c steam/vdf.h
@@ -56,7 +57,7 @@ set_target_properties(${PROJECT_NAME} modlauncher PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<0:>"
     FOLDER app)
 target_include_directories(${PROJECT_NAME} PRIVATE .)
-target_link_libraries(${PROJECT_NAME} toml-c inih detours uthash shlwapi)
+target_link_libraries(${PROJECT_NAME} minhook toml-c inih uthash shlwapi)
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
     target_compile_options(modlauncher PRIVATE /utf-8)
@@ -64,4 +65,4 @@ else ()
     target_link_options(${PROJECT_NAME} PRIVATE -municode)
     target_link_options(modlauncher PRIVATE -municode)
 endif ()
-target_link_libraries(modlauncher detours wingetopt shlwapi)
+target_link_libraries(modlauncher wingetopt shlwapi)

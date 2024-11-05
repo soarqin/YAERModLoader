@@ -35,7 +35,8 @@
 
 ## 鸣谢
 - [ModEngine](https://github.com/soulsmods/ModEngine2): 魂系游戏的原始模组加载器。
-- [Detours](https://github.com/microsoft/Detours): 用于挂钩函数的库。我修改了它以不使用任何C++特性。
+- [Detours](https://github.com/microsoft/Detours): 我只保留了这个库的一部分功能，用于dll注入。
+- [minhook](https://github.com/TsudaKageyu/minhook): 用于在游戏中挂钩函数。
 - [uthash](https://github.com/troydhanson/uthash): 用于处理哈希表的库。
 - [inih](https://github.com/benhoyt/inih): 用于解析ini文件的库。
 - [toml-c](https://github.com/arp242/toml-c): 用于解析toml文件的库，以兼容ModEngine的配置文件。

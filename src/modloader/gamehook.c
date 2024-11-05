@@ -12,7 +12,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include "detours.h"
+#include <MinHook.h>
 
 #include <shlwapi.h>
 #include <wchar.h>
@@ -150,7 +150,7 @@ bool gamehook_install() {
     static const uint8_t ak_file_location_resolver_aob[] = {0x4c, 0x89, 0x74, 0x24, 0x28, 0x48, 0x8b, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00, 0x48, 0x89, 0x44, 0x24, 0x20, 0x4c, 0x8b,
                                                             0xce, 0x45, 0x8b, 0xc4, 0x49, 0x8b, 0xd7, 0x48, 0x8b, 0xcd, 0xe8};
 
-    DetourTransactionBegin();
+    MH_Initialize();
     imageBase = get_module_image_base(&imageSize);
     addr = sig_scan(imageBase, imageSize, map_archive_aob, sizeof(map_archive_aob));
     if (!addr) {
@@ -161,11 +161,8 @@ bool gamehook_install() {
         addr += *(int32_t *)(addr + 1) + 5;
     }
     old_map_archive_path = (map_archive_path_t)addr;
-    DetourAttach((PVOID *)&old_map_archive_path, map_archive_path);
-    old_CreateFileW = CreateFileW;
-    DetourAttach((PVOID *)&old_CreateFileW, CreateFile_hooked);
-    //MH_CreateHook(addr, (void *)&map_archive_path, (void **)&old_map_archive_path);
-    //MH_CreateHook(CreateFileW, (void *)&CreateFile_hooked, (void **)&old_CreateFileW);
+    MH_CreateHook(addr, (void *)&map_archive_path, (void **)&old_map_archive_path);
+    MH_CreateHook(CreateFileW, (void *)&CreateFile_hooked, (void **)&old_CreateFileW);
 
     addr = sig_scan(imageBase, imageSize, ak_file_location_resolver_aob, sizeof(ak_file_location_resolver_aob));
     if (!addr) {
@@ -176,19 +173,12 @@ bool gamehook_install() {
         addr += *(int32_t *)(addr + 1) + 5;
     }
     old_ak_file_location_resolver_open = (ak_file_location_resolver_open_t)addr;
-    DetourAttach((PVOID *)&old_ak_file_location_resolver_open, ak_file_location_resolver_open);
-    DetourTransactionCommit();
-    //MH_CreateHook(addr, (void *)&ak_file_location_resolver_open, (void **)&old_ak_file_location_resolver_open);
-    //MH_EnableHook(MH_ALL_HOOKS);
+    MH_CreateHook(addr, (void *)&ak_file_location_resolver_open, (void **)&old_ak_file_location_resolver_open);
+    MH_EnableHook(MH_ALL_HOOKS);
     return true;
 }
 
 void gamehook_uninstall() {
-    //MH_DisableHook(MH_ALL_HOOKS);
-    //MH_Uninitialize();
-    DetourTransactionBegin();
-    DetourDetach((PVOID *)&old_map_archive_path, map_archive_path);
-    DetourDetach((PVOID *)&old_CreateFileW, CreateFile_hooked);
-    DetourDetach((PVOID *)&old_ak_file_location_resolver_open, ak_file_location_resolver_open);
-    DetourTransactionCommit();
+    MH_DisableHook(MH_ALL_HOOKS);
+    MH_Uninitialize();
 }

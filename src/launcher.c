@@ -8,12 +8,9 @@
 
 #include "steam/app.h"
 
+#include "detours_subset.h"
+
 #include <getopt.h>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <detours.h>
-
 #include <shlwapi.h>
 
 #define ER_APP_ID 1245620

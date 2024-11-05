@@ -17,7 +17,10 @@ macro(add_static_runtime_option)
     option(USE_STATIC_CRT "Use static C/C++ runtime" ${ARGV0})
     if(USE_STATIC_CRT)
         add_link_options(
-            $<$<AND:$<OR:$<C_COMPILER_ID:GNU>,$<C_COMPILER_ID:Clang>>,$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>>:-static\;-static-libgcc\;-static-libstdc++>
+            $<$<AND:$<OR:$<C_COMPILER_ID:GNU>,$<C_COMPILER_ID:Clang>>,$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>>:-static>
+        )
+        add_compile_options(
+            $<$<AND:$<C_COMPILER_ID:GNU>,$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>>:-static-libgcc\;-static-libstdc++>
         )
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     endif()
