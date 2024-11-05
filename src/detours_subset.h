@@ -5,6 +5,7 @@
 #include <strsafe.h>
 #include <intsafe.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #if defined(_X86_)
 #define DETOURS_X86
