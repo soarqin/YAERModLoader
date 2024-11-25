@@ -18,6 +18,8 @@
 #include <wchar.h>
 #include <stdio.h>
 
+#include "processutil.h"
+
 typedef struct {
     void *unk;
     wchar_t *string;
@@ -60,9 +62,8 @@ static ak_file_location_resolver_open_t old_ak_file_location_resolver_open = NUL
 
 void *__cdecl map_archive_path(wstring_impl_t *path, uint64_t p2, uint64_t p3, uint64_t p4, uint64_t p5, uint64_t p6) {
     void *res = old_map_archive_path(path, p2, p3, p4, p5, p6);
-    wchar_t *str;
     if (path == NULL) return res;
-    str = wstring_impl_str(path);
+    wchar_t *str = wstring_impl_str(path);
     if (wcsncmp(str, L"data", 4) == 0 && wcsncmp(str + 5, L":/", 2) == 0) {
         const wchar_t *replace = mods_file_search(str + 6);
         if (replace == NULL) return res;
@@ -78,8 +79,7 @@ HANDLE WINAPI CreateFile_hooked(LPCWSTR lpFileName,
                                 DWORD dwCreationDisposition,
                                 DWORD dwFlagsAndAttributes,
                                 HANDLE hTemplateFile) {
-    const wchar_t *replace;
-    replace = mods_file_search_prefixed(lpFileName);
+    const wchar_t *replace = mods_file_search_prefixed(lpFileName);
     return old_CreateFileW(replace == NULL ? lpFileName : replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
 
@@ -89,12 +89,18 @@ const wchar_t *prefixes[3] = {
     L"sd/ja/",
 };
 
+extern int cpu_affinity_strategy;
+
 void *__cdecl ak_file_location_resolver_open(uint64_t p1, wchar_t *path, AKOpenMode openMode, uint64_t p4, uint64_t p5, uint64_t p6) {
-    const wchar_t *replace, *ext;
+    static int inited = 0;
+    if (!inited) {
+        set_process_cpu_affinity_strategy(cpu_affinity_strategy);
+        inited = 1;
+    }
     if (wcsncmp(path, L"sd:/", 4) != 0)
         return old_ak_file_location_resolver_open(p1, path, openMode, p4, p5, p6);
-    replace = path + 4;
-    ext = PathFindExtensionW(replace);
+    const wchar_t *replace = path + 4;
+    const wchar_t *ext = PathFindExtensionW(replace);
     if (ext != NULL && wcsicmp(ext, L".wem") == 0) {
         wchar_t new_path[MAX_PATH];
         _snwprintf(new_path, MAX_PATH, L"wem/%c%c/%s", replace[0], replace[1], replace);
@@ -142,17 +148,15 @@ static uint8_t *sig_scan(void *base, size_t size, const uint8_t *pattern, size_t
 }
 
 bool gamehook_install() {
-    void *imageBase;
     size_t imageSize;
-    uint8_t *addr;
     static const uint8_t map_archive_aob[] = {0x48, 0x83, 0x7b, 0x20, 0x08, 0x48, 0x8d, 0x4b, 0x08, 0x72, 0x03, 0x48, 0x8b, 0x09, 0x4c, 0x8b, 0x4b, 0x18, 0x41, 0xb8, 0x05, 0x00,
                                               0x00, 0x00, 0x4d, 0x3b, 0xc8};
     static const uint8_t ak_file_location_resolver_aob[] = {0x4c, 0x89, 0x74, 0x24, 0x28, 0x48, 0x8b, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00, 0x48, 0x89, 0x44, 0x24, 0x20, 0x4c, 0x8b,
                                                             0xce, 0x45, 0x8b, 0xc4, 0x49, 0x8b, 0xd7, 0x48, 0x8b, 0xcd, 0xe8};
 
     MH_Initialize();
-    imageBase = get_module_image_base(&imageSize);
-    addr = sig_scan(imageBase, imageSize, map_archive_aob, sizeof(map_archive_aob));
+    void *imageBase = get_module_image_base(&imageSize);
+    uint8_t *addr = sig_scan(imageBase, imageSize, map_archive_aob, sizeof(map_archive_aob));
     if (!addr) {
         return false;
     }

@@ -1,5 +1,3 @@
-project(minhook64 C)
-
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message( FATAL_ERROR "This subset of minhook only supports x64 targets")
 endif()
@@ -11,8 +9,6 @@ set(SOURCES_MINHOOK
 )
 set(SOURCES_HDE "hde64.c")
 
-add_library(minhook STATIC ${SOURCES_MINHOOK} ${SOURCES_HDE})
+add_project(minhook STATIC ${SOURCES_MINHOOK} ${SOURCES_HDE} LANGUAGES C FOLDER libs)
 
-target_include_directories(minhook PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}
-)
+target_include_directories(minhook PUBLIC .)

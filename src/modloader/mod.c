@@ -53,17 +53,15 @@ void mods_uninit() {
 }
 
 void mods_add(const char *name, const wchar_t *path) {
-    mod_t *mod;
     if (mod_count >= mod_capacity) {
-        mod_t *new_mods;
         mod_capacity = mod_capacity == 0 ? 8 : mod_capacity * 2;
-        new_mods = (mod_t *)realloc(mods, mod_capacity * sizeof(mod_t));
+        mod_t *new_mods = (mod_t*)realloc(mods, mod_capacity * sizeof(mod_t));
         if (new_mods == NULL) {
             return;
         }
         mods = new_mods;
     }
-    mod = &mods[mod_count++];
+    mod_t *mod = &mods[mod_count++];
     mod->name = strdup(name);
     mod->base_path = wcsdup(path);
     fwprintf(stdout, L"Loading mod %hs from `%ls`\n", name, path);
@@ -71,7 +69,6 @@ void mods_add(const char *name, const wchar_t *path) {
 
 const wchar_t *mods_file_search(const wchar_t *path) {
     wchar_t cpath[MAX_PATH];
-    const wchar_t *res;
     if (path[0] == '\\' || path[0] == '/')
         wcscpy(cpath, path);
     else
@@ -79,7 +76,7 @@ const wchar_t *mods_file_search(const wchar_t *path) {
     for (int n = (int)wcslen(cpath) - 1; n >= 0; n--) {
         if (cpath[n] == L'/') cpath[n] = L'\\';
     }
-    res = filecache_find(cpath);
+    const wchar_t *res = filecache_find(cpath);
     if (res != NULL) {
         return res[0] == 0 ? NULL : res;
     }
@@ -95,11 +92,9 @@ const wchar_t *mods_file_search(const wchar_t *path) {
 }
 
 const wchar_t *mods_file_search_prefixed(const wchar_t *path) {
-    const wchar_t *cpath;
-    const wchar_t *res;
     if (wcsnicmp(path, game_folder, game_folder_length) != 0) return NULL;
-    cpath = path + game_folder_length;
-    res = filecache_find(cpath);
+    const wchar_t *cpath = path + game_folder_length;
+    const wchar_t *res = filecache_find(cpath);
     if (res != NULL) {
         return res[0] == 0 ? NULL : res;
     }

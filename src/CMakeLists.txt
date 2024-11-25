@@ -1,4 +1,4 @@
-project(modloader LANGUAGES C CXX VERSION 0.1.0)
+project(modloader LANGUAGES C VERSION 0.1.0)
 
 include(GenerateVersionInfo)
 
@@ -12,7 +12,7 @@ generate_version_info(exe_res_files
     COMPANY_NAME "Soar Qin"
     FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
 
-add_executable(modlauncher WIN32
+add_project(modlauncher WIN32
     launcher.c
     detours_subset.h
 
@@ -22,6 +22,8 @@ add_executable(modlauncher WIN32
     launcher.rc
 
     ${exe_res_files}
+
+    INLINE_TARGET OUTPUT_NAME "YAERModLoader" FOLDER app
 )
 
 generate_version_info(dll_res_files
@@ -34,28 +36,23 @@ generate_version_info(dll_res_files
     COMPANY_NAME "Soar Qin"
     FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
 
-add_library(${PROJECT_NAME} SHARED
+add_project(${PROJECT_NAME} SHARED
     modloader.c
     modloader/config.c modloader/config.h
     modloader/gamehook.c modloader/gamehook.h
     modloader/mod.c modloader/mod.h
     modloader/filecache.c modloader/filecache.h
+    modloader/processutil.c modloader/processutil.h
 
     proxy/winhttp.c proxy/winhttp.h proxy/winhttp.def
     proxy/dinput8.c proxy/dinput8.h proxy/dinput8.def
     proxy/dxgi.c proxy/dxgi.h proxy/dxgi.def
 
     ${dll_res_files}
+
+    INLINE_TARGET OUTPUT_NAME "YAERModLoader" NO_PREFIX FOLDER app
 )
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    OUTPUT_NAME YAERModLoader
-    PREFIX "")
-set_target_properties(modlauncher PROPERTIES
-    OUTPUT_NAME YAERModLoader)
-set_target_properties(${PROJECT_NAME} modlauncher PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<0:>"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<0:>"
-    FOLDER app)
+
 target_include_directories(${PROJECT_NAME} PRIVATE .)
 target_link_libraries(${PROJECT_NAME} minhook toml-c inih uthash shlwapi)
 if (MSVC)
@@ -66,3 +63,4 @@ else ()
     target_link_options(modlauncher PRIVATE -municode)
 endif ()
 target_link_libraries(modlauncher wingetopt shlwapi)
+add_dependencies(modlauncher ${PROJECT_NAME})

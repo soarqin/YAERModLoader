@@ -9,6 +9,7 @@
 #include "config.h"
 
 #include "mod.h"
+#include "processutil.h"
 
 #include <ini.h>
 #include <toml.h>
@@ -17,6 +18,7 @@
 #include <string.h>
 
 static wchar_t modulePath_[MAX_PATH];
+int cpu_affinity_strategy = 0;
 
 static void enable_debug() {
     AllocConsole();
@@ -54,6 +56,8 @@ static int ini_read_cb(void *user, const char *section,
             if (value_to_bool(value)) {
                 enable_debug();
             }
+        } else if (strcmp(name, "cpu_affinity") == 0) {
+            cpu_affinity_strategy = strtol(value, NULL, 0);
         }
     } else if (strcmp(section, "dlls") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
@@ -72,12 +76,11 @@ void config_load_ini(FILE *f) {
 bool config_load_toml(FILE *f) {
     char errbuf[256];
     toml_table_t *root = toml_parse_file(f, errbuf, 256);
-    toml_table_t *me;
     toml_value_t value;
     toml_array_t *arr;
     int i, len;
     if (root == NULL) return false;
-    me = toml_table_table(root, "modengine");
+    toml_table_t *me = toml_table_table(root, "modengine");
     if (me == NULL) goto TOML_LOAD_MODS;
     value = toml_table_bool(me, "debug");
     if (value.ok && value.u.b) {
@@ -110,14 +113,13 @@ bool config_load_toml(FILE *f) {
     len = toml_array_len(arr);
     for (i = 0; i < len; i++) {
         toml_table_t *sub = toml_array_table(arr, i);
-        toml_value_t enabled, name, path;
         wchar_t wpath[MAX_PATH];
         if (!sub) continue;
-        enabled = toml_table_bool(sub, "enabled");
+        toml_value_t enabled = toml_table_bool(sub, "enabled");
         if (!enabled.ok || !enabled.u.b) continue;
-        name = toml_table_string(sub, "name");
+        toml_value_t name = toml_table_string(sub, "name");
         if (!name.ok) continue;
-        path = toml_table_string(sub, "path");
+        toml_value_t path = toml_table_string(sub, "path");
         if (!path.ok) {
             free(name.u.s);
             continue;
@@ -136,7 +138,7 @@ bool config_load_toml(FILE *f) {
 void config_load(void *module) {
     wchar_t config_path[MAX_PATH] = L"";
     FILE *config_file = NULL;
-    GetModuleFileNameW((HMODULE)module, modulePath_, MAX_PATH);
+    GetModuleFileNameW(module, modulePath_, MAX_PATH);
     PathRemoveFileSpecW(modulePath_);
     PathRemoveBackslashW(modulePath_);
     GetEnvironmentVariableW(L"MODLOADER_CONFIG", config_path, MAX_PATH);

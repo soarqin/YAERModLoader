@@ -7,14 +7,12 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(CustomCompilerOptions)
 fix_compile_flags()
-fix_release_flags()
-add_static_runtime_option(ON)
+fix_release_flags(STRIP_BINARY ON USE_LTO ON USE_STATIC_CRT ON)
 
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMake")
+include(GlobalOptions)
+add_global_options()
 
-set(CMAKE_C_VISIBILITY_PRESET hidden)
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+include(ProjectMacros)
 
 project(YAERModLoader)
 

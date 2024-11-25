@@ -96,13 +96,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 */
     STARTUPINFOW si = {};
     PROCESS_INFORMATION pi = {};
-    HMODULE kernel32;
-    FARPROC create_process_addr;
-    char filepath[MAX_PATH];
+char filepath[MAX_PATH];
     wchar_t game_folder[MAX_PATH];
-    BOOL success;
 
-    parse_args(__argc, __wargv);
+parse_args(__argc, __wargv);
     if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
         GetModuleFileNameA(hInstance, filepath, MAX_PATH);
         PathRemoveFileSpecA(filepath);
@@ -118,8 +115,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
             WideCharToMultiByte(CP_ACP, 0, full_modengine_dll, -1, filepath, MAX_PATH, NULL, NULL);
         }
     }
-    kernel32 = LoadLibraryW(L"kernel32.dll");
-    create_process_addr = GetProcAddress(kernel32, "CreateProcessW");
+    HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
+    FARPROC create_process_addr = GetProcAddress(kernel32, "CreateProcessW");
 
     if (full_game_path[0] == L'\0' || !fix_and_locate_game_path(full_game_path)) {
         app_find_game_path(ER_APP_ID, game_folder);
@@ -138,7 +135,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         SetEnvironmentVariableW(L"SteamAppId", app_id_str);
     }
 
-    success = DetourCreateProcessWithDllW(
+    BOOL success = DetourCreateProcessWithDllW(
         full_game_path,
         NULL,
         NULL,

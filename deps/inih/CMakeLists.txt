@@ -1,4 +1,2 @@
-project(inih C)
-
-add_library(${PROJECT_NAME} STATIC ini.c ini.h)
+add_project(inih STATIC ini.c ini.h LANGUAGES C FOLDER libs)
 target_include_directories(${PROJECT_NAME} PUBLIC .)
