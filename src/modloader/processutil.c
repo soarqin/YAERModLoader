@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2024, Soar Qin<soarchin@gmail.com>
+ * Copyright (C) 2024, Soar Qin<soarchin@gmail.com>
 
  * Use of this source code is governed by an MIT-style
  * license that can be found in the LICENSE file or at
@@ -26,13 +26,17 @@ void set_process_cpu_affinity_strategy(int strategy) {
     }
     uint64_t masks[256] = {};
     uint64_t all_masks = 0;
+    uint64_t nonzero_masks = 0;
     DWORD offset = 0;
     while (offset < len) {
         const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *info = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)(data + offset);
         offset += info->Size;
         const uint64_t mask = info->Processor.GroupMask[0].Mask;
-        masks[info->Processor.EfficiencyClass] |= mask;
+        BYTE eff = info->Processor.EfficiencyClass;
+        masks[eff] |= mask;
         all_masks |= mask;
+        if (eff > 0)
+            nonzero_masks |= mask;
     }
     free(data);
 
@@ -44,8 +48,8 @@ void set_process_cpu_affinity_strategy(int strategy) {
             SetProcessAffinityMask(GetCurrentProcess(), all_masks & ~1ULL & system_mask);
             break;
         case 2:
-            if (masks[0]) break;
-            for (int i = 1; i < 256; i++) {
+            if (!nonzero_masks) break;
+            for (int i = 0; i < 256; i++) {
                 if (masks[i]) {
                     SetProcessAffinityMask(GetCurrentProcess(), masks[i] & system_mask);
                     break;
@@ -53,7 +57,7 @@ void set_process_cpu_affinity_strategy(int strategy) {
             }
             break;
         case 3:
-            if (masks[0]) break;
+            if (!nonzero_masks) break;
             for (int i = 255; i > 0; i--) {
                 if (masks[i]) {
                     SetProcessAffinityMask(GetCurrentProcess(), masks[i] & system_mask);
@@ -62,7 +66,7 @@ void set_process_cpu_affinity_strategy(int strategy) {
             }
             break;
         case 4:
-            if (masks[0]) break;
+            if (!nonzero_masks) break;
             for (int i = 255; i > 0; i--) {
                 if (masks[i]) {
                     uint64_t m = masks[i];
