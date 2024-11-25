@@ -15,6 +15,9 @@ This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github
 - Load dlls on game start
 - Load mods like ModEngine
 
+## Changelog
+Check [CHANGELOG.md](CHANGELOG.md) for details.
+
 ## Installation
 - You can download the latest release from the [release page](https://github.com/soarqin/YAERModLoader/releases), and choose one of the following methods to install the loader:
   1. Start the loader individually (recommended)

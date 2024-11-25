@@ -1,4 +1,4 @@
-project(modloader LANGUAGES C VERSION 0.1.0)
+project(modloader LANGUAGES C VERSION 0.2.0)
 
 include(GenerateVersionInfo)
 
