@@ -20,15 +20,15 @@ static wchar_t full_config_path[MAX_PATH] = L"";
 static wchar_t full_modengine_dll[MAX_PATH] = L"YAERModLoader.dll";
 static bool suspend = false;
 
-bool parse_args(int argc, wchar_t *argv[]) {
+bool parse_args(const int argc, wchar_t *argv[]) {
     const struct option options[] = {
-        {L"launch-target", required_argument, NULL, 't'},
-        {L"game-path", required_argument, NULL, 'p'},
-        {L"config", required_argument, NULL, 'c'},
-        {L"modloader-dll", required_argument, NULL, 'd'},
-        {L"suspend", no_argument, NULL, 's'},
-        {L"modengine-dll", required_argument, NULL, 'd'},
-        {NULL, 0, NULL, 0},
+        { L"launch-target", required_argument, NULL, 't' },
+        { L"game-path", required_argument, NULL, 'p' },
+        { L"config", required_argument, NULL, 'c' },
+        { L"modloader-dll", required_argument, NULL, 'd' },
+        { L"suspend", no_argument, NULL, 's' },
+        { L"modengine-dll", required_argument, NULL, 'd' },
+        { NULL, 0, NULL, 0 },
     };
     int opt;
     while ((opt = getopt_long(argc, argv, L":t:p:c:d:s", options, NULL)) != -1) {
@@ -89,17 +89,17 @@ static bool fix_and_locate_game_path(wchar_t *game_path) {
     return false;
 }
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
-/*
-    wchar_t game_path[MAX_PATH];
-    app_find_game_path(1245620, game_path);
-*/
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLine, int nShowCmd) {
+    /*
+        wchar_t game_path[MAX_PATH];
+        app_find_game_path(1245620, game_path);
+    */
     STARTUPINFOW si = {};
     PROCESS_INFORMATION pi = {};
-char filepath[MAX_PATH];
+    char filepath[MAX_PATH];
     wchar_t game_folder[MAX_PATH];
 
-parse_args(__argc, __wargv);
+    parse_args(__argc, __wargv);
     if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
         GetModuleFileNameA(hInstance, filepath, MAX_PATH);
         PathRemoveFileSpecA(filepath);
@@ -115,7 +115,7 @@ parse_args(__argc, __wargv);
             WideCharToMultiByte(CP_ACP, 0, full_modengine_dll, -1, filepath, MAX_PATH, NULL, NULL);
         }
     }
-    HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
+    const HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
     FARPROC create_process_addr = GetProcAddress(kernel32, "CreateProcessW");
 
     if (full_game_path[0] == L'\0' || !fix_and_locate_game_path(full_game_path)) {
@@ -135,7 +135,7 @@ parse_args(__argc, __wargv);
         SetEnvironmentVariableW(L"SteamAppId", app_id_str);
     }
 
-    BOOL success = DetourCreateProcessWithDllW(
+    const BOOL success = DetourCreateProcessWithDllW(
         full_game_path,
         NULL,
         NULL,
@@ -147,7 +147,7 @@ parse_args(__argc, __wargv);
         &si,
         &pi,
         filepath,
-        (PDETOUR_CREATE_PROCESS_ROUTINEW)(create_process_addr));
+        (const PDETOUR_CREATE_PROCESS_ROUTINEW)create_process_addr);
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
     return success ? 0 : -1;

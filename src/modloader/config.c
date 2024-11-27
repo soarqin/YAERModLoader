@@ -9,7 +9,6 @@
 #include "config.h"
 
 #include "mod.h"
-#include "processutil.h"
 
 #include <ini.h>
 #include <toml.h>
@@ -19,6 +18,9 @@
 
 static wchar_t modulePath_[MAX_PATH];
 int cpu_affinity_strategy = 0;
+int skip_intro = 0;
+int remove_chromatic_aberration = 0;
+int remove_vignette = 0;
 
 static void enable_debug() {
     AllocConsole();
@@ -58,6 +60,12 @@ static int ini_read_cb(void *user, const char *section,
             }
         } else if (strcmp(name, "cpu_affinity") == 0) {
             cpu_affinity_strategy = strtol(value, NULL, 0);
+        } else if (strcmp(name, "skip_intro") == 0) {
+            skip_intro = value_to_bool(value);
+        } else if (strcmp(name, "remove_chromatic_aberration") == 0) {
+            remove_chromatic_aberration = value_to_bool(value);
+        } else if (strcmp(name, "remove_vignette") == 0) {
+            remove_vignette = value_to_bool(value);
         }
     } else if (strcmp(section, "dlls") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
@@ -80,7 +88,7 @@ bool config_load_toml(FILE *f) {
     toml_array_t *arr;
     int i, len;
     if (root == NULL) return false;
-    toml_table_t *me = toml_table_table(root, "modengine");
+    const toml_table_t *me = toml_table_table(root, "modengine");
     if (me == NULL) goto TOML_LOAD_MODS;
     value = toml_table_bool(me, "debug");
     if (value.ok && value.u.b) {
@@ -115,11 +123,11 @@ bool config_load_toml(FILE *f) {
         toml_table_t *sub = toml_array_table(arr, i);
         wchar_t wpath[MAX_PATH];
         if (!sub) continue;
-        toml_value_t enabled = toml_table_bool(sub, "enabled");
+        const toml_value_t enabled = toml_table_bool(sub, "enabled");
         if (!enabled.ok || !enabled.u.b) continue;
-        toml_value_t name = toml_table_string(sub, "name");
+        const toml_value_t name = toml_table_string(sub, "name");
         if (!name.ok) continue;
-        toml_value_t path = toml_table_string(sub, "path");
+        const toml_value_t path = toml_table_string(sub, "path");
         if (!path.ok) {
             free(name.u.s);
             continue;

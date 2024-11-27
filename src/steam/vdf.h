@@ -6,7 +6,6 @@
 extern "C" {
 #endif
 
-#include <stddef.h>
 #include <stdint.h>
 #include <wchar.h>
 
@@ -53,7 +52,7 @@ struct vdf_object *vdf_object_index_array_str(const struct vdf_object *, const c
 const char *vdf_object_get_string(const struct vdf_object *);
 int64_t vdf_object_get_int(const struct vdf_object *);
 
-void vdf_print_object(struct vdf_object *);
+void vdf_print_object(const struct vdf_object *);
 void vdf_free_object(struct vdf_object *);
 
 #ifdef __cplusplus

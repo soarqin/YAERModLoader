@@ -54,7 +54,7 @@ add_project(${PROJECT_NAME} SHARED
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE .)
-target_link_libraries(${PROJECT_NAME} minhook toml-c inih uthash shlwapi)
+target_link_libraries(${PROJECT_NAME} minhook toml-c inih uthash shlwapi version)
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
     target_compile_options(modlauncher PRIVATE /utf-8)

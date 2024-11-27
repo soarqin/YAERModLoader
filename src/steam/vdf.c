@@ -22,7 +22,7 @@
 
 #define FMT_UNKNOWN_CHAR "Encountered Unknown Character %c (%li)\n"
 
-static char *local_strndup_escape(const char *s, size_t n) {
+static char *local_strndup_escape(const char *s, const size_t n) {
     if (!s)
         return NULL;
 
@@ -31,7 +31,7 @@ static char *local_strndup_escape(const char *s, size_t n) {
     retval[n] = '\0';
 
     char *head = retval;
-    char *tail = retval + n;
+    const char *tail = retval + n;
 
     while (*head) {
         if (*head == CHAR_BACKSLASH) {
@@ -86,7 +86,7 @@ static void print_escaped(const char *s) {
     }
 }
 
-struct vdf_object *vdf_parse_buffer(const char *buffer, size_t size) {
+struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
     if (!buffer)
         return NULL;
 
@@ -114,7 +114,7 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, size_t size) {
                 if (!buf) {
                     buf = tail + 1;
                 } else if (o->key) {
-                    size_t len = tail - buf;
+                    const size_t len = tail - buf;
                     size_t digits = 0;
                     size_t chars = 0;
 
@@ -164,7 +164,7 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, size_t size) {
                         o->conditional = NULL;
                     }
                 } else {
-                    size_t len = tail - buf;
+                    const size_t len = tail - buf;
                     o->key = local_strndup_escape(buf, len);
                     buf = NULL;
                 }
@@ -263,7 +263,7 @@ struct vdf_object *vdf_parse_file(const wchar_t *path) {
         return o;
 
     fseek(fd, 0L, SEEK_END);
-    size_t file_size = ftell(fd);
+    const size_t file_size = ftell(fd);
     rewind(fd);
 
     if (file_size) {
@@ -287,7 +287,7 @@ size_t vdf_object_get_array_length(const struct vdf_object *o) {
     return o->data.data_array.len;
 }
 
-struct vdf_object *vdf_object_index_array(const struct vdf_object *o, size_t index) {
+struct vdf_object *vdf_object_index_array(const struct vdf_object *o, const size_t index) {
     assert(o);
     assert(o->type == VDF_TYPE_ARRAY);
     assert(o->data.data_array.len > index);
@@ -368,7 +368,7 @@ static void vdf_print_object_indent(const struct vdf_object *o, const int l) {
     printf("\n");
 }
 
-void vdf_print_object(struct vdf_object *o) {
+void vdf_print_object(const struct vdf_object *o) {
     vdf_print_object_indent(o, 0);
 }
 

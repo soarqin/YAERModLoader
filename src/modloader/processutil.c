@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-void set_process_cpu_affinity_strategy(int strategy) {
+void set_process_cpu_affinity_strategy(const int strategy) {
     DWORD len = 0;
     GetLogicalProcessorInformationEx(RelationProcessorCore, NULL, &len);
     if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) return;
@@ -32,7 +32,7 @@ void set_process_cpu_affinity_strategy(int strategy) {
         const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *info = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)(data + offset);
         offset += info->Size;
         const uint64_t mask = info->Processor.GroupMask[0].Mask;
-        BYTE eff = info->Processor.EfficiencyClass;
+        const BYTE eff = info->Processor.EfficiencyClass;
         masks[eff] |= mask;
         all_masks |= mask;
         if (eff > 0)

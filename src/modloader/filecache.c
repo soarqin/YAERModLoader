@@ -60,7 +60,8 @@ const wchar_t *filecache_add(const wchar_t *path, const wchar_t *replace) {
 }
 
 const wchar_t *filecache_find(const wchar_t *path) {
-    file_t *file;
+    file_t *file = NULL;
     HASH_FIND(hh, files, path, wcslen(path), file);
-    return file == NULL ? NULL : file->native_path;
+    if (!file) return NULL;
+    return file->native_path;
 }

@@ -67,6 +67,10 @@ void mods_add(const char *name, const wchar_t *path) {
     fwprintf(stdout, L"Loading mod %hs from `%ls`\n", name, path);
 }
 
+int mods_count() {
+    return mod_count;
+}
+
 const wchar_t *mods_file_search(const wchar_t *path) {
     wchar_t cpath[MAX_PATH];
     if (path[0] == '\\' || path[0] == '/')

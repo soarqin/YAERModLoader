@@ -14,7 +14,7 @@
 #include <windows.h>
 #include <stdio.h>
 
-bool app_find_game_path(uint32_t app_id, wchar_t *path) {
+bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
     HKEY key;
     wchar_t steam_path[MAX_PATH];
     wchar_t library_path[MAX_PATH];
@@ -39,11 +39,11 @@ bool app_find_game_path(uint32_t app_id, wchar_t *path) {
     }
     for (int i = (int)vdf_object_get_array_length(library_folders) - 1; i >= 0; i--) {
         char app_id_str[16];
-        struct vdf_object *sub = vdf_object_index_array(library_folders, i);
+        const struct vdf_object *sub = vdf_object_index_array(library_folders, i);
         if (sub == NULL || sub->type != VDF_TYPE_ARRAY) continue;
-        struct vdf_object *sub2 = vdf_object_index_array_str(sub, "path");
+        const struct vdf_object *sub2 = vdf_object_index_array_str(sub, "path");
         if (sub2 == NULL || sub2->type != VDF_TYPE_STRING) continue;
-        struct vdf_object *sub3 = vdf_object_index_array_str(sub, "apps");
+        const struct vdf_object *sub3 = vdf_object_index_array_str(sub, "apps");
         if (sub3 == NULL || sub3->type != VDF_TYPE_ARRAY) continue;
         _snprintf(app_id_str, 16, "%u", app_id);
         sub3 = vdf_object_index_array_str(sub3, app_id_str);
