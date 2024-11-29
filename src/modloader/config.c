@@ -160,6 +160,15 @@ void config_load(void *module) {
             wchar_t temp[MAX_PATH];
             wcscpy(temp, config_path);
             config_full_path(config_path, temp);
+        } else if (PathIsDirectoryW(config_path)) {
+            wchar_t temp[MAX_PATH];
+            wcscpy(temp, config_path);
+            PathAppendW(temp, L"YAERModLoader.ini");
+            if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
+                wcscpy(config_path, temp);
+            } else {
+                PathAppendW(config_path, L"config_eldenring.toml");
+            }
         }
     }
     config_file = _wfopen(config_path, L"r");

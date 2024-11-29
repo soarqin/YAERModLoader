@@ -2,30 +2,7 @@ project(modloader LANGUAGES C VERSION 0.2.0)
 
 include(GenerateVersionInfo)
 
-generate_version_info(exe_res_files
-    NAME "YAERModLoader"
-    VERSION_MAJOR ${PROJECT_VERSION_MAJOR}
-    VERSION_MINOR ${PROJECT_VERSION_MINOR}
-    VERSION_PATCH ${PROJECT_VERSION_PATCH}
-    VERSION_REVISION ${PROJECT_VERSION_TWEAK}
-    ORIGINAL_FILENAME "YAERModLoader.exe"
-    COMPANY_NAME "Soar Qin"
-    FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
-
-add_project(modlauncher WIN32
-    launcher.c
-    detours_subset.h
-
-    steam/app.c steam/app.h
-    steam/vdf.c steam/vdf.h
-
-    launcher.rc
-
-    ${exe_res_files}
-
-    INLINE_TARGET OUTPUT_NAME "YAERModLoader" FOLDER app
-)
-
+# dll target
 generate_version_info(dll_res_files
     NAME "YAERModLoader"
     VERSION_MAJOR ${PROJECT_VERSION_MAJOR}
@@ -37,7 +14,7 @@ generate_version_info(dll_res_files
     FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
 
 add_project(${PROJECT_NAME} SHARED
-    modloader.c
+    dll/modloader.c
     modloader/config.c modloader/config.h
     modloader/gamehook.c modloader/gamehook.h
     modloader/mod.c modloader/mod.h
@@ -57,10 +34,55 @@ target_include_directories(${PROJECT_NAME} PRIVATE .)
 target_link_libraries(${PROJECT_NAME} minhook toml-c inih uthash shlwapi version)
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
-    target_compile_options(modlauncher PRIVATE /utf-8)
 else ()
     target_link_options(${PROJECT_NAME} PRIVATE -municode)
+endif ()
+
+# exe target
+generate_version_info(exe_res_files
+    NAME "YAERModLoader"
+    VERSION_MAJOR ${PROJECT_VERSION_MAJOR}
+    VERSION_MINOR ${PROJECT_VERSION_MINOR}
+    VERSION_PATCH ${PROJECT_VERSION_PATCH}
+    VERSION_REVISION ${PROJECT_VERSION_TWEAK}
+    ORIGINAL_FILENAME "YAERModLoader.exe"
+    COMPANY_NAME "Soar Qin"
+    FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
+
+add_project(modlauncher WIN32
+    exe/launcher.c
+    exe/detours_subset.h
+
+    steam/app.c steam/app.h
+    steam/vdf.c steam/vdf.h
+
+    exe/launcher.rc
+
+    ${exe_res_files}
+
+    INLINE_TARGET OUTPUT_NAME "YAERModLoader" FOLDER app
+)
+
+target_include_directories(modlauncher PRIVATE .)
+
+if (MSVC)
+    target_compile_options(modlauncher PRIVATE /utf-8)
+else ()
     target_link_options(modlauncher PRIVATE -municode)
 endif ()
-target_link_libraries(modlauncher wingetopt shlwapi)
+target_link_libraries(modlauncher wingetopt lz4 shlwapi)
 add_dependencies(modlauncher ${PROJECT_NAME})
+
+# tool to embed dll into exe
+add_project(embeddll WIN32
+    tools/embeddll.c
+    INLINE_TARGET OUTPUT_NAME "embeddll" FOLDER tools
+)
+target_link_libraries(embeddll lz4)
+
+add_custom_target(dist)
+add_custom_command(TARGET dist POST_BUILD
+    COMMAND "$<TARGET_FILE:embeddll>" "$<TARGET_FILE:modlauncher>" "$<TARGET_FILE:${PROJECT_NAME}>"
+    COMMENT "Embedding ${PROJECT_NAME} into modlauncher..."
+)
+add_dependencies(dist embeddll ${PROJECT_NAME} modlauncher)

@@ -1,5 +1,6 @@
+add_subdirectory(getopt)
 add_subdirectory(inih)
+add_subdirectory(lz4)
+add_subdirectory(minhook)
 add_subdirectory(toml-c)
 add_subdirectory(uthash)
-add_subdirectory(minhook)
-add_subdirectory(getopt)

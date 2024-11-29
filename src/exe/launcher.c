@@ -11,13 +11,16 @@
 #include "detours_subset.h"
 
 #include <getopt.h>
+#include <lz4.h>
 #include <shlwapi.h>
+#include <string.h>
+#include <stdbool.h>
 
 #define ER_APP_ID 1245620
 
 static wchar_t full_game_path[MAX_PATH] = L"";
 static wchar_t full_config_path[MAX_PATH] = L"";
-static wchar_t full_modengine_dll[MAX_PATH] = L"YAERModLoader.dll";
+static wchar_t full_modengine_dll[MAX_PATH] = L"";
 static bool suspend = false;
 
 bool parse_args(const int argc, wchar_t *argv[]) {
@@ -89,11 +92,79 @@ static bool fix_and_locate_game_path(wchar_t *game_path) {
     return false;
 }
 
+bool decompress_embedded_dll_to(char *filepath) {
+    wchar_t exe_filename[MAX_PATH], target_filename[MAX_PATH];
+    DWORD size;
+    int len, decompressed_len;
+    HANDLE f;
+    char buf[4];
+    char *data, *decompressed_data;
+
+    GetModuleFileNameW(NULL, exe_filename, MAX_PATH);
+    f = CreateFileW(exe_filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) return false;
+    if (SetFilePointer(f, -4, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+        goto fail1;
+    }
+    if (!ReadFile(f, buf, 4, &size, NULL) || size != 4) {
+        goto fail1;
+    }
+    if (memcmp(buf, "EMBD", 4) != 0) {
+        goto fail1;
+    }
+    if (SetFilePointer(f, -12, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+        goto fail1;
+    }
+    if (!ReadFile(f, &len, 4, &size, NULL) || size != 4) {
+        goto fail1;
+    }
+    if (!ReadFile(f, &decompressed_len, 4, &size, NULL) || size != 4) {
+        goto fail1;
+    }
+    if (SetFilePointer(f, -12 - len, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+        goto fail1;
+    }
+    data = (char*)malloc(len);
+    if (data == NULL) {
+        goto fail1;
+    }
+    if (!ReadFile(f, data, len, &size, NULL) || size != len) {
+        goto fail2;
+    }
+    decompressed_data = (char*)malloc(decompressed_len);
+    if (decompressed_data == NULL) {
+        goto fail2;
+    }
+    if (LZ4_decompress_safe(data, decompressed_data, len, decompressed_len) < 0) {
+        goto fail3;
+    }
+
+    GetTempPathW(MAX_PATH, target_filename);
+    PathAppendW(target_filename, L"YAERModLoader.dll");
+    CloseHandle(f);
+    f = CreateFileW(target_filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (f == INVALID_HANDLE_VALUE) {
+        goto fail3;
+    }
+    if (!WriteFile(f, decompressed_data, decompressed_len, &size, NULL) || size != decompressed_len) {
+        goto fail3;
+    }
+    WideCharToMultiByte(CP_ACP, 0, target_filename, -1, filepath, MAX_PATH, NULL, NULL);
+
+    free(data);
+    CloseHandle(f);
+    return true;
+
+fail3:
+    free(decompressed_data);
+fail2:
+    free(data);
+fail1:
+    CloseHandle(f);
+    return false;
+}
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLine, int nShowCmd) {
-    /*
-        wchar_t game_path[MAX_PATH];
-        app_find_game_path(1245620, game_path);
-    */
     STARTUPINFOW si = {};
     PROCESS_INFORMATION pi = {};
     char filepath[MAX_PATH];
@@ -101,9 +172,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 
     parse_args(__argc, __wargv);
     if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
-        GetModuleFileNameA(hInstance, filepath, MAX_PATH);
-        PathRemoveFileSpecA(filepath);
-        PathAppendA(filepath, "YAERModLoader.dll");
+        if (decompress_embedded_dll_to(filepath)) {
+            if (full_config_path[0] == L'\0') {
+                GetModuleFileNameW(hInstance, full_config_path, MAX_PATH);
+                PathRemoveFileSpecW(full_config_path);
+            }
+        } else {
+            GetModuleFileNameA(hInstance, filepath, MAX_PATH);
+            PathRemoveFileSpecA(filepath);
+            PathAppendA(filepath, "YAERModLoader.dll");
+        }
     } else {
         if (wcschr(full_modengine_dll, L':') == NULL && full_modengine_dll[0] != L'\\' && full_modengine_dll[0] != L'/') {
             char temp[MAX_PATH];
