@@ -70,7 +70,7 @@ if (MSVC)
 else ()
     target_link_options(modlauncher PRIVATE -municode)
 endif ()
-target_link_libraries(modlauncher wingetopt lz4 shlwapi)
+target_link_libraries(modlauncher wingetopt lzma shlwapi)
 add_dependencies(modlauncher ${PROJECT_NAME})
 
 # tool to embed dll into exe
@@ -78,7 +78,7 @@ add_project(embeddll WIN32
     tools/embeddll.c
     INLINE_TARGET OUTPUT_NAME "embeddll" FOLDER tools
 )
-target_link_libraries(embeddll lz4)
+target_link_libraries(embeddll lzma)
 
 add_custom_target(dist)
 add_custom_command(TARGET dist POST_BUILD

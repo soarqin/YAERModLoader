@@ -11,7 +11,8 @@
 #include "detours_subset.h"
 
 #include <getopt.h>
-#include <lz4.h>
+#include <LzmaDec.h>
+#include <Alloc.h>
 #include <shlwapi.h>
 #include <string.h>
 #include <stdbool.h>
@@ -95,10 +96,12 @@ static bool fix_and_locate_game_path(wchar_t *game_path) {
 bool decompress_embedded_dll_to(char *filepath) {
     wchar_t exe_filename[MAX_PATH], target_filename[MAX_PATH];
     DWORD size;
-    int len, decompressed_len;
+    size_t len = 0, decompressed_len = 0, props_data_size = 0;
     HANDLE f;
     char buf[4];
-    char *data, *decompressed_data;
+    Byte props[5];
+    Byte *data, *decompressed_data;
+    ELzmaStatus status;
 
     GetModuleFileNameW(NULL, exe_filename, MAX_PATH);
     f = CreateFileW(exe_filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -112,7 +115,10 @@ bool decompress_embedded_dll_to(char *filepath) {
     if (memcmp(buf, "EMBD", 4) != 0) {
         goto fail1;
     }
-    if (SetFilePointer(f, -12, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+    if (SetFilePointer(f, -17, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+        goto fail1;
+    }
+    if (!ReadFile(f, props, 5, &size, NULL) || size != 5) {
         goto fail1;
     }
     if (!ReadFile(f, &len, 4, &size, NULL) || size != 4) {
@@ -121,21 +127,21 @@ bool decompress_embedded_dll_to(char *filepath) {
     if (!ReadFile(f, &decompressed_len, 4, &size, NULL) || size != 4) {
         goto fail1;
     }
-    if (SetFilePointer(f, -12 - len, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+    if (SetFilePointer(f, -17L - (long)len, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
         goto fail1;
     }
-    data = (char*)malloc(len);
+    data = (Byte*)malloc(len);
     if (data == NULL) {
         goto fail1;
     }
     if (!ReadFile(f, data, len, &size, NULL) || size != len) {
         goto fail2;
     }
-    decompressed_data = (char*)malloc(decompressed_len);
+    decompressed_data = (Byte*)malloc(decompressed_len);
     if (decompressed_data == NULL) {
         goto fail2;
     }
-    if (LZ4_decompress_safe(data, decompressed_data, len, decompressed_len) < 0) {
+    if (LzmaDecode(decompressed_data, &decompressed_len, data, &len, props, 5, LZMA_FINISH_ANY, &status, &g_Alloc) != SZ_OK) {
         goto fail3;
     }
 

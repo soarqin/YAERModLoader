@@ -16,12 +16,12 @@
 ## 安装
 - 你可以从[发布页面](https://github.com/soarqin/YAERModLoader/releases)下载最新版本，然后选择以下方法之一安装加载器：
     1. 单独启动加载器（推荐）
-        1. 将zip文件解压到任意你喜欢的文件夹。
+        1. 将`YAERModLoader.exe`和`YAERModLoader.ini`解压到任意你喜欢的文件夹(这里不需要`YAERModLoader.dll`)。
         2. 修改`YAERModLoader.ini`以满足你的需求。
         3. 运行`YAERModLoader.exe`启动游戏。
         4. 这是推荐的方式，因为你可以在需要时单独启动加载器，而且不会污染游戏文件夹。
     2. 自动启动加载器
-        1. 将`YAERModLoader.dll`和`YAERModLoader.ini`解压到游戏文件夹(即`eldenring.exe`所在的文件夹)。
+        1. 将`YAERModLoader.dll`和`YAERModLoader.ini`解压到游戏文件夹(即`eldenring.exe`所在的文件夹，这里不需要`YAERModLoader.exe`)。
         2. 将`YAERModLoader.dll`重命名为`dxgi.dll`、`dinput8.dll`或`winhttp.dll`中的任何一个。
         3. 修改`YAERModLoader.ini`以适应你的需求。
         4. 以不加载小蓝熊方式启动游戏：
@@ -42,4 +42,5 @@
 - [toml-c](https://github.com/arp242/toml-c): 用于解析toml文件的库，以兼容ModEngine的配置文件。
 - [wingetopt](https://github.com/alex85k/wingetopt): 用于解析命令行参数的库。
 - [libofdf](https://github.com/Jan200101/libofdf): 用于解析Valve的VDF文件的库，用于定位游戏所在文件夹。
+- [LZMA SDK](https://7-zip.org/sdk.html): 用于将dll嵌入为压缩数据的库，该SDK在公共领域中。
 - exe LOGO来自[logowik](https://logowik.com/elden-ring-logo-vector-svg-pdf-ai-eps-cdr-free-download-12207.html)

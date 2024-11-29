@@ -21,12 +21,12 @@ Check [CHANGELOG.md](CHANGELOG.md) for details.
 ## Installation
 - You can download the latest release from the [release page](https://github.com/soarqin/YAERModLoader/releases), and choose one of the following methods to install the loader:
   1. Start the loader individually (recommended)
-     1. Extract release zip file to ANY folder you like.
+     1. Extract `YAERModLoader.exe` and `YAERModLoader.ini` to ANY folder you  (You do not need `YAERModLoader.dll` here).
      2. Modify `YAERModLoader.ini` to fit your needs.
      3. Run `YAERModLoader.exe` to start the game.
      4. This is recommended because you can start the loader only when you need it and it won't pollute your game folder.
   2. Load the loader with game automatically
-     1. Extract `YAERModLoader.dll` and `YAERModLoader.ini` to the game folder (where `eldenring.exe` is).
+     1. Extract `YAERModLoader.dll` and `YAERModLoader.ini` to the game folder (where `eldenring.exe` is, You do not need `YAERModLoader.exe` here).
      2. Rename `YAERModLoader.dll` to either `dxgi.dll`, `dinput8.dll` or `winhttp.dll`.
      3. Modify `YAERModLoader.ini` to fit your needs.
      4. Run the game [w/o EAC](https://steamcommunity.com/sharedfiles/filedetails/?id=2763986548):
@@ -47,4 +47,5 @@ Check [CHANGELOG.md](CHANGELOG.md) for details.
 - [toml-c](https://github.com/arp242/toml-c): The library used to parse toml files, for ModEngine config file compatibility.
 - [wingetopt](https://github.com/alex85k/wingetopt): The library used to parse command line arguments.
 - [libofdf](https://github.com/Jan200101/libofdf): The library used to parse Valve's VDF files, for locating game folder.
+- [LZMA SDK](https://7-zip.org/sdk.html): The library used to embed dll as compressed data, the SDK is in public domain.
 - exe LOGO from [logowik](https://logowik.com/elden-ring-logo-vector-svg-pdf-ai-eps-cdr-free-download-12207.html)
