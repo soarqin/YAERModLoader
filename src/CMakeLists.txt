@@ -82,7 +82,23 @@ target_link_libraries(embeddll lzma)
 
 add_custom_target(dist)
 add_custom_command(TARGET dist POST_BUILD
-    COMMAND "$<TARGET_FILE:embeddll>" "$<TARGET_FILE:modlauncher>" "$<TARGET_FILE:${PROJECT_NAME}>"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/dist"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:modlauncher>" "${CMAKE_BINARY_DIR}/dist/$<TARGET_FILE_NAME:modlauncher>"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/dist/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
+    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/YAERModLoader.ini" "${CMAKE_BINARY_DIR}/dist/YAERModLoader.ini"
+    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/README.md" "${CMAKE_BINARY_DIR}/dist/README.md"
+    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/LICENSE" "${CMAKE_BINARY_DIR}/dist/LICENSE"
+    COMMENT "Copying files...")
+add_custom_command(TARGET dist POST_BUILD
+    COMMAND "$<TARGET_FILE:embeddll>" "${CMAKE_BINARY_DIR}/dist/$<TARGET_FILE_NAME:modlauncher>" "${CMAKE_BINARY_DIR}/dist/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
     COMMENT "Embedding ${PROJECT_NAME} into modlauncher..."
 )
+# Compress to a zip and a 7z file
+add_custom_command(TARGET dist POST_BUILD
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/dist"
+    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_BINARY_DIR}/dist/YAERModLoader-${PROJECT_VERSION}.zip" --format=zip -- "$<TARGET_FILE_NAME:modlauncher>" "$<TARGET_FILE_NAME:${PROJECT_NAME}>" "YAERModLoader.ini" "README.md" "LICENSE"
+    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_BINARY_DIR}/dist/YAERModLoader-${PROJECT_VERSION}.7z" --format=7zip -- "$<TARGET_FILE_NAME:modlauncher>" "$<TARGET_FILE_NAME:${PROJECT_NAME}>" "YAERModLoader.ini" "README.md" "LICENSE"
+    COMMENT "Compressing to archives..."
+)
+
 add_dependencies(dist embeddll ${PROJECT_NAME} modlauncher)

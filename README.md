@@ -8,7 +8,7 @@ This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github
 ## Why Another Mod Loader?
 - [ModEngine](https://github.com/soulsmods/ModEngine2) is great, but it is not maintained anymore.
 - [me3](https://github.com/garyttierney/me3) is in development, but not so active.
-- I just need a simple codebase which generates minimal overhead (less than 200KB at present).
+- I just need a simple codebase which generates minimal overhead (less than 100KB at present).
 - I may add new features eventually.
 
 ## Features

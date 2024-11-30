@@ -6,10 +6,10 @@
 ## 为什么重造轮子？
 - [ModEngine](https://github.com/soulsmods/ModEngine2)很棒，但已经不再维护。
 - [me3](https://github.com/garyttierney/me3)正在开发中，但活跃度不高。
-- 我需要一个简单的代码库，生成的可执行文件尽可能小（目前不到200KB）。
+- 我需要一个简单的代码库，生成的可执行文件尽可能小（目前不到100KB）。
 - 我可能会时不时突发灵感添加新功能。
 
-## 特性
+## 功能
 - 在游戏启动时加载dll
 - 类似ModEngine的模组加载
 

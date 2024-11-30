@@ -204,13 +204,9 @@ DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
     } else {
         offset = 0x730 + 0x14;
     }
-    while (1) {
-        const uintptr_t ptr = *(uintptr_t *)addr;
-        if (!ptr || *(float *)(ptr + offset) <= 0.0f) {
-            Sleep(500);
-            continue;
-        }
-        break;
+    uintptr_t ptr;
+    while ((ptr = *(uintptr_t *)addr) == 0 || *(float *)(ptr + offset) <= 0.0f) {
+        Sleep(500);
     }
     set_process_cpu_affinity_strategy(strat);
     return 0;
@@ -222,21 +218,12 @@ extern int remove_chromatic_aberration;
 extern int remove_vignette;
 
 bool gamehook_install() {
-    size_t image_size;
-    static const uint8_t map_archive_aob[] = {
-        0x48, 0x83, 0x7b, 0x20, 0x08, 0x48, 0x8d, 0x4b, 0x08, 0x72, 0x03, 0x48, 0x8b, 0x09, 0x4c, 0x8b, 0x4b, 0x18, 0x41, 0xb8, 0x05, 0x00,
-        0x00, 0x00, 0x4d, 0x3b, 0xc8
-    };
-    static const uint8_t ak_file_location_resolver_aob[] = {
-        0x4c, 0x89, 0x74, 0x24, 0x28, 0x48, 0x8b, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00, 0x48, 0x89, 0x44, 0x24, 0x20, 0x4c, 0x8b,
-        0xce, 0x45, 0x8b, 0xc4, 0x49, 0x8b, 0xd7, 0x48, 0x8b, 0xcd, 0xe8
-    };
-
     MH_Initialize();
     if (cpu_affinity_strategy > 0) {
         CreateThread(NULL, 0, set_process_cpu_affinity_thread, (LPVOID)(intptr_t)cpu_affinity_strategy, 0, NULL);
     }
 
+    size_t image_size;
     void *image_base = get_module_image_base(&image_size);
 
     if (skip_intro) {
@@ -281,6 +268,10 @@ bool gamehook_install() {
     /* Do not hook if no mod is added, to improve game performance during loading. */
     if (mods_count() <= 0) return true;
 
+    static const uint8_t map_archive_aob[] = {
+        0x48, 0x83, 0x7b, 0x20, 0x08, 0x48, 0x8d, 0x4b, 0x08, 0x72, 0x03, 0x48, 0x8b, 0x09, 0x4c, 0x8b, 0x4b, 0x18, 0x41, 0xb8, 0x05, 0x00,
+        0x00, 0x00, 0x4d, 0x3b, 0xc8
+    };
     uint8_t *addr = sig_scan(image_base, image_size, map_archive_aob, sizeof(map_archive_aob));
     if (!addr) {
         return false;
@@ -293,6 +284,10 @@ bool gamehook_install() {
     MH_CreateHook(addr, (void*)&map_archive_path, (void**)&old_map_archive_path);
     MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
 
+    static const uint8_t ak_file_location_resolver_aob[] = {
+        0x4c, 0x89, 0x74, 0x24, 0x28, 0x48, 0x8b, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00, 0x48, 0x89, 0x44, 0x24, 0x20, 0x4c, 0x8b,
+        0xce, 0x45, 0x8b, 0xc4, 0x49, 0x8b, 0xd7, 0x48, 0x8b, 0xcd, 0xe8
+    };
     addr = sig_scan(image_base, image_size, ak_file_location_resolver_aob, sizeof(ak_file_location_resolver_aob));
     if (!addr) {
         return false;
