@@ -205,14 +205,12 @@ DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
         offset = 0x730 + 0x14;
     }
     while (1) {
-        uintptr_t ptr = *(uintptr_t *)addr;
-        if (!ptr) {
+        const uintptr_t ptr = *(uintptr_t *)addr;
+        if (!ptr || *(float *)(ptr + offset) <= 0.0f) {
             Sleep(500);
             continue;
         }
-        if (*(float *)(ptr + offset) > 0.0f) {
-            break;
-        }
+        break;
     }
     set_process_cpu_affinity_strategy(strat);
     return 0;
