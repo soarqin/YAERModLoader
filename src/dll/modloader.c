@@ -17,17 +17,17 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-BOOL APIENTRY DllMain(const HMODULE hModule, const DWORD ul_reason_for_call, LPVOID lpReserved) {
-    UNREFERENCED_PARAMETER(lpReserved);
+BOOL APIENTRY DllMain(const HMODULE module, const DWORD ul_reason_for_call, LPVOID reserved) {
+    UNREFERENCED_PARAMETER(reserved);
 
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
-            DisableThreadLibraryCalls(hModule);
+            DisableThreadLibraryCalls(module);
             load_winhttp_proxy();
             load_dxgi_proxy();
             load_dinput8_proxy();
             mods_init();
-            config_load(hModule);
+            config_load(module);
             gamehook_install();
             break;
         case DLL_PROCESS_DETACH:

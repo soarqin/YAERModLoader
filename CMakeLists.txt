@@ -20,6 +20,7 @@ add_subdirectory(deps)
 add_subdirectory(src)
 add_subdirectory(tools)
 
+# Distribution target
 add_custom_target(dist)
 add_custom_command(TARGET dist POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/dist"

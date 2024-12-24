@@ -9,14 +9,15 @@
 #include "gamehook.h"
 
 #include "mod.h"
+#include "steam/api.h"
+
+#include <MinHook.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <MinHook.h>
-
 #include <shlwapi.h>
+
 #include <wchar.h>
-#include <stdio.h>
 
 #include "processutil.h"
 
@@ -178,24 +179,32 @@ static uint64_t get_game_version() {
     }
     UINT uLen;
     VS_FIXEDFILEINFO *ptFixedFileInfo;
-    if (VerQueryValueW(pVersionResource, L"\\", (LPVOID *)&ptFixedFileInfo, &uLen) && uLen > 0) {
-    free(pVersionResource);
+    if (VerQueryValueW(pVersionResource, L"\\", (LPVOID*)&ptFixedFileInfo, &uLen) && uLen > 0) {
+        free(pVersionResource);
         return (uint64_t)ptFixedFileInfo->dwFileVersionMS << 32 | (uint64_t)ptFixedFileInfo->dwFileVersionLS;
     }
     free(pVersionResource);
     return 0LL;
 }
 
+static bool game_running = false;
+static HANDLE set_process_cpu_affinity_thread_handle = NULL;
+static HANDLE reset_achievements_on_new_game_thread_handle = NULL;
+static void *image_base;
+static size_t image_size;
+
 DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
-    static const uint8_t cs_menu_man_aob[] = {0x48, 0x8b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x48, 0x8b, 0x49, 0x08, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x48, 0x8b, 0xd0, 0x48, 0x8b, 0xce, 0xe8};
-    static const uint8_t cs_menu_man_mask[] = {0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    static const uint8_t cs_menu_man_aob[] = {
+        0x48, 0x8b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x48, 0x8b, 0x49, 0x08, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x48, 0x8b, 0xd0, 0x48, 0x8b, 0xce, 0xe8
+    };
+    static const uint8_t cs_menu_man_mask[] = {
+        0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+    };
     const int strat = (int)(intptr_t)arg;
     const uint64_t game_version = get_game_version();
     uintptr_t offset;
-    size_t image_size;
-    void *image_base = get_module_image_base(&image_size);
     uint8_t *addr = sig_scan_with_mask(image_base, image_size, cs_menu_man_aob, cs_menu_man_mask, sizeof(cs_menu_man_aob));
-    if (addr == NULL) { return 1; }
+    if (!addr) { return 1; }
     addr += *(int32_t*)(addr + 3) + 7;
     if (game_version < 0x0001000300000000ULL) {
         offset = 0x718 + 0x14;
@@ -204,70 +213,111 @@ DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
     } else {
         offset = 0x730 + 0x14;
     }
-    uintptr_t ptr;
-    while ((ptr = *(uintptr_t *)addr) == 0 || *(float *)(ptr + offset) <= 0.0f) {
+    HANDLE process = GetCurrentProcess();
+    while (game_running) {
+        uint8_t *addr2;
+        if (ReadProcessMemory(process, addr, &addr2, sizeof(uint8_t*), NULL) && addr2) {
+            float on_menu_time;
+            if (ReadProcessMemory(process, addr2 + offset, &on_menu_time, sizeof(float), NULL) && on_menu_time > 0.0f) {
+                set_process_cpu_affinity_strategy(strat);
+                return 0;
+            }
+        }
         Sleep(500);
     }
-    set_process_cpu_affinity_strategy(strat);
+    return 0;
+}
+
+DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
+    static const uint8_t game_data_man_aob[] = {0x48, 0x8b, 0x05, 0x00, 0x00, 0x00, 0x00, 0x48, 0x85, 0xc0, 0x74, 0x05, 0x48, 0x8b, 0x40, 0x58, 0xc3, 0xc3};
+    static const uint8_t game_data_man_mask[] = {0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    uint8_t *addr = sig_scan_with_mask(image_base, image_size, game_data_man_aob, game_data_man_mask, sizeof(game_data_man_aob));
+    if (!addr) return 1;
+    addr += *(int32_t*)(addr + 3) + 7;
+    HANDLE process = GetCurrentProcess();
+    uint32_t last_igt = UINT32_MAX;
+    while (game_running) {
+        uint8_t *addr2;
+        if (ReadProcessMemory(process, addr, &addr2, sizeof(uint8_t*), NULL) && addr2) {
+            uint32_t igt;
+            if (ReadProcessMemory(process, addr2 + 0xA0, &igt, sizeof(uint32_t), NULL) && igt > 0) {
+                if (igt < last_igt && igt < 5000) {
+                    isteam_userstats *ustats = steam_userstats();
+                    if (ustats) {
+                        isteam_userstats_reset_all_stats(ustats, true);
+                        isteam_userstats_store_stats(ustats);
+                    }
+                }
+                last_igt = igt;
+            }
+        }
+        Sleep(1000);
+    }
     return 0;
 }
 
 extern int cpu_affinity_strategy;
-extern int skip_intro;
-extern int remove_chromatic_aberration;
-extern int remove_vignette;
+extern bool reset_achievements_on_new_game;
+extern bool skip_intro;
+extern bool remove_chromatic_aberration;
+extern bool remove_vignette;
 
-bool gamehook_install() {
-    MH_Initialize();
-    if (cpu_affinity_strategy > 0) {
-        CreateThread(NULL, 0, set_process_cpu_affinity_thread, (LPVOID)(intptr_t)cpu_affinity_strategy, 0, NULL);
-    }
+static bool patch_eldenring_skip_intro() {
+    static const uint8_t skip_intro_aob[] = {
+        0x74, 0x53, 0x48, 0x8b, 0x05, 0x00, 0x00, 0x00, 0x00, 0x48, 0x85, 0xc0, 0x75, 0x2e, 0x48, 0x8d, 0x0d, 0x00, 0x00, 0x00, 0x00, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x4c, 0x8b, 0xc8
+    };
+    static const uint8_t skip_intro_mask[] = {
+        0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff
+    };
+    static const uint8_t new_bytes[] = { 0x90, 0x90 };
+    uint8_t *addr = sig_scan_with_mask(image_base, image_size, skip_intro_aob, skip_intro_mask, sizeof(skip_intro_aob));
+    if (!addr) return false;
+    DWORD old_protect;
+    VirtualProtect(addr, 2, PAGE_EXECUTE_READWRITE, &old_protect);
+    memcpy(addr, new_bytes, 2);
+    VirtualProtect(addr, 2, old_protect, &old_protect);
+    return true;
+}
 
-    size_t image_size;
-    void *image_base = get_module_image_base(&image_size);
+static bool patch_eldenring_remove_chromatic_aberratio() {
+    static const uint8_t remove_chromatic_aberration_aob[] = {
+        0x0f, 0x11, 0x00, 0x60, 0x00, 0x8d, 0x00, 0x80, 0x00, 0x00, 0x00, 0x0f, 0x10, 0x00, 0xa0, 0x00, 0x00, 0x00, 0x0f, 0x11, 0x00, 0xf0, 0x00, 0x8d, 0x00, 0xb0, 0x00, 0x00,
+        0x00, 0x0f, 0x10, 0x00, 0x0f, 0x11, 0x00, 0x0f, 0x10, 0x00, 0x10
+    };
+    static const uint8_t remove_chromatic_aberration_mask[] = {
+        0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff
+    };
+    static const uint8_t new_bytes[] = { 0x66, 0x0f, 0xef, 0xc9 };
+    uint8_t *addr = sig_scan_with_mask(image_base, image_size, remove_chromatic_aberration_aob, remove_chromatic_aberration_mask, sizeof(remove_chromatic_aberration_aob));
+    if (!addr) return false;
+    DWORD old_protect;
+    VirtualProtect(addr + 0x2F, 4, PAGE_EXECUTE_READWRITE, &old_protect);
+    memcpy(addr + 0x2F, new_bytes, 4);
+    VirtualProtect(addr + 0x2F, 4, old_protect, &old_protect);
+    return true;
+}
 
-    if (skip_intro) {
-        static const uint8_t skip_intro_aob[] = {0x74, 0x53, 0x48, 0x8b, 0x05, 0x00, 0x00, 0x00, 0x00, 0x48, 0x85, 0xc0, 0x75, 0x2e, 0x48, 0x8d, 0x0d, 0x00, 0x00, 0x00, 0x00, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x4c, 0x8b, 0xc8};
-        static const uint8_t skip_intro_mask[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff};
-        static const uint8_t new_bytes[] = {0x90, 0x90};
-        uint8_t *addr = sig_scan_with_mask(image_base, image_size, skip_intro_aob, skip_intro_mask, sizeof(skip_intro_aob));
-        if (addr) {
-            DWORD old_protect;
-            VirtualProtect(addr, 2, PAGE_EXECUTE_READWRITE, &old_protect);
-            memcpy(addr, new_bytes, 2);
-            VirtualProtect(addr, 2, old_protect, &old_protect);
-        }
-    }
+static bool patch_eldenring_remove_vignette() {
+    static const uint8_t remove_vignette_aob[] = {
+        0xf3, 0x0f, 0x10, 0x00, 0x50, 0xf3, 0x0f, 0x59, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe8, 0x00, 0x00, 0x00, 0x00, 0xf3, 0x00, 0x0f, 0x5c, 0x00, 0xf3, 0x00, 0x0f, 0x59, 0x00,
+        0x00, 0x8d, 0x00, 0x00, 0xa0, 0x00, 0x00, 0x00
+    };
+    static const uint8_t remove_vignette_mask[] = {
+        0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00,
+        0x00, 0xff, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
+    };
+    static const uint8_t new_bytes[] = { 0xf3, 0x0f, 0x5c, 0xc0, 0x90 };
+    uint8_t *addr = sig_scan_with_mask(image_base, image_size, remove_vignette_aob, remove_vignette_mask, sizeof(remove_vignette_aob));
+    if (!addr) return false;
+    DWORD old_protect;
+    VirtualProtect(addr + 0x17, 5, PAGE_EXECUTE_READWRITE, &old_protect);
+    memcpy(addr + 0x17, new_bytes, 5);
+    VirtualProtect(addr + 0x17, 5, old_protect, &old_protect);
+    return true;
+}
 
-    if (remove_chromatic_aberration) {
-        static const uint8_t remove_chromatic_aberration_aob[] = {0x0f, 0x11, 0x00, 0x60, 0x00, 0x8d, 0x00, 0x80, 0x00, 0x00, 0x00, 0x0f, 0x10, 0x00, 0xa0, 0x00, 0x00, 0x00, 0x0f, 0x11, 0x00, 0xf0, 0x00, 0x8d, 0x00, 0xb0, 0x00, 0x00, 0x00, 0x0f, 0x10, 0x00, 0x0f, 0x11, 0x00, 0x0f, 0x10, 0x00, 0x10};
-        static const uint8_t remove_chromatic_aberration_mask[] = {0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff};
-        static const uint8_t new_bytes[] = {0x66, 0x0f, 0xef, 0xc9};
-        uint8_t *addr = sig_scan_with_mask(image_base, image_size, remove_chromatic_aberration_aob, remove_chromatic_aberration_mask, sizeof(remove_chromatic_aberration_aob));
-        if (addr) {
-            DWORD old_protect;
-            VirtualProtect(addr + 0x2F, 4, PAGE_EXECUTE_READWRITE, &old_protect);
-            memcpy(addr + 0x2F, new_bytes, 4);
-            VirtualProtect(addr + 0x2F, 4, old_protect, &old_protect);
-        }
-    }
-
-    if (remove_vignette) {
-        static const uint8_t remove_vignette_aob[] = {0xf3, 0x0f, 0x10, 0x00, 0x50, 0xf3, 0x0f, 0x59, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe8, 0x00, 0x00, 0x00, 0x00, 0xf3, 0x00, 0x0f, 0x5c, 0x00, 0xf3, 0x00, 0x0f, 0x59, 0x00, 0x00, 0x8d, 0x00, 0x00, 0xa0, 0x00, 0x00, 0x00};
-        static const uint8_t remove_vignette_mask[] = {0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff};
-        static const uint8_t new_bytes[] = {0xf3, 0x0f, 0x5c, 0xc0, 0x90};
-        uint8_t *addr = sig_scan_with_mask(image_base, image_size, remove_vignette_aob, remove_vignette_mask, sizeof(remove_vignette_aob));
-        if (addr) {
-            DWORD old_protect;
-            VirtualProtect(addr + 0x17, 5, PAGE_EXECUTE_READWRITE, &old_protect);
-            memcpy(addr + 0x17, new_bytes, 5);
-            VirtualProtect(addr + 0x17, 5, old_protect, &old_protect);
-        }
-    }
-
-    /* Do not hook if no mod is added, to improve game performance during loading. */
-    if (mods_count() <= 0) return true;
-
+static bool hook_eldenring_archive_position_resolver() {
     static const uint8_t map_archive_aob[] = {
         0x48, 0x83, 0x7b, 0x20, 0x08, 0x48, 0x8d, 0x4b, 0x08, 0x72, 0x03, 0x48, 0x8b, 0x09, 0x4c, 0x8b, 0x4b, 0x18, 0x41, 0xb8, 0x05, 0x00,
         0x00, 0x00, 0x4d, 0x3b, 0xc8
@@ -280,15 +330,18 @@ bool gamehook_install() {
     while (*addr == 0xE9) {
         addr += *(int32_t*)(addr + 1) + 5;
     }
-    old_map_archive_path = (map_archive_path_t)addr;
     MH_CreateHook(addr, (void*)&map_archive_path, (void**)&old_map_archive_path);
-    MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
 
+    MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
+    return true;
+}
+
+static bool hook_wwise_archive_position_resolver() {
     static const uint8_t ak_file_location_resolver_aob[] = {
         0x4c, 0x89, 0x74, 0x24, 0x28, 0x48, 0x8b, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00, 0x48, 0x89, 0x44, 0x24, 0x20, 0x4c, 0x8b,
         0xce, 0x45, 0x8b, 0xc4, 0x49, 0x8b, 0xd7, 0x48, 0x8b, 0xcd, 0xe8
     };
-    addr = sig_scan(image_base, image_size, ak_file_location_resolver_aob, sizeof(ak_file_location_resolver_aob));
+    uint8_t *addr = sig_scan(image_base, image_size, ak_file_location_resolver_aob, sizeof(ak_file_location_resolver_aob));
     if (!addr) {
         return false;
     }
@@ -296,13 +349,54 @@ bool gamehook_install() {
     while (*addr == 0xE9) {
         addr += *(int32_t*)(addr + 1) + 5;
     }
-    old_ak_file_location_resolver_open = (ak_file_location_resolver_open_t)addr;
     MH_CreateHook(addr, (void*)&ak_file_location_resolver_open, (void**)&old_ak_file_location_resolver_open);
+    return true;
+}
+
+bool gamehook_install() {
+    game_running = true;
+
+    steamapi_init();
+    MH_Initialize();
+    if (cpu_affinity_strategy > 0) {
+        set_process_cpu_affinity_thread_handle = CreateThread(NULL, 0, set_process_cpu_affinity_thread, (LPVOID)(intptr_t)cpu_affinity_strategy, 0, NULL);
+    }
+    if (reset_achievements_on_new_game) {
+        reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
+    }
+
+    image_base = get_module_image_base(&image_size);
+
+    if (skip_intro) {
+        patch_eldenring_skip_intro();
+    }
+
+    if (remove_chromatic_aberration) {
+        patch_eldenring_remove_chromatic_aberratio();
+    }
+
+    if (remove_vignette) {
+        patch_eldenring_remove_vignette();
+    }
+
+    /* Do not hook if no mod is added, to improve game performance during loading. */
+    if (mods_count() <= 0) return true;
+
+    if (!hook_eldenring_archive_position_resolver()) return false;
+
+    hook_wwise_archive_position_resolver();
     MH_EnableHook(MH_ALL_HOOKS);
     return true;
 }
 
 void gamehook_uninstall() {
+    game_running = false;
+    if (set_process_cpu_affinity_thread_handle && WaitForSingleObject(set_process_cpu_affinity_thread_handle, 1000) == WAIT_TIMEOUT)
+        TerminateThread(set_process_cpu_affinity_thread_handle, 0);
+    if (reset_achievements_on_new_game_thread_handle && WaitForSingleObject(reset_achievements_on_new_game_thread_handle, 1000) == WAIT_TIMEOUT)
+        TerminateThread(reset_achievements_on_new_game_thread_handle, 0);
+
     MH_DisableHook(MH_ALL_HOOKS);
     MH_Uninitialize();
+    steamapi_uninit();
 }

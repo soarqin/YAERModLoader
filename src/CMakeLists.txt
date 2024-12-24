@@ -1,3 +1,5 @@
+project(modloader LANGUAGES C VERSION 0.2.0)
+
 include(GenerateVersionInfo)
 
 # dll target
@@ -19,13 +21,14 @@ add_project(modloader SHARED
     modloader/filecache.c modloader/filecache.h
     modloader/processutil.c modloader/processutil.h
 
+    steam/api.c steam/api.h
+
     proxy/winhttp.c proxy/winhttp.h proxy/winhttp.def
     proxy/dinput8.c proxy/dinput8.h proxy/dinput8.def
     proxy/dxgi.c proxy/dxgi.h proxy/dxgi.def
 
     ${dll_res_files}
 
-    LANGUAGES C VERSION 0.2.0
     INLINE_TARGET OUTPUT_NAME "YAERModLoader" NO_PREFIX FOLDER app
 )
 

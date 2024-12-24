@@ -18,9 +18,10 @@
 
 static wchar_t modulePath_[MAX_PATH];
 int cpu_affinity_strategy = 0;
-int skip_intro = 0;
-int remove_chromatic_aberration = 0;
-int remove_vignette = 0;
+bool reset_achievements_on_new_game = false;
+bool skip_intro = false;
+bool remove_chromatic_aberration = false;
+bool remove_vignette = false;
 
 static void enable_debug() {
     AllocConsole();
@@ -60,7 +61,11 @@ static int ini_read_cb(void *user, const char *section,
             }
         } else if (strcmp(name, "cpu_affinity") == 0) {
             cpu_affinity_strategy = strtol(value, NULL, 0);
-        } else if (strcmp(name, "skip_intro") == 0) {
+        } else if (strcmp(name, "reset_achievements_on_new_game") == 0) {
+            reset_achievements_on_new_game = value_to_bool(value);
+        }
+    } else if (strcmp(section, "elden_ring") == 0) {
+        if (strcmp(name, "skip_intro") == 0) {
             skip_intro = value_to_bool(value);
         } else if (strcmp(name, "remove_chromatic_aberration") == 0) {
             remove_chromatic_aberration = value_to_bool(value);
@@ -151,15 +156,18 @@ void config_load(void *module) {
     PathRemoveBackslashW(modulePath_);
     GetEnvironmentVariableW(L"MODLOADER_CONFIG", config_path, MAX_PATH);
     if (config_path[0] == L'\0') {
-        config_full_path(config_path, L"YAERModLoader.ini");
+        wcscpy(config_path, modulePath_);
+        PathAppendW(config_path, L"YAERModLoader.ini");
         if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
-            config_full_path(config_path, L"config_eldenring.toml");
+            wcscpy(config_path, modulePath_);
+            PathAppendW(config_path, L"config_eldenring.toml");
         }
     } else {
         if (wcschr(config_path, L':') == NULL && config_path[0] != L'\\' && config_path[0] != L'/') {
             wchar_t temp[MAX_PATH];
             wcscpy(temp, config_path);
-            config_full_path(config_path, temp);
+            wcscpy(config_path, modulePath_);
+            PathAppendW(config_path, temp);
         } else if (PathIsDirectoryW(config_path)) {
             wchar_t temp[MAX_PATH];
             wcscpy(temp, config_path);
@@ -183,6 +191,15 @@ void config_load(void *module) {
 const wchar_t *module_path() { return modulePath_; }
 
 void config_full_path(wchar_t *path, const wchar_t *filename) {
-    wcscpy(path, modulePath_);
+    wchar_t config_path[MAX_PATH] = L"";
+    GetEnvironmentVariableW(L"MODLOADER_CONFIG", config_path, MAX_PATH);
+    if (config_path[0] == L'\0') {
+        wcscpy(path, modulePath_);
+    } else {
+        wcscpy(path, config_path);
+        if (PathFileExistsW(path) && !PathIsDirectoryW(path)) {
+            PathRemoveFileSpecW(path);
+        }
+    }
     PathAppendW(path, filename);
 }
