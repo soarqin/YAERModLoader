@@ -46,6 +46,11 @@ typedef enum {
     READ_EBL = 9,
 } AKOpenMode;
 
+BOOL WINAPI ImmDisableIME_hooked(DWORD unused) {
+    (void)unused;
+    return TRUE;
+}
+
 typedef void *(__cdecl *map_archive_path_t)(wstring_impl_t *path, uint64_t p2, uint64_t p3, uint64_t p4, uint64_t p5, uint64_t p6);
 typedef HANDLE (WINAPI *CreateFileW_t)(LPCWSTR lpFileName,
                                        DWORD dwDesiredAccess,
@@ -258,9 +263,18 @@ DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
 
 extern int cpu_affinity_strategy;
 extern bool reset_achievements_on_new_game;
+extern bool enable_ime;
 extern bool skip_intro;
 extern bool remove_chromatic_aberration;
 extern bool remove_vignette;
+
+static bool patch_ime_disable() {
+    void *func = NULL;
+    MH_CreateHookApiEx(L"imm32", "ImmDisableIME", ImmDisableIME_hooked, NULL, &func);
+    if (!func) return false;
+    MH_EnableHook(func);
+    return true;
+}
 
 static bool patch_eldenring_skip_intro() {
     static const uint8_t skip_intro_aob[] = {
@@ -363,6 +377,9 @@ bool gamehook_install() {
     }
     if (reset_achievements_on_new_game) {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
+    }
+    if (enable_ime) {
+        patch_ime_disable();
     }
 
     image_base = get_module_image_base(&image_size);

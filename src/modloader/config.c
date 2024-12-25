@@ -19,6 +19,7 @@
 static wchar_t modulePath_[MAX_PATH];
 int cpu_affinity_strategy = 0;
 bool reset_achievements_on_new_game = false;
+bool enable_ime = false;
 bool skip_intro = false;
 bool remove_chromatic_aberration = false;
 bool remove_vignette = false;
@@ -63,6 +64,8 @@ static int ini_read_cb(void *user, const char *section,
             cpu_affinity_strategy = strtol(value, NULL, 0);
         } else if (strcmp(name, "reset_achievements_on_new_game") == 0) {
             reset_achievements_on_new_game = value_to_bool(value);
+        } else if (strcmp(name, "enable_ime") == 0) {
+            enable_ime = value_to_bool(value);
         }
     } else if (strcmp(section, "elden_ring") == 0) {
         if (strcmp(name, "skip_intro") == 0) {
