@@ -14,7 +14,6 @@
 #include <toml.h>
 
 #include <shlwapi.h>
-#include <string.h>
 
 static wchar_t modulePath_[MAX_PATH];
 int cpu_affinity_strategy = 0;
@@ -34,7 +33,7 @@ static void enable_debug() {
 
 static void try_load_dll(const char *name, const wchar_t *path) {
     HMODULE dll;
-    if (wcschr(path, L':') == NULL && path[0] != L'\\' && path[0] != L'/') {
+    if (StrChrW(path, L':') == NULL && path[0] != L'\\' && path[0] != L'/') {
         wchar_t full_path[MAX_PATH];
         config_full_path(full_path, path);
         dll = LoadLibraryW(full_path);
@@ -49,36 +48,36 @@ static void try_load_dll(const char *name, const wchar_t *path) {
 }
 
 static bool value_to_bool(const char *value) {
-    return strcmp(value, "true") == 0 || strcmp(value, "yes") == 0 || strcmp(value, "on") == 0 || strcmp(value, "1") == 0;
+    return lstrcmpA(value, "true") == 0 || lstrcmpA(value, "yes") == 0 || lstrcmpA(value, "on") == 0 || lstrcmpA(value, "1") == 0;
 }
 
 static int ini_read_cb(void *user, const char *section,
                        const char *name, const char *value) {
     wchar_t path[MAX_PATH];
     if (section[0] == 0) {
-        if (strcmp(name, "debug") == 0) {
+        if (lstrcmpA(name, "debug") == 0) {
             if (value_to_bool(value)) {
                 enable_debug();
             }
-        } else if (strcmp(name, "cpu_affinity") == 0) {
+        } else if (lstrcmpA(name, "cpu_affinity") == 0) {
             cpu_affinity_strategy = strtol(value, NULL, 0);
-        } else if (strcmp(name, "reset_achievements_on_new_game") == 0) {
+        } else if (lstrcmpA(name, "reset_achievements_on_new_game") == 0) {
             reset_achievements_on_new_game = value_to_bool(value);
-        } else if (strcmp(name, "enable_ime") == 0) {
+        } else if (lstrcmpA(name, "enable_ime") == 0) {
             enable_ime = value_to_bool(value);
         }
-    } else if (strcmp(section, "elden_ring") == 0) {
-        if (strcmp(name, "skip_intro") == 0) {
+    } else if (lstrcmpA(section, "elden_ring") == 0) {
+        if (lstrcmpA(name, "skip_intro") == 0) {
             skip_intro = value_to_bool(value);
-        } else if (strcmp(name, "remove_chromatic_aberration") == 0) {
+        } else if (lstrcmpA(name, "remove_chromatic_aberration") == 0) {
             remove_chromatic_aberration = value_to_bool(value);
-        } else if (strcmp(name, "remove_vignette") == 0) {
+        } else if (lstrcmpA(name, "remove_vignette") == 0) {
             remove_vignette = value_to_bool(value);
         }
-    } else if (strcmp(section, "dlls") == 0) {
+    } else if (lstrcmpA(section, "dlls") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
         try_load_dll(name, path);
-    } else if (strcmp(section, "mods") == 0) {
+    } else if (lstrcmpA(section, "mods") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
         mods_add(name, path);
     }
@@ -110,7 +109,7 @@ bool config_load_toml(FILE *f) {
         char name[MAX_PATH];
         value = toml_array_string(arr, i);
         if (!value.ok) continue;
-        strncpy(name, value.u.s, MAX_PATH);
+        lstrcpynA(name, value.u.s, MAX_PATH);
         free(value.u.s);
         MultiByteToWideChar(CP_UTF8, 0, name, -1, path, MAX_PATH);
         PathRemoveExtensionA(name);
@@ -159,24 +158,24 @@ void config_load(void *module) {
     PathRemoveBackslashW(modulePath_);
     GetEnvironmentVariableW(L"MODLOADER_CONFIG", config_path, MAX_PATH);
     if (config_path[0] == L'\0') {
-        wcscpy(config_path, modulePath_);
+        lstrcpyW(config_path, modulePath_);
         PathAppendW(config_path, L"YAERModLoader.ini");
         if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
-            wcscpy(config_path, modulePath_);
+            lstrcpyW(config_path, modulePath_);
             PathAppendW(config_path, L"config_eldenring.toml");
         }
     } else {
-        if (wcschr(config_path, L':') == NULL && config_path[0] != L'\\' && config_path[0] != L'/') {
+        if (StrChrW(config_path, L':') == NULL && config_path[0] != L'\\' && config_path[0] != L'/') {
             wchar_t temp[MAX_PATH];
-            wcscpy(temp, config_path);
-            wcscpy(config_path, modulePath_);
+            lstrcpyW(temp, config_path);
+            lstrcpyW(config_path, modulePath_);
             PathAppendW(config_path, temp);
         } else if (PathIsDirectoryW(config_path)) {
             wchar_t temp[MAX_PATH];
-            wcscpy(temp, config_path);
+            lstrcpyW(temp, config_path);
             PathAppendW(temp, L"YAERModLoader.ini");
             if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
-                wcscpy(config_path, temp);
+                lstrcpyW(config_path, temp);
             } else {
                 PathAppendW(config_path, L"config_eldenring.toml");
             }
@@ -185,7 +184,7 @@ void config_load(void *module) {
     config_file = _wfopen(config_path, L"r");
     if (config_file == NULL) return;
 #if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
-    if (wcsicmp(PathFindExtensionW(config_path), L".toml") != 0 || !config_load_toml(config_file))
+    if (lstrcmpiW(PathFindExtensionW(config_path), L".toml") != 0 || !config_load_toml(config_file))
 #endif
         config_load_ini(config_file);
     fclose(config_file);
@@ -197,9 +196,9 @@ void config_full_path(wchar_t *path, const wchar_t *filename) {
     wchar_t config_path[MAX_PATH] = L"";
     GetEnvironmentVariableW(L"MODLOADER_CONFIG", config_path, MAX_PATH);
     if (config_path[0] == L'\0') {
-        wcscpy(path, modulePath_);
+        lstrcpyW(path, modulePath_);
     } else {
-        wcscpy(path, config_path);
+        lstrcpyW(path, config_path);
         if (PathFileExistsW(path) && !PathIsDirectoryW(path)) {
             PathRemoveFileSpecW(path);
         }

@@ -21,7 +21,7 @@ Check [CHANGELOG.md](CHANGELOG.md) for details.
 ## Installation
 - You can download the latest release from the [release page](https://github.com/soarqin/YAERModLoader/releases), and choose one of the following methods to install the loader:
   1. Start the loader individually (recommended)
-     1. Extract `YAERModLoader.exe` and `YAERModLoader.ini` to ANY folder you  (You do not need `YAERModLoader.dll` here).
+     1. Extract `YAERModLoader.exe`,  `YAERModLoader.dll` and `YAERModLoader.ini` to ANY folder.
      2. Modify `YAERModLoader.ini` to fit your needs.
      3. Run `YAERModLoader.exe` to start the game.
      4. This is recommended because you can start the loader only when you need it and it won't pollute your game folder.

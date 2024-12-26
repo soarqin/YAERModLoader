@@ -11,10 +11,11 @@
 #include "detours_subset.h"
 
 #include <getopt.h>
+/*
 #include <LzmaDec.h>
 #include <Alloc.h>
+*/
 #include <shlwapi.h>
-#include <string.h>
 #include <stdbool.h>
 
 #define ER_APP_ID 1245620
@@ -41,13 +42,13 @@ bool parse_args(const int argc, wchar_t *argv[]) {
                 /* we only support ER now, ignore this */
                 break;
             case 'p':
-                wcscpy(full_game_path, optarg);
+                lstrcpyW(full_game_path, optarg);
                 break;
             case 'c':
-                wcscpy(full_config_path, optarg);
+                lstrcpyW(full_config_path, optarg);
                 break;
             case 'd':
-                wcscpy(full_modengine_dll, optarg);
+                lstrcpyW(full_modengine_dll, optarg);
                 break;
             case 's':
                 suspend = true;
@@ -68,31 +69,38 @@ bool parse_args(const int argc, wchar_t *argv[]) {
 static bool fix_and_locate_game_path(wchar_t *game_path) {
     wchar_t temp[MAX_PATH];
     if (PathFileExistsW(game_path) && !PathIsDirectoryW(game_path)) return true;
-    if (wcschr(game_path, L':') == NULL && game_path[0] != L'\\' && game_path[0] != L'/') {
+    if (StrChrW(game_path, L':') == NULL && game_path[0] != L'\\' && game_path[0] != L'/') {
         GetModuleFileNameW(NULL, temp, MAX_PATH);
         PathRemoveFileSpecW(temp);
         PathAppendW(temp, game_path);
-        wcscpy(game_path, temp);
+        lstrcpyW(game_path, temp);
         if (PathFileExistsW(game_path) && !PathIsDirectoryW(game_path)) {
             return true;
         }
     }
-    wcscpy(temp, game_path);
+    lstrcpyW(temp, game_path);
     PathAppendW(temp, L"eldenring.exe");
     if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
-        wcscpy(game_path, temp);
+        lstrcpyW(game_path, temp);
         return true;
     }
-    wcscpy(temp, game_path);
+    lstrcpyW(temp, game_path);
     PathAppendW(temp, L"Game");
     PathAppendW(temp, L"eldenring.exe");
     if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
-        wcscpy(game_path, temp);
+        lstrcpyW(game_path, temp);
         return true;
     }
     return false;
 }
 
+static bool check_current_folder_for_game_path(wchar_t *game_path) {
+    GetModuleFileNameW(NULL, game_path, MAX_PATH);
+    PathRemoveFileSpecW(game_path);
+    return fix_and_locate_game_path(game_path);
+}
+
+/*
 bool decompress_embedded_dll_to(char *filepath) {
     wchar_t exe_filename[MAX_PATH], target_filename[MAX_PATH];
     DWORD size;
@@ -169,6 +177,7 @@ fail1:
     CloseHandle(f);
     return false;
 }
+*/
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLine, int nShowCmd) {
     STARTUPINFOW si = {};
@@ -178,18 +187,18 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 
     parse_args(__argc, __wargv);
     if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
-        if (decompress_embedded_dll_to(filepath)) {
+        /*if (decompress_embedded_dll_to(filepath)) {
             if (full_config_path[0] == L'\0') {
                 GetModuleFileNameW(hInstance, full_config_path, MAX_PATH);
                 PathRemoveFileSpecW(full_config_path);
             }
-        } else {
+        } else*/ {
             GetModuleFileNameA(hInstance, filepath, MAX_PATH);
             PathRemoveFileSpecA(filepath);
             PathAppendA(filepath, "YAERModLoader.dll");
         }
     } else {
-        if (wcschr(full_modengine_dll, L':') == NULL && full_modengine_dll[0] != L'\\' && full_modengine_dll[0] != L'/') {
+        if (StrChrW(full_modengine_dll, L':') == NULL && full_modengine_dll[0] != L'\\' && full_modengine_dll[0] != L'/') {
             char temp[MAX_PATH];
             GetModuleFileNameA(hInstance, filepath, MAX_PATH);
             PathRemoveFileSpecA(filepath);
@@ -202,13 +211,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
     const HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
     FARPROC create_process_addr = GetProcAddress(kernel32, "CreateProcessW");
 
-    if (full_game_path[0] == L'\0' || !fix_and_locate_game_path(full_game_path)) {
+    if ((full_game_path[0] == L'\0' && !check_current_folder_for_game_path(full_game_path)) || (full_game_path[0] = L'\0', !fix_and_locate_game_path(full_game_path))) {
         app_find_game_path(ER_APP_ID, game_folder);
         PathAppendW(game_folder, L"Game");
-        wcscpy(full_game_path, game_folder);
+        lstrcpyW(full_game_path, game_folder);
         PathAppendW(full_game_path, L"eldenring.exe");
     } else {
-        wcscpy(game_folder, full_game_path);
+        lstrcpyW(game_folder, full_game_path);
         PathRemoveFileSpecW(game_folder);
     }
     if (full_config_path[0] != L'\0') SetEnvironmentVariableW(L"MODLOADER_CONFIG", full_config_path);
