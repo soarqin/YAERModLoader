@@ -42,10 +42,10 @@ void mods_init() {
 
 void mods_uninit() {
     for (int i = 0; i < mod_count; i++) {
-        free(mods[i].name);
-        free(mods[i].base_path);
+        LocalFree(mods[i].name);
+        LocalFree(mods[i].base_path);
     }
-    free(mods);
+    LocalFree(mods);
     mods = NULL;
     mod_count = 0;
     mod_capacity = 0;
@@ -55,15 +55,15 @@ void mods_uninit() {
 void mods_add(const char *name, const wchar_t *path) {
     if (mod_count >= mod_capacity) {
         mod_capacity = mod_capacity == 0 ? 8 : mod_capacity * 2;
-        mod_t *new_mods = (mod_t*)realloc(mods, mod_capacity * sizeof(mod_t));
+        mod_t *new_mods = LocalReAlloc(mods, mod_capacity * sizeof(mod_t), 0);
         if (new_mods == NULL) {
             return;
         }
         mods = new_mods;
     }
     mod_t *mod = &mods[mod_count++];
-    mod->name = strdup(name);
-    mod->base_path = wcsdup(path);
+    mod->name = StrDupA(name);
+    mod->base_path = StrDupW(path);
     fwprintf(stdout, L"Loading mod %hs from `%ls`\n", name, path);
 }
 

@@ -11,7 +11,9 @@
 #include "mod.h"
 
 #include <ini.h>
+#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
 #include <toml.h>
+#endif
 
 #include <shlwapi.h>
 
@@ -88,6 +90,7 @@ void config_load_ini(FILE *f) {
     ini_parse_file(f, ini_read_cb, NULL);
 }
 
+#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
 bool config_load_toml(FILE *f) {
     char errbuf[256];
     toml_table_t *root = toml_parse_file(f, errbuf, 256);
@@ -149,6 +152,7 @@ bool config_load_toml(FILE *f) {
     toml_free(root);
     return true;
 }
+#endif
 
 void config_load(void *module) {
     wchar_t config_path[MAX_PATH] = L"";

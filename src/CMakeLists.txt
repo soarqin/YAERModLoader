@@ -1,5 +1,7 @@
 project(modloader LANGUAGES C VERSION 0.3.0)
 
+option(STRIP_MODENGINE_CONFIG_SUPPORT "Strip ModEngine config support" OFF)
+
 include(GenerateVersionInfo)
 
 # dll target
@@ -13,7 +15,7 @@ generate_version_info(dll_res_files
     COMPANY_NAME "Soar Qin"
     FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
 
-add_project(modloader SHARED
+add_project(modloader_dll SHARED
     dll/modloader.c
     modloader/config.c modloader/config.h
     modloader/gamehook.c modloader/gamehook.h
@@ -32,12 +34,17 @@ add_project(modloader SHARED
     INLINE_TARGET OUTPUT_NAME "YAERModLoader" NO_PREFIX FOLDER app
 )
 
-target_include_directories(modloader PRIVATE .)
-target_link_libraries(modloader minhook toml-c inih uthash shlwapi version)
-if (MSVC)
-    target_compile_options(modloader PRIVATE /utf-8)
+target_include_directories(modloader_dll PRIVATE .)
+if (STRIP_MODENGINE_CONFIG_SUPPORT)
+    target_compile_definitions(modloader_dll PRIVATE STRIP_MODENGINE_CONFIG_SUPPORT)
 else ()
-    target_link_options(modloader PRIVATE -municode)
+    target_link_libraries(modloader_dll toml-c)
+endif ()
+target_link_libraries(modloader_dll minhook inih uthash shlwapi version)
+if (MSVC)
+    target_compile_options(modloader_dll PRIVATE /utf-8)
+else ()
+    target_link_options(modloader_dll PRIVATE -municode)
 endif ()
 
 # exe target
@@ -51,7 +58,7 @@ generate_version_info(exe_res_files
     COMPANY_NAME "Soar Qin"
     FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
 
-add_project(modlauncher WIN32
+add_project(modloader_exe WIN32
     exe/launcher.c
     exe/detours_subset.h
 
@@ -65,34 +72,33 @@ add_project(modlauncher WIN32
     INLINE_TARGET OUTPUT_NAME "YAERModLoader" FOLDER app
 )
 
-target_include_directories(modlauncher PRIVATE .)
-
+target_include_directories(modloader_exe PRIVATE .)
 if (MSVC)
-    target_compile_options(modlauncher PRIVATE /utf-8)
+    target_compile_options(modloader_exe PRIVATE /utf-8)
 else ()
-    target_link_options(modlauncher PRIVATE -municode)
+    target_link_options(modloader_exe PRIVATE -municode)
 endif ()
-target_link_libraries(modlauncher wingetopt #[[lzma]] shlwapi)
-add_dependencies(modlauncher modloader)
+target_link_libraries(modloader_exe wingetopt #[[lzma]] shlwapi)
+add_dependencies(modloader_exe modloader_dll)
 
 # Distribution target
 add_custom_target(dist)
 add_custom_command(TARGET dist POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/dist"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:modlauncher>" "$<TARGET_FILE:modloader>" "${CMAKE_CURRENT_SOURCE_DIR}/YAERModLoader.ini" "${CMAKE_SOURCE_DIR}/README.md" "${CMAKE_SOURCE_DIR}/LICENSE" "${CMAKE_BINARY_DIR}/dist/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:modloader_exe>" "$<TARGET_FILE:modloader_dll>" "${CMAKE_CURRENT_SOURCE_DIR}/YAERModLoader.ini" "${CMAKE_SOURCE_DIR}/README.md" "${CMAKE_SOURCE_DIR}/LICENSE" "${CMAKE_BINARY_DIR}/dist/"
     COMMENT "Copying files...")
 
 #add_custom_command(TARGET dist POST_BUILD
-#    COMMAND "$<TARGET_FILE:embeddll>" "${CMAKE_BINARY_DIR}/dist/$<TARGET_FILE_NAME:modlauncher>" "${CMAKE_BINARY_DIR}/dist/$<TARGET_FILE_NAME:modloader>"
-#    COMMENT "Embedding modloader into modlauncher..."
+#    COMMAND "$<TARGET_FILE:embeddll>" "${CMAKE_BINARY_DIR}/dist/$<TARGET_FILE_NAME:modloader_exe>" "${CMAKE_BINARY_DIR}/dist/$<TARGET_FILE_NAME:modloader_dll>"
+#    COMMENT "Embedding modloader DLL into exe..."
 #)
 
 # Compress to a zip and a 7z file
 add_custom_command(TARGET dist POST_BUILD
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/dist"
-    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_BINARY_DIR}/dist/YAERModLoader-${PROJECT_VERSION}.zip" --format=zip -- "$<TARGET_FILE_NAME:modlauncher>" "$<TARGET_FILE_NAME:modloader>" "YAERModLoader.ini" "README.md" "LICENSE"
-    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_BINARY_DIR}/dist/YAERModLoader-${PROJECT_VERSION}.7z" --format=7zip -- "$<TARGET_FILE_NAME:modlauncher>" "$<TARGET_FILE_NAME:modloader>" "YAERModLoader.ini" "README.md" "LICENSE"
+    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_BINARY_DIR}/dist/YAERModLoader-${PROJECT_VERSION}.zip" --format=zip -- "$<TARGET_FILE_NAME:modloader_exe>" "$<TARGET_FILE_NAME:modloader_dll>" "YAERModLoader.ini" "README.md" "LICENSE"
+    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_BINARY_DIR}/dist/YAERModLoader-${PROJECT_VERSION}.7z" --format=7zip -- "$<TARGET_FILE_NAME:modloader_exe>" "$<TARGET_FILE_NAME:modloader_dll>" "YAERModLoader.ini" "README.md" "LICENSE"
     COMMENT "Compressing to archives..."
 )
 
-# add_dependencies(dist embeddll modlauncher)
+# add_dependencies(dist embeddll modloader_exe)
