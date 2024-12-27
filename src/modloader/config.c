@@ -8,6 +8,7 @@
 
 #include "config.h"
 
+#include "extdll.h"
 #include "mod.h"
 
 #include <ini.h>
@@ -31,22 +32,6 @@ static void enable_debug() {
     freopen("CONOUT$", "w", stderr);
     freopen("CONIN$", "r", stdin);
     fwprintf(stderr, L"NOTE: Debug mode enabled\n");
-}
-
-static void try_load_dll(const char *name, const wchar_t *path) {
-    HMODULE dll;
-    if (StrChrW(path, L':') == NULL && path[0] != L'\\' && path[0] != L'/') {
-        wchar_t full_path[MAX_PATH];
-        config_full_path(full_path, path);
-        dll = LoadLibraryW(full_path);
-    } else {
-        dll = LoadLibraryW(path);
-    }
-    if (dll == NULL) {
-        fwprintf(stderr, L"Cannot load dll %hs from `%ls`\n", name, path);
-    } else {
-        fwprintf(stdout, L"Loaded dll %hs from `%ls`\n", name, path);
-    }
 }
 
 static bool value_to_bool(const char *value) {
@@ -78,7 +63,7 @@ static int ini_read_cb(void *user, const char *section,
         }
     } else if (lstrcmpA(section, "dlls") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
-        try_load_dll(name, path);
+        extdlls_add(name, path);
     } else if (lstrcmpA(section, "mods") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
         mods_add(name, path);
@@ -116,7 +101,7 @@ bool config_load_toml(FILE *f) {
         free(value.u.s);
         MultiByteToWideChar(CP_UTF8, 0, name, -1, path, MAX_PATH);
         PathRemoveExtensionA(name);
-        try_load_dll(name, path);
+        extdlls_add(name, path);
     }
 
     TOML_LOAD_MODS:

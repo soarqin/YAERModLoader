@@ -16,12 +16,14 @@ generate_version_info(dll_res_files
     FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
 
 add_project(modloader_dll SHARED
-    dll/modloader.c
+    modloader/modloader.c
     modloader/config.c modloader/config.h
+    modloader/extdll.c modloader/extdll.h
     modloader/gamehook.c modloader/gamehook.h
     modloader/mod.c modloader/mod.h
     modloader/filecache.c modloader/filecache.h
     modloader/processutil.c modloader/processutil.h
+    modloader/detours_subset.h
 
     steam/api.c steam/api.h
 

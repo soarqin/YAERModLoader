@@ -371,7 +371,6 @@ bool gamehook_install() {
     game_running = true;
 
     steamapi_init();
-    MH_Initialize();
     if (cpu_affinity_strategy > 0) {
         set_process_cpu_affinity_thread_handle = CreateThread(NULL, 0, set_process_cpu_affinity_thread, (LPVOID)(intptr_t)cpu_affinity_strategy, 0, NULL);
     }
