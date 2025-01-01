@@ -54,7 +54,7 @@ void mods_uninit() {
 void mods_add(const char *name, const wchar_t *path) {
     if (mod_count >= mod_capacity) {
         mod_capacity = mod_capacity == 0 ? 8 : mod_capacity * 2;
-        mod_t *new_mods = LocalReAlloc(mods, mod_capacity * sizeof(mod_t), 0);
+        mod_t *new_mods = mods == NULL ? LocalAlloc(LMEM_ZEROINIT, mod_capacity * sizeof(mod_t)) : LocalReAlloc(mods, mod_capacity * sizeof(mod_t), LMEM_ZEROINIT);
         if (new_mods == NULL) {
             return;
         }

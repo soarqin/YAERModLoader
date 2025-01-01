@@ -32,7 +32,7 @@ int extdll_capacity = 0;
 void extdlls_add(const char *name, const wchar_t *path) {
     if (extdll_count >= extdll_capacity) {
         extdll_capacity = extdll_capacity == 0 ? 8 : extdll_capacity * 2;
-        extdll_t *new_dlls = extdlls == NULL ? LocalAlloc(0, extdll_capacity * sizeof(extdll_t)) : LocalReAlloc(extdlls, extdll_capacity * sizeof(extdll_t), 0);
+        extdll_t *new_dlls = extdlls == NULL ? LocalAlloc(LMEM_ZEROINIT, extdll_capacity * sizeof(extdll_t)) : LocalReAlloc(extdlls, extdll_capacity * sizeof(extdll_t), LMEM_ZEROINIT);
         if (new_dlls == NULL) {
             return;
         }
@@ -72,9 +72,11 @@ void extdlls_load_all() {
         if (!dll) continue;
         FARPROC ext_init = GetProcAddress(dll, "modengine_ext_init");
         if (!ext_init) continue;
+        extdll->extension_object = NULL;
         if (!((bool(*)(void*, void**))ext_init)(NULL, &extdll->extension_object)) continue;
         fwprintf(stdout, L"Initialized external dll %hs\n", extdll->name);
         fflush(stdout);
+        if (!extdll->extension_object) continue;
         void **vtable = *(void***)extdll->extension_object;
         if (!vtable) continue;
         // Call ModEngineExtension::on_attach()
