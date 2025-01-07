@@ -10,7 +10,8 @@
 
 #include <wchar.h>
 
-extern void config_load(void *module);
+extern void config_init(void *module);
+extern void config_load();
 
 extern const wchar_t *module_path();
 extern void config_full_path(wchar_t *path, const wchar_t *filename);

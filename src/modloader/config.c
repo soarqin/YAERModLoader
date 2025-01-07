@@ -18,7 +18,8 @@
 
 #include <shlwapi.h>
 
-static wchar_t modulePath_[MAX_PATH];
+static wchar_t modloader_module_path[MAX_PATH];
+wchar_t env_config_path[MAX_PATH];
 int cpu_affinity_strategy = 0;
 bool reset_achievements_on_new_game = false;
 bool enable_ime = false;
@@ -139,35 +140,38 @@ bool config_load_toml(FILE *f) {
 }
 #endif
 
-void config_load(void *module) {
+void config_init(void *module) {
+    GetEnvironmentVariableW(L"MODLOADER_CONFIG", env_config_path, MAX_PATH);
+    GetModuleFileNameW(module, modloader_module_path, MAX_PATH);
+    PathRemoveFileSpecW(modloader_module_path);
+    PathRemoveBackslashW(modloader_module_path);
+}
+
+void config_load() {
     wchar_t config_path[MAX_PATH] = L"";
     FILE *config_file = NULL;
-    GetModuleFileNameW(module, modulePath_, MAX_PATH);
-    PathRemoveFileSpecW(modulePath_);
-    PathRemoveBackslashW(modulePath_);
-    GetEnvironmentVariableW(L"MODLOADER_CONFIG", config_path, MAX_PATH);
-    if (config_path[0] == L'\0') {
-        lstrcpyW(config_path, modulePath_);
+    if (env_config_path[0] == L'\0') {
+        lstrcpyW(config_path, modloader_module_path);
         PathAppendW(config_path, L"YAERModLoader.ini");
+#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
         if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
-            lstrcpyW(config_path, modulePath_);
+            lstrcpyW(config_path, modloader_module_path);
             PathAppendW(config_path, L"config_eldenring.toml");
         }
+#endif
     } else {
-        if (StrChrW(config_path, L':') == NULL && config_path[0] != L'\\' && config_path[0] != L'/') {
-            wchar_t temp[MAX_PATH];
-            lstrcpyW(temp, config_path);
-            lstrcpyW(config_path, modulePath_);
-            PathAppendW(config_path, temp);
-        } else if (PathIsDirectoryW(config_path)) {
-            wchar_t temp[MAX_PATH];
-            lstrcpyW(temp, config_path);
-            PathAppendW(temp, L"YAERModLoader.ini");
-            if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
-                lstrcpyW(config_path, temp);
-            } else {
+        if (StrChrW(env_config_path, L':') == NULL && env_config_path[0] != L'\\' && env_config_path[0] != L'/') {
+            lstrcpyW(config_path, modloader_module_path);
+            PathAppendW(config_path, env_config_path);
+        } else if (PathIsDirectoryW(env_config_path)) {
+            lstrcpyW(config_path, env_config_path);
+            PathAppendW(config_path, L"YAERModLoader.ini");
+#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
+            if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
+                lstrcpyW(config_path, env_config_path);
                 PathAppendW(config_path, L"config_eldenring.toml");
             }
+#endif
         }
     }
     config_file = _wfopen(config_path, L"r");
@@ -179,18 +183,17 @@ void config_load(void *module) {
     fclose(config_file);
 }
 
-const wchar_t *module_path() { return modulePath_; }
+const wchar_t *module_path() { return modloader_module_path; }
 
 void config_full_path(wchar_t *path, const wchar_t *filename) {
-    wchar_t config_path[MAX_PATH] = L"";
-    GetEnvironmentVariableW(L"MODLOADER_CONFIG", config_path, MAX_PATH);
-    if (config_path[0] == L'\0') {
-        lstrcpyW(path, modulePath_);
+    if (env_config_path[0] == L'\0') {
+        lstrcpyW(path, modloader_module_path);
     } else {
-        lstrcpyW(path, config_path);
+        lstrcpyW(path, env_config_path);
         if (PathFileExistsW(path) && !PathIsDirectoryW(path)) {
             PathRemoveFileSpecW(path);
         }
     }
-    PathAppendW(path, filename);
+    if (filename && filename[0] != 0)
+        PathAppendW(path, filename);
 }

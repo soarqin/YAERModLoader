@@ -70,7 +70,7 @@ void *__cdecl map_archive_path(wstring_impl_t *path, const uint64_t p2, const ui
     void *res = old_map_archive_path(path, p2, p3, p4, p5, p6);
     if (path == NULL) return res;
     wchar_t *str = wstring_impl_str(path);
-    if (wcsncmp(str, L"data", 4) == 0 && wcsncmp(str + 5, L":/", 2) == 0) {
+    if (StrCmpNW(str, L"data", 4) == 0 && StrCmpNW(str + 5, L":/", 2) == 0) {
         const wchar_t *replace = mods_file_search(str + 6);
         if (replace == NULL) return res;
         memcpy(str, L"./////", 6 * sizeof(wchar_t));
@@ -96,13 +96,13 @@ const wchar_t *prefixes[3] = {
 };
 
 void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, const AKOpenMode openMode, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
-    if (wcsncmp(path, L"sd:/", 4) != 0)
+    if (StrCmpNW(path, L"sd:/", 4) != 0)
         return old_ak_file_location_resolver_open(p1, path, openMode, p4, p5, p6);
     const wchar_t *replace = path + 4;
     const wchar_t *ext = PathFindExtensionW(replace);
-    if (ext != NULL && wcsicmp(ext, L".wem") == 0) {
+    if (ext != NULL && StrCmpIW(ext, L".wem") == 0) {
         wchar_t new_path[MAX_PATH];
-        _snwprintf(new_path, MAX_PATH, L"wem/%c%c/%s", replace[0], replace[1], replace);
+        _snwprintf(new_path, MAX_PATH, L"wem/%lc%lc/%ls", replace[0], replace[1], replace);
         const wchar_t *new_replace = mods_file_search(new_path);
         if (new_replace != NULL) {
             return old_ak_file_location_resolver_open(p1, (wchar_t*)new_replace, openMode, p4, p5, p6);
@@ -110,7 +110,7 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
     }
     for (int i = 0; i < 3; i++) {
         wchar_t new_path[MAX_PATH];
-        _snwprintf(new_path, MAX_PATH, L"%s%s", prefixes[i], replace);
+        _snwprintf(new_path, MAX_PATH, L"%ls%ls", prefixes[i], replace);
         const wchar_t *new_replace = mods_file_search(new_path);
         if (new_replace != NULL) {
             return old_ak_file_location_resolver_open(p1, (wchar_t*)new_replace, openMode, p4, p5, p6);

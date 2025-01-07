@@ -29,8 +29,9 @@ int WINAPI new_entrypoint(void) {
     load_winhttp_proxy();
     load_dxgi_proxy();
     load_dinput8_proxy();
+    config_init(module_instance);
     mods_init();
-    config_load(module_instance);
+    config_load();
     gamehook_install();
     extdlls_load_all();
     return orig_entrypoint();
