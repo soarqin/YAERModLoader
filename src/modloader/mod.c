@@ -62,13 +62,17 @@ void mods_add(const char *name, const wchar_t *path) {
         mods = new_mods;
     }
     wchar_t base_path[MAX_PATH];
-    if (path[0] == L'\\' || path[1] == L':') {
+    if (path[0] == L'\\') {
+        config_full_path(base_path, NULL);
+        PathStripToRootW(base_path);
+        PathAppendW(base_path, path + 1);
+    } else if (path[1] == L':') {
         PathCanonicalizeW(base_path, path);
     } else {
         config_full_path(base_path, path);
     }
     if (!PathFileExistsW(base_path) || !PathIsDirectoryW(base_path)) {
-        fwprintf(stderr, L"Cannot find mod %hs from directory `%ls`\n", name, path);
+        fwprintf(stderr, L"Cannot find mod %hs from directory `%ls`\n", name, base_path);
         return;
     }
     mod_t *mod = &mods[mod_count++];
