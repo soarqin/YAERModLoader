@@ -1,4 +1,4 @@
-project(modloader LANGUAGES C VERSION 0.3.2)
+project(modloader LANGUAGES C VERSION 0.3.3)
 
 option(STRIP_MODENGINE_CONFIG_SUPPORT "Strip ModEngine config support" OFF)
 
