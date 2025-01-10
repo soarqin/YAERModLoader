@@ -103,4 +103,4 @@ add_custom_command(TARGET dist POST_BUILD
     COMMENT "Compressing to archives..."
 )
 
-# add_dependencies(dist embeddll modloader_exe)
+add_dependencies(dist #[[embeddll]] modloader_exe)
