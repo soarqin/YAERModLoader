@@ -211,7 +211,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
     const HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
     FARPROC create_process_addr = GetProcAddress(kernel32, "CreateProcessW");
 
-    if ((full_game_path[0] == L'\0' && !check_current_folder_for_game_path(full_game_path)) || (full_game_path[0] = L'\0', !fix_and_locate_game_path(full_game_path))) {
+    if ((full_game_path[0] == L'\0' && !check_current_folder_for_game_path(full_game_path)) || (full_game_path[0] != L'\0' && !fix_and_locate_game_path(full_game_path))) {
         app_find_game_path(ER_APP_ID, game_folder);
         PathAppendW(game_folder, L"Game");
         lstrcpyW(full_game_path, game_folder);
