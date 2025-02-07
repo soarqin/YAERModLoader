@@ -23,6 +23,8 @@ add_project(modloader_dll SHARED
     modloader/mod.c modloader/mod.h
     modloader/filecache.c modloader/filecache.h
     modloader/detours_subset.h
+    modloader/patches/common.c modloader/patches/common.h
+    modloader/patches/eldenring.c modloader/patches/eldenring.h
 
     process/image.c process/image.h
     process/scanner.c process/scanner.h
