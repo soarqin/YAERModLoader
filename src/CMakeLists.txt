@@ -22,8 +22,11 @@ add_project(modloader_dll SHARED
     modloader/gamehook.c modloader/gamehook.h
     modloader/mod.c modloader/mod.h
     modloader/filecache.c modloader/filecache.h
-    modloader/processutil.c modloader/processutil.h
     modloader/detours_subset.h
+
+    process/image.c process/image.h
+    process/scanner.c process/scanner.h
+    process/util.c process/util.h
 
     steam/api.c steam/api.h
 

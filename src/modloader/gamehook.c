@@ -10,6 +10,9 @@
 
 #include "mod.h"
 #include "steam/api.h"
+#include "process/image.h"
+#include "process/scanner.h"
+#include "process/util.h"
 
 #include <MinHook.h>
 
@@ -18,8 +21,6 @@
 #include <shlwapi.h>
 
 #include <wchar.h>
-
-#include "processutil.h"
 
 typedef struct {
     void *unk;
@@ -119,59 +120,6 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
     return old_ak_file_location_resolver_open(p1, path, openMode, p4, p5, p6);
 }
 
-static void *get_module_image_base(size_t *size) {
-    const HMODULE hModule = GetModuleHandleW(NULL);
-    if (hModule == NULL) {
-        return NULL;
-    }
-    PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)hModule;
-    if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE) {
-        return NULL;
-    }
-    const PIMAGE_NT_HEADERS ntHeader = (const PIMAGE_NT_HEADERS64)((DWORD_PTR)dosHeader + dosHeader->e_lfanew);
-    if (ntHeader->Signature != IMAGE_NT_SIGNATURE) {
-        return NULL;
-    }
-    *size = ntHeader->OptionalHeader.SizeOfImage;
-    return hModule;
-}
-
-static uint8_t *sig_scan(void *base, const size_t size, const uint8_t *pattern, const size_t pattern_size) {
-    const size_t end = size - pattern_size;
-    uint8_t *u8_base = base;
-    for (size_t i = 0; i < end; i++) {
-        if (memcmp(pattern, u8_base + i, pattern_size) != 0) continue;
-        return u8_base + i;
-    }
-    return NULL;
-}
-
-static uint8_t *sig_scan_with_mask(void *base, const size_t size, const uint8_t *pattern, const uint8_t *mask, const size_t pattern_size) {
-    const size_t end = size - pattern_size;
-    uint8_t *u8_curr = base;
-    uint8_t *u8_end = u8_curr + end;
-    while (u8_curr < u8_end) {
-        for (size_t i = 0; i < pattern_size; i++) {
-            switch (mask[i]) {
-                case 0:
-                    continue;
-                case 0xFF:
-                    if (pattern[i] != u8_curr[i])
-                        goto next;
-                    break;
-                default:
-                    if ((pattern[i] & mask[i]) != (u8_curr[i] & mask[i]))
-                        goto next;
-                    break;
-            }
-        }
-        return u8_curr;
-    next:
-        u8_curr++;
-    }
-    return NULL;
-}
-
 static uint64_t get_game_version() {
     wchar_t exepath[MAX_PATH];
     GetModuleFileNameW(NULL, exepath, MAX_PATH);
@@ -199,16 +147,10 @@ static void *image_base;
 static size_t image_size;
 
 DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
-    static const uint8_t cs_menu_man_aob[] = {
-        0x48, 0x8b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x48, 0x8b, 0x49, 0x08, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x48, 0x8b, 0xd0, 0x48, 0x8b, 0xce, 0xe8
-    };
-    static const uint8_t cs_menu_man_mask[] = {
-        0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-    };
     const int strat = (int)(intptr_t)arg;
     const uint64_t game_version = get_game_version();
     uintptr_t offset;
-    uint8_t *addr = sig_scan_with_mask(image_base, image_size, cs_menu_man_aob, cs_menu_man_mask, sizeof(cs_menu_man_aob));
+    uint8_t *addr = sig_scan(image_base, image_size, "48 8B 0D ?? ?? ?? ?? 48 8B 49 08 E8 ?? ?? ?? ?? 48 8B D0 48 8B CE E8");
     if (!addr) { return 1; }
     addr += *(int32_t*)(addr + 3) + 7;
     if (game_version < 0x0001000300000000ULL) {
@@ -234,9 +176,7 @@ DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
 }
 
 DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
-    static const uint8_t game_data_man_aob[] = {0x48, 0x8b, 0x05, 0x00, 0x00, 0x00, 0x00, 0x48, 0x85, 0xc0, 0x74, 0x05, 0x48, 0x8b, 0x40, 0x58, 0xc3, 0xc3};
-    static const uint8_t game_data_man_mask[] = {0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-    uint8_t *addr = sig_scan_with_mask(image_base, image_size, game_data_man_aob, game_data_man_mask, sizeof(game_data_man_aob));
+    uint8_t *addr = sig_scan(image_base, image_size, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 05 48 8B 40 58 C3 C3");
     if (!addr) return 1;
     addr += *(int32_t*)(addr + 3) + 7;
     HANDLE process = GetCurrentProcess();
@@ -277,14 +217,8 @@ static bool patch_ime_disable() {
 }
 
 static bool patch_eldenring_skip_intro() {
-    static const uint8_t skip_intro_aob[] = {
-        0x74, 0x53, 0x48, 0x8b, 0x05, 0x00, 0x00, 0x00, 0x00, 0x48, 0x85, 0xc0, 0x75, 0x2e, 0x48, 0x8d, 0x0d, 0x00, 0x00, 0x00, 0x00, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x4c, 0x8b, 0xc8
-    };
-    static const uint8_t skip_intro_mask[] = {
-        0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff
-    };
     static const uint8_t new_bytes[] = { 0x90, 0x90 };
-    uint8_t *addr = sig_scan_with_mask(image_base, image_size, skip_intro_aob, skip_intro_mask, sizeof(skip_intro_aob));
+    uint8_t *addr = sig_scan(image_base, image_size, "74 53 48 8B 05 ?? ?? ?? ?? 48 85 C0 75 2E 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 4C 8B C8");
     if (!addr) return false;
     DWORD old_protect;
     VirtualProtect(addr, 2, PAGE_EXECUTE_READWRITE, &old_protect);
@@ -294,16 +228,8 @@ static bool patch_eldenring_skip_intro() {
 }
 
 static bool patch_eldenring_remove_chromatic_aberratio() {
-    static const uint8_t remove_chromatic_aberration_aob[] = {
-        0x0f, 0x11, 0x00, 0x60, 0x00, 0x8d, 0x00, 0x80, 0x00, 0x00, 0x00, 0x0f, 0x10, 0x00, 0xa0, 0x00, 0x00, 0x00, 0x0f, 0x11, 0x00, 0xf0, 0x00, 0x8d, 0x00, 0xb0, 0x00, 0x00,
-        0x00, 0x0f, 0x10, 0x00, 0x0f, 0x11, 0x00, 0x0f, 0x10, 0x00, 0x10
-    };
-    static const uint8_t remove_chromatic_aberration_mask[] = {
-        0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff
-    };
     static const uint8_t new_bytes[] = { 0x66, 0x0f, 0xef, 0xc9 };
-    uint8_t *addr = sig_scan_with_mask(image_base, image_size, remove_chromatic_aberration_aob, remove_chromatic_aberration_mask, sizeof(remove_chromatic_aberration_aob));
+    uint8_t *addr = sig_scan(image_base, image_size, "0F 11 ?? 60 ?? 8D ?? 80 00 00 00 0F 10 ?? A0 00 00 00 0F 11 ?? F0 ?? 8D ?? B0 00 00 00 0F 10 ?? 0F 11 ?? 0F 10 ?? 10");
     if (!addr) return false;
     DWORD old_protect;
     VirtualProtect(addr + 0x2F, 4, PAGE_EXECUTE_READWRITE, &old_protect);
@@ -313,16 +239,8 @@ static bool patch_eldenring_remove_chromatic_aberratio() {
 }
 
 static bool patch_eldenring_remove_vignette() {
-    static const uint8_t remove_vignette_aob[] = {
-        0xf3, 0x0f, 0x10, 0x00, 0x50, 0xf3, 0x0f, 0x59, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe8, 0x00, 0x00, 0x00, 0x00, 0xf3, 0x00, 0x0f, 0x5c, 0x00, 0xf3, 0x00, 0x0f, 0x59, 0x00,
-        0x00, 0x8d, 0x00, 0x00, 0xa0, 0x00, 0x00, 0x00
-    };
-    static const uint8_t remove_vignette_mask[] = {
-        0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00,
-        0x00, 0xff, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
-    };
     static const uint8_t new_bytes[] = { 0xf3, 0x0f, 0x5c, 0xc0, 0x90 };
-    uint8_t *addr = sig_scan_with_mask(image_base, image_size, remove_vignette_aob, remove_vignette_mask, sizeof(remove_vignette_aob));
+    uint8_t *addr = sig_scan(image_base, image_size, "F3 0F 10 ?? 50 F3 0F 59 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? F3 ?? 0F 5C ?? F3 ?? 0F 59 ?? ?? 8D ?? ?? A0 00 00 00");
     if (!addr) return false;
     DWORD old_protect;
     VirtualProtect(addr + 0x17, 5, PAGE_EXECUTE_READWRITE, &old_protect);
@@ -332,11 +250,7 @@ static bool patch_eldenring_remove_vignette() {
 }
 
 static bool hook_eldenring_archive_position_resolver() {
-    static const uint8_t map_archive_aob[] = {
-        0x48, 0x83, 0x7b, 0x20, 0x08, 0x48, 0x8d, 0x4b, 0x08, 0x72, 0x03, 0x48, 0x8b, 0x09, 0x4c, 0x8b, 0x4b, 0x18, 0x41, 0xb8, 0x05, 0x00,
-        0x00, 0x00, 0x4d, 0x3b, 0xc8
-    };
-    uint8_t *addr = sig_scan(image_base, image_size, map_archive_aob, sizeof(map_archive_aob));
+    uint8_t *addr = sig_scan(image_base, image_size, "48 83 7B 20 08 48 8D 4B 08 72 03 48 8B 09 4C 8B 4B 18 41 B8 05 00 00 00 4D 3B C8");
     if (!addr) {
         return false;
     }
@@ -351,11 +265,7 @@ static bool hook_eldenring_archive_position_resolver() {
 }
 
 static bool hook_wwise_archive_position_resolver() {
-    static const uint8_t ak_file_location_resolver_aob[] = {
-        0x4c, 0x89, 0x74, 0x24, 0x28, 0x48, 0x8b, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00, 0x48, 0x89, 0x44, 0x24, 0x20, 0x4c, 0x8b,
-        0xce, 0x45, 0x8b, 0xc4, 0x49, 0x8b, 0xd7, 0x48, 0x8b, 0xcd, 0xe8
-    };
-    uint8_t *addr = sig_scan(image_base, image_size, ak_file_location_resolver_aob, sizeof(ak_file_location_resolver_aob));
+    uint8_t *addr = sig_scan(image_base, image_size, "4C 89 74 24 28 48 8B 84 24 90 00 00 00 48 89 44 24 20 4C 8B CE 45 8B C4 49 8B D7 48 8B CD E8");
     if (!addr) {
         return false;
     }
