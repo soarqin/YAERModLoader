@@ -18,14 +18,10 @@
 
 #include <shlwapi.h>
 
+config_t config;
+
 static wchar_t modloader_module_path[MAX_PATH];
 wchar_t env_config_path[MAX_PATH];
-int cpu_affinity_strategy = 0;
-bool reset_achievements_on_new_game = false;
-bool enable_ime = false;
-bool skip_intro = false;
-bool remove_chromatic_aberration = false;
-bool remove_vignette = false;
 
 static void enable_debug() {
     AllocConsole();
@@ -48,19 +44,19 @@ static int ini_read_cb(void *user, const char *section,
                 enable_debug();
             }
         } else if (lstrcmpA(name, "cpu_affinity") == 0) {
-            cpu_affinity_strategy = strtol(value, NULL, 0);
+            config.cpu_affinity_strategy = strtol(value, NULL, 0);
         } else if (lstrcmpA(name, "reset_achievements_on_new_game") == 0) {
-            reset_achievements_on_new_game = value_to_bool(value);
+            config.reset_achievements_on_new_game = value_to_bool(value);
         } else if (lstrcmpA(name, "enable_ime") == 0) {
-            enable_ime = value_to_bool(value);
+            config.enable_ime = value_to_bool(value);
         }
     } else if (lstrcmpA(section, "elden_ring") == 0) {
         if (lstrcmpA(name, "skip_intro") == 0) {
-            skip_intro = value_to_bool(value);
+            config.skip_intro = value_to_bool(value);
         } else if (lstrcmpA(name, "remove_chromatic_aberration") == 0) {
-            remove_chromatic_aberration = value_to_bool(value);
+            config.remove_chromatic_aberration = value_to_bool(value);
         } else if (lstrcmpA(name, "remove_vignette") == 0) {
-            remove_vignette = value_to_bool(value);
+            config.remove_vignette = value_to_bool(value);
         }
     } else if (lstrcmpA(section, "dlls") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);

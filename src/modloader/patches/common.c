@@ -8,9 +8,8 @@
 
 #include "common.h"
 
+#include "modloader/config.h"
 #include "modloader/mod.h"
-
-#include "steam/api.h"
 
 #include "process/image.h"
 #include "process/scanner.h"
@@ -94,10 +93,8 @@ static bool hook_wwise_archive_position_resolver() {
     return true;
 }
 
-extern bool enable_ime;
-
 bool common_install() {
-    if (enable_ime) {
+    if (config.enable_ime) {
         patch_ime_disable();
     }
     image_base = get_module_image_base(&image_size);

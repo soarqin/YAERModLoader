@@ -8,6 +8,7 @@
 
 #include "eldenring.h"
 
+#include "modloader/config.h"
 #include "modloader/mod.h"
 
 #include "steam/api.h"
@@ -204,32 +205,26 @@ static bool hook_eldenring_archive_position_resolver() {
     return true;
 }
 
-extern int cpu_affinity_strategy;
-extern bool reset_achievements_on_new_game;
-extern bool skip_intro;
-extern bool remove_chromatic_aberration;
-extern bool remove_vignette;
-
 bool eldenring_install() {
     game_running = true;
 
-    if (cpu_affinity_strategy > 0) {
-        set_process_cpu_affinity_thread_handle = CreateThread(NULL, 0, set_process_cpu_affinity_thread, (LPVOID)(intptr_t)cpu_affinity_strategy, 0, NULL);
+    if (config.cpu_affinity_strategy > 0) {
+        set_process_cpu_affinity_thread_handle = CreateThread(NULL, 0, set_process_cpu_affinity_thread, (LPVOID)(intptr_t)config.cpu_affinity_strategy, 0, NULL);
     }
-    if (reset_achievements_on_new_game) {
+    if (config.reset_achievements_on_new_game) {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
     }
     image_base = get_module_image_base(&image_size);
 
-    if (skip_intro) {
+    if (config.skip_intro) {
         patch_eldenring_skip_intro();
     }
 
-    if (remove_chromatic_aberration) {
+    if (config.remove_chromatic_aberration) {
         patch_eldenring_remove_chromatic_aberratio();
     }
 
-    if (remove_vignette) {
+    if (config.remove_vignette) {
         patch_eldenring_remove_vignette();
     }
 
