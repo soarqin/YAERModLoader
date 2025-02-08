@@ -9,6 +9,6 @@ set(SOURCES_MINHOOK
 )
 set(SOURCES_HDE "hde64.c")
 
-add_project(minhook STATIC ${SOURCES_MINHOOK} ${SOURCES_HDE} LANGUAGES C FOLDER libs)
+add_project(minhook STATIC ${SOURCES_MINHOOK} ${SOURCES_HDE} LANGUAGES C FOLDER extlibs)
 
 target_include_directories(minhook PUBLIC .)

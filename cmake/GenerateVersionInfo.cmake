@@ -2,7 +2,7 @@ include (CMakeParseArguments)
 
 # generate_version_info() function
 #
-# This function uses VersionInfo.in template file and VersionResource.rc file
+# This function uses versioninfo.h.in template file and versioninfo.rc.in file
 # to generate WIN32 resource with version information and general resource strings.
 #
 # Usage:
@@ -20,6 +20,7 @@ include (CMakeParseArguments)
 #   add_executable(target-name ${target-files} ${SomeOutputResourceVariable})
 #
 # You can specify resource strings in arguments:
+#   RC_FOLDER          - folder with versioninfo.h.in and versioninfo.rc.in files (default for current folder)
 #   NAME               - name of executable (no defaults, ex: Microsoft Word)
 #   BUNDLE             - bundle (${NAME} is default, ex: Microsoft Office)
 #   VERSION_MAJOR      - 1 is default
@@ -35,6 +36,7 @@ include (CMakeParseArguments)
 function(generate_version_info outfiles)
     set (options)
     set (oneValueArgs
+        RC_FOLDER
         NAME
         BUNDLE
         VERSION_MAJOR
@@ -84,14 +86,17 @@ function(generate_version_info outfiles)
         set(PRODUCT_FILE_DESCRIPTION "${PRODUCT_NAME}")
     endif()
 
-    set (_VersionInfoFile ${CMAKE_CURRENT_BINARY_DIR}/versioninfo.h)
-    set (_VersionResourceFile ${CMAKE_CURRENT_BINARY_DIR}/versioninfo.rc)
+    set(_VersionInfoFile ${CMAKE_CURRENT_BINARY_DIR}/versioninfo.h)
+    set(_VersionResourceFile ${CMAKE_CURRENT_BINARY_DIR}/versioninfo.rc)
+    if (NOT PRODUCT_RC_FOLDER OR "${PRODUCT_RC_FOLDER}" STREQUAL "")
+        set(PRODUCT_RC_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
+    endif ()
     configure_file(
-        ${CMAKE_CURRENT_LIST_DIR}/versioninfo.h.in
+        ${PRODUCT_RC_FOLDER}/versioninfo.h.in
         ${_VersionInfoFile}
         @ONLY)
     configure_file(
-        ${CMAKE_CURRENT_LIST_DIR}/versioninfo.rc.in
+        ${PRODUCT_RC_FOLDER}/versioninfo.rc.in
         ${_VersionResourceFile}
         COPYONLY)
     list(APPEND ${outfiles} ${_VersionInfoFile} ${_VersionResourceFile})

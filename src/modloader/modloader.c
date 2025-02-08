@@ -12,9 +12,9 @@
 #include "extdll.h"
 #include "detours_subset.h"
 
-#include "../proxy/winhttp.h"
-#include "../proxy/dxgi.h"
-#include "../proxy/dinput8.h"
+#include "proxy/winhttp.h"
+#include "proxy/dxgi.h"
+#include "proxy/dinput8.h"
 
 #include <MinHook.h>
 

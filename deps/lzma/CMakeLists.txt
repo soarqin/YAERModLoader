@@ -11,5 +11,5 @@ add_project(lzma STATIC
     LzHash.h
     Precomp.h
     Threads.c Threads.h
-    LANGUAGES C FOLDER libs)
+    LANGUAGES C FOLDER extlibs)
 target_include_directories(${PROJECT_NAME} PUBLIC .)
