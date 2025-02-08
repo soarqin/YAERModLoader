@@ -10,4 +10,4 @@
 
 #include <stddef.h>
 
-extern void *get_module_image_base(size_t *size);
+extern void *get_module_image_base(const wchar_t *module_name, size_t *size);

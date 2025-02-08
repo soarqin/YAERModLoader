@@ -214,7 +214,7 @@ bool eldenring_install() {
     if (config.reset_achievements_on_new_game) {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
     }
-    image_base = get_module_image_base(&image_size);
+    image_base = get_module_image_base(NULL, &image_size);
 
     if (config.skip_intro) {
         patch_eldenring_skip_intro();

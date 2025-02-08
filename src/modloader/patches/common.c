@@ -97,7 +97,7 @@ bool common_install() {
     if (config.enable_ime) {
         patch_ime_disable();
     }
-    image_base = get_module_image_base(&image_size);
+    image_base = get_module_image_base(NULL, &image_size);
     /* Do not hook if no mod is added, to improve game performance during loading. */
     if (mods_count() <= 0) return true;
     if (!hook_wwise_archive_position_resolver()) return false;

@@ -11,10 +11,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <stdint.h>
-
-void *get_module_image_base(size_t *size) {
-    const HMODULE hModule = GetModuleHandleW(NULL);
+void *get_module_image_base(const wchar_t *module_name, size_t *size) {
+    const HMODULE hModule = GetModuleHandleW(module_name);
     if (hModule == NULL) {
         return NULL;
     }
