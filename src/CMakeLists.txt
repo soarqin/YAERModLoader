@@ -2,6 +2,7 @@ include(GenerateVersionInfo)
 
 add_subdirectory(process)
 add_subdirectory(steam)
+add_subdirectory(eldenring)
 add_subdirectory(modloader)
 add_subdirectory(launcher)
 

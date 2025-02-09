@@ -11,11 +11,14 @@
 #include "modloader/config.h"
 #include "modloader/mod.h"
 
-#include "steam/api.h"
-
 #include "process/image.h"
 #include "process/scanner.h"
 #include "process/util.h"
+
+#include "steam/api.h"
+
+#include "eldenring/wstring.h"
+#include "eldenring/param.h"
 
 #include <MinHook.h>
 
@@ -71,6 +74,7 @@ DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
         if (ReadProcessMemory(process, addr, &addr2, sizeof(uint8_t*), NULL) && addr2) {
             float on_menu_time;
             if (ReadProcessMemory(process, addr2 + offset, &on_menu_time, sizeof(float), NULL) && on_menu_time > 0.0f) {
+                param_load_table();
                 set_process_cpu_affinity_strategy(strat);
                 return 0;
             }
@@ -78,21 +82,6 @@ DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
         Sleep(500);
     }
     return 0;
-}
-
-typedef struct {
-    void *unk;
-    wchar_t *string;
-    void *unk2;
-    uint64_t length;
-    uint64_t capacity;
-} wstring_impl_t;
-
-wchar_t *wstring_impl_str(wstring_impl_t *str) {
-    if (sizeof(wchar_t) * str->capacity >= 15) {
-        return str->string;
-    }
-    return (wchar_t*)&str->string;
 }
 
 typedef void *(__cdecl *map_archive_path_t)(wstring_impl_t *path, uint64_t p2, uint64_t p3, uint64_t p4, uint64_t p5, uint64_t p6);
@@ -111,7 +100,7 @@ static CreateFileW_t old_CreateFileW = NULL;
 void *__cdecl map_archive_path(wstring_impl_t *path, const uint64_t p2, const uint64_t p3, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
     void *res = old_map_archive_path(path, p2, p3, p4, p5, p6);
     if (path == NULL) return res;
-    wchar_t *str = wstring_impl_str(path);
+    wchar_t *str = wstring_impl_str_mutable(path);
     if (StrCmpNW(str, L"data", 4) == 0 && StrCmpNW(str + 5, L":/", 2) == 0) {
         const wchar_t *replace = mods_file_search(str + 6);
         if (replace == NULL) return res;

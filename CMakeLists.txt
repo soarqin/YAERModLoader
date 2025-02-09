@@ -10,7 +10,7 @@ fix_compile_flags()
 fix_release_flags(STRIP_BINARY ON USE_LTO ON USE_STATIC_CRT ON)
 
 include(GlobalOptions)
-add_global_options()
+add_global_options(C_STANDARD 11)
 
 include(ProjectMacros)
 
