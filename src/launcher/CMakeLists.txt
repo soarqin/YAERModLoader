@@ -1,4 +1,4 @@
-project(modloader_launcher LANGUAGES C VERSION 0.3.3)
+project(modloader_launcher LANGUAGES C VERSION "${YAERMODLOADER_VERSION}")
 
 # exe target
 generate_version_info(exe_res_files
