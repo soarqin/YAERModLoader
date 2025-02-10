@@ -10,6 +10,8 @@
 
 #include "pointers.h"
 
+#include "param_defs.h"
+
 #include <stdio.h>
 
 bool param_load_table() {
