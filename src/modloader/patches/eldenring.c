@@ -19,6 +19,7 @@
 
 #include "eldenring/wstring.h"
 #include "eldenring/param.h"
+#include "eldenring/defs/menu_common_param.h"
 
 #include <MinHook.h>
 
@@ -28,12 +29,13 @@
 
 #include <stdint.h>
 
-static HANDLE set_process_cpu_affinity_thread_handle = NULL;
+static HANDLE async_operations_thread_handle = NULL;
 static bool game_running = false;
 static HANDLE reset_achievements_on_new_game_thread_handle = NULL;
 static void *image_base;
 static size_t image_size;
 
+/*
 static uint64_t get_game_version() {
     wchar_t exepath[MAX_PATH];
     GetModuleFileNameW(NULL, exepath, MAX_PATH);
@@ -53,33 +55,17 @@ static uint64_t get_game_version() {
     free(pVersionResource);
     return 0LL;
 }
+*/
 
-DWORD WINAPI set_process_cpu_affinity_thread(LPVOID arg) {
-    const int strat = (int)(intptr_t)arg;
-    const uint64_t game_version = get_game_version();
-    uintptr_t offset;
-    uint8_t *addr = sig_scan(image_base, image_size, "48 8B 0D ?? ?? ?? ?? 48 8B 49 08 E8 ?? ?? ?? ?? 48 8B D0 48 8B CE E8");
-    if (!addr) { return 1; }
-    addr += *(int32_t*)(addr + 3) + 7;
-    if (game_version < 0x0001000300000000ULL) {
-        offset = 0x718 + 0x14;
-    } else if (game_version < 0x0002000200000000ULL) {
-        offset = 0x728 + 0x14;
-    } else {
-        offset = 0x730 + 0x14;
-    }
-    HANDLE process = GetCurrentProcess();
-    while (game_running) {
-        uint8_t *addr2;
-        if (ReadProcessMemory(process, addr, &addr2, sizeof(uint8_t*), NULL) && addr2) {
-            float on_menu_time;
-            if (ReadProcessMemory(process, addr2 + offset, &on_menu_time, sizeof(float), NULL) && on_menu_time > 0.0f) {
-                param_load_table();
-                set_process_cpu_affinity_strategy(strat);
-                return 0;
-            }
-        }
-        Sleep(500);
+DWORD WINAPI async_operation_thread(LPVOID arg) {
+    param_load_table();
+
+    if (config.cpu_affinity_strategy != 0) set_process_cpu_affinity_strategy(config.cpu_affinity_strategy);
+    if (config.world_map_cursor_speed != 1.0f) {
+        const param_table_t *t = param_find_table(L"MenuCommonParam");
+        param_table_iterate_begin(t, menu_common_param_t, param)
+            param->worldMapCursorSpeed *= config.world_map_cursor_speed;
+        param_table_iterate_end();
     }
     return 0;
 }
@@ -197,8 +183,8 @@ static bool hook_eldenring_archive_position_resolver() {
 bool eldenring_install() {
     game_running = true;
 
-    if (config.cpu_affinity_strategy > 0) {
-        set_process_cpu_affinity_thread_handle = CreateThread(NULL, 0, set_process_cpu_affinity_thread, (LPVOID)(intptr_t)config.cpu_affinity_strategy, 0, NULL);
+    if (config.cpu_affinity_strategy > 0 || config.world_map_cursor_speed != 1.0f) {
+        async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
     }
     if (config.reset_achievements_on_new_game) {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
@@ -226,8 +212,9 @@ bool eldenring_install() {
 void eldenring_uninstall() {
     game_running = false;
 
-    if (set_process_cpu_affinity_thread_handle && WaitForSingleObject(set_process_cpu_affinity_thread_handle, 1000) == WAIT_TIMEOUT)
-        TerminateThread(set_process_cpu_affinity_thread_handle, 0);
+    if (async_operations_thread_handle && WaitForSingleObject(async_operations_thread_handle, 1000) == WAIT_TIMEOUT)
+        TerminateThread(async_operations_thread_handle, 0);
     if (reset_achievements_on_new_game_thread_handle && WaitForSingleObject(reset_achievements_on_new_game_thread_handle, 1000) == WAIT_TIMEOUT)
         TerminateThread(reset_achievements_on_new_game_thread_handle, 0);
+    param_unload();
 }

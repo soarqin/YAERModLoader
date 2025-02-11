@@ -20,9 +20,10 @@
 #include <windows.h>
 #include <stdio.h>
 
+#pragma pack(push, 8)
+
 typedef struct {
-    uintptr_t vtable;
-    uintptr_t unk0;
+    uintptr_t vtable[2];
     wstring_impl_t name;
     uintptr_t unk1[9];
     struct {
@@ -32,9 +33,16 @@ typedef struct {
 } param_t;
 
 typedef struct {
+    uintptr_t vtable[3];
     param_t **start;
     param_t **end;
-} param_collection_t;
+    uintptr_t unk0;
+    uintptr_t unk1;
+    uintptr_t unk2;
+    int loaded;
+} cs_regulation_manager_t;
+
+#pragma pack(pop)
 
 typedef struct {
     const wchar_t *name;
@@ -51,16 +59,19 @@ bool param_load_table() {
     if (!pointers.cs_regulation_manager) {
         return false;
     }
-    const param_collection_t *param_collection = (const param_collection_t*)(*(uintptr_t*)pointers.cs_regulation_manager + 0x18);
-    if (!param_collection->start || !param_collection->end) {
-        return false;
+    const cs_regulation_manager_t *reg_man;
+    while (1) {
+        reg_man = (const cs_regulation_manager_t*)*(uintptr_t*)pointers.cs_regulation_manager;
+        if (reg_man != NULL && reg_man->start != NULL && reg_man->end != NULL && reg_man->loaded) break;
+        Sleep(100);
     }
-    fprintf(stderr, "%p %p %zd\n", param_collection->start, param_collection->end, param_collection->end - param_collection->start);
-    for (param_t **current = param_collection->start; current < param_collection->end; current++) {
+    /*fwprintf(stderr, L"%p %p %zd\n", reg_man->start, reg_man->end, reg_man->end - reg_man->start);*/
+    for (param_t **current = reg_man->start; current < reg_man->end; current++) {
         const param_t *param = *current;
-        param_type_t *pt = LocalAlloc(0, sizeof(param_type_t));
+        param_type_t *pt = uthash_malloc(sizeof(param_type_t));
         pt->name = wstring_impl_str(&param->name);
         pt->param = param->path->data;
+        /*fwprintf(stderr, L"%p %ls\n", param, pt->name);*/
         HASH_ADD_KEYPTR(hh, param_types, pt->name, lstrlenW(pt->name) * sizeof(wchar_t), pt);
     }
     return true;

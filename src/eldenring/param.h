@@ -24,6 +24,7 @@ typedef struct {
     uintptr_t vtable;
     uint16_t unk0;
     uint16_t count;
+    uint16_t padding0[2];
     uintptr_t unk1[6];
     param_entry_offset_t entries[0];
 } param_table_t;
@@ -44,7 +45,7 @@ const param_table_t *param_find_table(const wchar_t *name);
     } \
 }
 
-#define param_table_iterate_begin(t, tp, var) { \
+#define param_table_iterate_begin(t, tp, var) do { \
     uint16_t count = (t)->count; \
     for (uint16_t i = 0; i < count; i++) { \
         const param_entry_offset_t *entry = &((t)->entries[i]); \
@@ -53,4 +54,4 @@ const param_table_t *param_find_table(const wchar_t *name);
             continue; \
         }
 
-#define param_table_iterate_end() } }
+#define param_table_iterate_end() } } while(0)

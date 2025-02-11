@@ -57,6 +57,15 @@ static int ini_read_cb(void *user, const char *section,
             config.remove_chromatic_aberration = value_to_bool(value);
         } else if (lstrcmpA(name, "remove_vignette") == 0) {
             config.remove_vignette = value_to_bool(value);
+        } else if (lstrcmpA(name, "world_map_cursor_speed") == 0) {
+            config.world_map_cursor_speed = strtof(value, NULL);
+            if (config.world_map_cursor_speed <= 0.0f) {
+                config.world_map_cursor_speed = 1.0f;
+            } else if (config.world_map_cursor_speed < 0.5f) {
+                config.world_map_cursor_speed = 0.5f;
+            } else if (config.world_map_cursor_speed > 10.0f) {
+                config.world_map_cursor_speed = 10.0f;
+            }
         }
     } else if (lstrcmpA(section, "dlls") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);

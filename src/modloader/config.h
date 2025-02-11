@@ -18,6 +18,7 @@ typedef struct {
     bool skip_intro;
     bool remove_chromatic_aberration;
     bool remove_vignette;
+    float world_map_cursor_speed;
 } config_t;
 
 extern void config_init(void *module);

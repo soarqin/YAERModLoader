@@ -12,10 +12,12 @@
 
 typedef enum: uint32_t {
     INIT_CS_REGULATION_MANAGER = 1,
+    INIT_SOLO_PARAM_REPOSITORY = 2,
 } pointers_init_flag_t;
 
 typedef struct {
     void *cs_regulation_manager;
+    void *solo_param_repository;
 } pointers_t;
 
 uint32_t pointers_init(uint32_t init);
