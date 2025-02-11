@@ -18,7 +18,6 @@
 #include <uthash.h>
 
 #include <windows.h>
-#include <stdio.h>
 
 #pragma pack(push, 8)
 
