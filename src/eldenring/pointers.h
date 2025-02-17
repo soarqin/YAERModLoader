@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 
-typedef enum: uint32_t {
+typedef enum {
     INIT_CS_REGULATION_MANAGER = 1,
     INIT_SOLO_PARAM_REPOSITORY = 2,
 } pointers_init_flag_t;
