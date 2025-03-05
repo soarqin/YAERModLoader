@@ -1,3 +1,6 @@
+#### NEXT VERSION
+* Added new option: `world_map_cursor_speed`
+
 #### 0.3.3
 * Fixed broken '-p' option
 
