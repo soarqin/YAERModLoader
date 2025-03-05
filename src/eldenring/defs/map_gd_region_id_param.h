@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct map_gd_region_id_param_s {
+typedef struct er_map_gd_region_id_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -24,4 +24,4 @@ typedef struct map_gd_region_id_param_s {
     /* リザーブ
      *   リザーブ */
     char Reserve[24];
-} map_gd_region_id_param_t;
+} er_map_gd_region_id_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sound_auto_env_sound_group_param_s {
+typedef struct er_sound_auto_env_sound_group_param_s {
     /* サウンドNo
      *   再生するサウンドNo (サウンドタイプはa固定)
      * Sound Number
@@ -28,4 +28,4 @@ typedef struct sound_auto_env_sound_group_param_s {
      *   Follow-up speed (difference ratio) to the target position of the actual sound source
      * Default Value  = 0.015 */
     float FollowRate;
-} sound_auto_env_sound_group_param_t;
+} er_sound_auto_env_sound_group_param_t;

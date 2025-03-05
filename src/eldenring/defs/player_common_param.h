@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct player_common_param_s {
+typedef struct er_player_common_param_s {
     /* プレイヤーの自動フットエフェクトのSFX識別子[3桁]
      *   自動フットエフェクトのSFXIDに使われる識別子です。XYYZZZのZZZにあたります。
      * Automatic Foot Effect SFX Identifier
@@ -395,4 +395,4 @@ typedef struct player_common_param_s {
     /* 予約
      *   (dummy8) */
     char reserved41[28];
-} player_common_param_t;
+} er_player_common_param_t;

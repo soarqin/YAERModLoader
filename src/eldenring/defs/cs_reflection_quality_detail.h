@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_reflection_quality_detail_s {
+typedef struct er_cs_reflection_quality_detail_s {
     /* 反射有効
      *   反射有効
      * Reflection Enabled
@@ -72,4 +72,4 @@ typedef struct cs_reflection_quality_detail_s {
      * Fresnel Reject Bias
      *   Fresnel reject bias. High quality when made smaller */
     float ssrFresnelRejectBias;
-} cs_reflection_quality_detail_t;
+} er_cs_reflection_quality_detail_t;

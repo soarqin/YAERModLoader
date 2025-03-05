@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct npc_ai_behavior_probability_param_s {
+typedef struct er_npc_ai_behavior_probability_param_s {
     /* 右手近接_R1コンボ
      *   右手近接行動
      * Right-hand - R1 Combo
@@ -1046,4 +1046,4 @@ typedef struct npc_ai_behavior_probability_param_s {
     /* 未使用
      * Unused */
     short param199;
-} npc_ai_behavior_probability_param_t;
+} er_npc_ai_behavior_probability_param_t;

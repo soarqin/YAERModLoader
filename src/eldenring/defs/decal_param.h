@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct decal_param_s {
+typedef struct er_decal_param_s {
     /* テクスチャID
      *   テクスチャID
      * Texture ID
@@ -560,4 +560,4 @@ typedef struct decal_param_s {
     /* パディング
      *   パディング */
     char pad_02[40];
-} decal_param_t;
+} er_decal_param_t;

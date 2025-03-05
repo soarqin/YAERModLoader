@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct charmakemenutop_param_s {
+typedef struct er_charmakemenutop_param_s {
     /* コマンドタイプ
      *   コマンドの種別
      * Command Type
@@ -76,4 +76,4 @@ typedef struct charmakemenutop_param_s {
 
     /* 予約 */
     char reserved[4];
-} charmakemenutop_param_t;
+} er_charmakemenutop_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct menu_value_table_spec_s {
+typedef struct er_menu_value_table_spec_s {
     /* 比較する値
      *   比較する値
      * Value
@@ -22,4 +22,4 @@ typedef struct menu_value_table_spec_s {
     /* パディング
      *   パディング */
     char padding[3];
-} menu_value_table_spec_t;
+} er_menu_value_table_spec_t;

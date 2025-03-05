@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct random_appear_param_s {
+typedef struct er_random_appear_param_s {
     /* 抽選スロットID0
      *   スロットが当選した場合に出現するか
      * Random Slot [0]
@@ -602,4 +602,4 @@ typedef struct random_appear_param_s {
     unsigned char slot99:1;
 
     char pad:4;
-} random_appear_param_t;
+} er_random_appear_param_t;

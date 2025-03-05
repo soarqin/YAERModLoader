@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct fe_text_effect_param_s {
+typedef struct er_fe_text_effect_param_s {
     /* リソースID
      *   メニューリソースのインスタンス名。TextEffect_X のID
      * Resource ID
@@ -35,4 +35,4 @@ typedef struct fe_text_effect_param_s {
 
     /* パディング */
     char pad2[19];
-} fe_text_effect_param_t;
+} er_fe_text_effect_param_t;

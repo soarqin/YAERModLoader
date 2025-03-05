@@ -58,19 +58,19 @@ static uint64_t get_game_version() {
 */
 
 DWORD WINAPI async_operation_thread(LPVOID arg) {
-    param_load_table();
+    er_param_load_table();
 
     if (config.cpu_affinity_strategy != 0) set_process_cpu_affinity_strategy(config.cpu_affinity_strategy);
     if (config.world_map_cursor_speed != 1.0f) {
-        const param_table_t *t = param_find_table(L"MenuCommonParam");
-        param_table_iterate_begin(t, menu_common_param_t, param)
+        const er_param_table_t *t = er_param_find_table(L"MenuCommonParam");
+        er_param_table_iterate_begin(t, er_menu_common_param_t, param)
             param->worldMapCursorSpeed *= config.world_map_cursor_speed;
-        param_table_iterate_end();
+        er_param_table_iterate_end();
     }
     return 0;
 }
 
-typedef void *(__cdecl *map_archive_path_t)(wstring_impl_t *path, uint64_t p2, uint64_t p3, uint64_t p4, uint64_t p5, uint64_t p6);
+typedef void *(__cdecl *map_archive_path_t)(er_wstring_impl_t *path, uint64_t p2, uint64_t p3, uint64_t p4, uint64_t p5, uint64_t p6);
 typedef HANDLE (WINAPI *CreateFileW_t)(LPCWSTR lpFileName,
                                        DWORD dwDesiredAccess,
                                        DWORD dwShareMode,
@@ -83,10 +83,10 @@ typedef HANDLE (WINAPI *CreateFileW_t)(LPCWSTR lpFileName,
 static map_archive_path_t old_map_archive_path = NULL;
 static CreateFileW_t old_CreateFileW = NULL;
 
-void *__cdecl map_archive_path(wstring_impl_t *path, const uint64_t p2, const uint64_t p3, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
+void *__cdecl map_archive_path(er_wstring_impl_t *path, const uint64_t p2, const uint64_t p3, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
     void *res = old_map_archive_path(path, p2, p3, p4, p5, p6);
     if (path == NULL) return res;
-    wchar_t *str = wstring_impl_str_mutable(path);
+    wchar_t *str = er_wstring_impl_str_mutable(path);
     if (StrCmpNW(str, L"data", 4) == 0 && StrCmpNW(str + 5, L":/", 2) == 0) {
         const wchar_t *replace = mods_file_search(str + 6);
         if (replace == NULL) return res;
@@ -216,5 +216,5 @@ void eldenring_uninstall() {
         TerminateThread(async_operations_thread_handle, 0);
     if (reset_achievements_on_new_game_thread_handle && WaitForSingleObject(reset_achievements_on_new_game_thread_handle, 1000) == WAIT_TIMEOUT)
         TerminateThread(reset_achievements_on_new_game_thread_handle, 0);
-    param_unload();
+    er_param_unload();
 }

@@ -3,7 +3,7 @@
 /* Defines instances of c0000 (player) characters in the game, including starting classes.
  * Note that many fields are not used and remain from earlier games, particularly with respect to starting classes.
  * Starting classes begin at 3000 with consecutive IDs, and starting gifts begin at 2400 likewise. */
-typedef struct character_init_param_s {
+typedef struct er_character_init_param_s {
     /* ＭＰ回復速度基本値[s]
      *   ＭＰが、1ポイント回復するまでの時間（小数点第一位）
      * Base FP Recovery Time
@@ -718,4 +718,4 @@ typedef struct character_init_param_s {
     /* 予約領域
      *   予約領域 */
     char reserve[6];
-} character_init_param_t;
+} er_character_init_param_t;

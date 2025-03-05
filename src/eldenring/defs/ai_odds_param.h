@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct ai_odds_param_s {
+typedef struct er_ai_odds_param_s {
     /* アクション0
      *   アクション0の比率
      * Action 0
@@ -604,4 +604,4 @@ typedef struct ai_odds_param_s {
     /* pad
      *   pad */
     char pad0[12];
-} ai_odds_param_t;
+} er_ai_odds_param_t;

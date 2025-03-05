@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct obj_act_param_s {
+typedef struct er_obj_act_param_s {
     /* アクション有効時のMsgID
      *   アクションが有効時に表示するメニューのMsgIDです。
      * Action Enabled - Message ID
@@ -146,4 +146,4 @@ typedef struct obj_act_param_s {
     int spQualifiedId2_new;
 
     char pad2[32];
-} obj_act_param_t;
+} er_obj_act_param_t;

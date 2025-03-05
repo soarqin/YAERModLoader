@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct clear_count_correct_param_s {
+typedef struct er_clear_count_correct_param_s {
     /* 《最大HP倍率[%]》
      *   最大HP倍率[%]
      * Max HP %
@@ -220,4 +220,4 @@ typedef struct clear_count_correct_param_s {
 
     /* pad */
     char pad1[4];
-} clear_count_correct_param_t;
+} er_clear_count_correct_param_t;

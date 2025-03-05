@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sound_auto_reverb_evaluation_dist_param_s {
+typedef struct er_sound_auto_reverb_evaluation_dist_param_s {
     /* NoHitとする距離[m]
      *   この距離[m]以上の衝突点をNoHitとして判定する(0より小さい:無効)
      * No Hit Distance
@@ -51,4 +51,4 @@ typedef struct sound_auto_reverb_evaluation_dist_param_s {
      * Max Distance until Ignore
      *   Max distance decimation number (0: not decimation) (must be set to the value of Max collision point record number-1. Incorrect value will be corrected) */
     unsigned int ignoreDistNumForMax;
-} sound_auto_reverb_evaluation_dist_param_t;
+} er_sound_auto_reverb_evaluation_dist_param_t;

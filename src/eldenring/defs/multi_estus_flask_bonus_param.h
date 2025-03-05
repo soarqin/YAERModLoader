@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct multi_estus_flask_bonus_param_s {
+typedef struct er_multi_estus_flask_bonus_param_s {
     /* ホスト
      *   ホストのエスト回復数
      * Flask Recovery - Host
@@ -99,4 +99,4 @@ typedef struct multi_estus_flask_bonus_param_s {
 
     /* pad */
     char pad1[48];
-} multi_estus_flask_bonus_param_t;
+} er_multi_estus_flask_bonus_param_t;

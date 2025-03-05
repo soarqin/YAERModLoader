@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct weather_lot_tex_param_s {
+typedef struct er_weather_lot_tex_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -46,4 +46,4 @@ typedef struct weather_lot_tex_param_s {
 
     /* パッド2 */
     char pad2[4];
-} weather_lot_tex_param_t;
+} er_weather_lot_tex_param_t;

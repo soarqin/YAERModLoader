@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sound_chr_physics_se_param_s {
+typedef struct er_sound_chr_physics_se_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -188,4 +188,4 @@ typedef struct sound_chr_physics_se_param_s {
      *   Specify the INDEX of the rigid body for contact judgment. Specify only the rigid body to which you want to attach SE
      * Default Value  = -1 */
     char ContactCheckRigidIdx15;
-} sound_chr_physics_se_param_t;
+} er_sound_chr_physics_se_param_t;

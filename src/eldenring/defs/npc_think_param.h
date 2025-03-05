@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct npc_think_param_s {
+typedef struct er_npc_think_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -646,4 +646,4 @@ typedef struct npc_think_param_s {
      *   Amazing anime ID
      * Default Value  = -1 */
     int surpriseAnimId;
-} npc_think_param_t;
+} er_npc_think_param_t;

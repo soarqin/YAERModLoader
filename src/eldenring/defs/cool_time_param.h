@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cool_time_param_s {
+typedef struct er_cool_time_param_s {
     /* 制限時間（協力霊数0）
      *   制限時間[sec]（協力霊数0）
      * Limitation Time - 0 Co-op Phantoms
@@ -48,4 +48,4 @@ typedef struct cool_time_param_s {
      * Observation Time - 3 Co-op Phantoms
      *   Monitoring time [sec] (number of cooperating spirits 3) */
     float observeTime_3;
-} cool_time_param_t;
+} er_cool_time_param_t;

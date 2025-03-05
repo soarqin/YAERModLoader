@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct event_flag_usage_param_s {
+typedef struct er_event_flag_usage_param_s {
     /* 用途
      *   フラグの用途。
      * Use
@@ -27,4 +27,4 @@ typedef struct event_flag_usage_param_s {
     /* パディング
      *   パディング */
     char padding2[24];
-} event_flag_usage_param_t;
+} er_event_flag_usage_param_t;

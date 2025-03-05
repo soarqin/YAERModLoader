@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct wep_absorp_pos_param_s {
+typedef struct er_wep_absorp_pos_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -352,4 +352,4 @@ typedef struct wep_absorp_pos_param_s {
 
     /* 予約領域 */
     char reserve[8];
-} wep_absorp_pos_param_t;
+} er_wep_absorp_pos_param_t;

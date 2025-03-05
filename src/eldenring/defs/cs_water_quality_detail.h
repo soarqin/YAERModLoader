@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_water_quality_detail_s {
+typedef struct er_cs_water_quality_detail_s {
     /* インタラクション有効
      *   インタラクション有効
      * Interaction Enabled
@@ -9,4 +9,4 @@ typedef struct cs_water_quality_detail_s {
     unsigned char interactionEnabled;
 
     char dmy[3];
-} cs_water_quality_detail_t;
+} er_cs_water_quality_detail_t;

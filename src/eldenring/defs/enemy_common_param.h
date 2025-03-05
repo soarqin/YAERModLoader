@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct enemy_common_param_s {
+typedef struct er_enemy_common_param_s {
     /* 予約
      *   (dummy8) */
     char reserved0[8];
@@ -42,4 +42,4 @@ typedef struct enemy_common_param_s {
     /* 予約
      *   (dummy8) */
     char reserved18[184];
-} enemy_common_param_t;
+} er_enemy_common_param_t;

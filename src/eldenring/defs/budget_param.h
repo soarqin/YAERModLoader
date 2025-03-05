@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct budget_param_s {
+typedef struct er_budget_param_s {
     /* VRAM:ALL
      *   VRAM:ALL(単位はMB)
      * VRAM: ALL
@@ -189,4 +189,4 @@ typedef struct budget_param_s {
     /* 予約領域
      *   予約領域 */
     char reserve_1[24];
-} budget_param_t;
+} er_budget_param_t;

@@ -1,7 +1,7 @@
 #pragma once
 
 /* Defines upgrades of weapons, include stat changes and upgrade cost (EquipMtrlSetParam id offset) */
-typedef struct reinforce_param_weapon_s {
+typedef struct er_reinforce_param_weapon_s {
     /* 物理攻撃力基本値
      *   物理攻撃力の補正値
      * Damage %: Physical
@@ -261,4 +261,4 @@ typedef struct reinforce_param_weapon_s {
      *   Damage multiplier for attacks with isAddBaseAtk in AtkParam, typically used with Ash of Wars.
      * Default Value  = 1 */
     float baseAtkRate;
-} reinforce_param_weapon_t;
+} er_reinforce_param_weapon_t;

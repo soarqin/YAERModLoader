@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_shadow_quality_detail_s {
+typedef struct er_cs_shadow_quality_detail_s {
     /* シャドウが有効
      *   シャドウが有効
      * Shadow Enabled
@@ -51,4 +51,4 @@ typedef struct cs_shadow_quality_detail_s {
      *   Blur count bias (set count bias, unchanged at 0)
      * Default Value  = -1 */
     int blurCountBias;
-} cs_shadow_quality_detail_t;
+} er_cs_shadow_quality_detail_t;

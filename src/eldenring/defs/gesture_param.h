@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct gesture_param_s {
+typedef struct er_gesture_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -38,4 +38,4 @@ typedef struct gesture_param_s {
 
     /* 予約領域 */
     char pad1[3];
-} gesture_param_t;
+} er_gesture_param_t;

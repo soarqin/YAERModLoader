@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct talk_param_s {
+typedef struct er_talk_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -135,4 +135,4 @@ typedef struct talk_param_s {
     /* パディング
      *   パディング */
     char pad1[31];
-} talk_param_t;
+} er_talk_param_t;

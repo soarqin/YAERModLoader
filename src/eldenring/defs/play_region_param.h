@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct play_region_param_s {
+typedef struct er_play_region_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -507,4 +507,4 @@ typedef struct play_region_param_s {
     unsigned int mapMenuUnlockEventId;
 
     char pad5[32];
-} play_region_param_t;
+} er_play_region_param_t;

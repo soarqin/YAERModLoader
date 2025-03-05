@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct enemy_standard_info_bank_s {
+typedef struct er_enemy_standard_info_bank_s {
     /* 挙動ｉｄ
      *   敵の挙動ＩＤ
      * Behavior id
@@ -130,4 +130,4 @@ typedef struct enemy_standard_info_bank_s {
 
     /* 予約1 */
     char reserve_last2[48];
-} enemy_standard_info_bank_t;
+} er_enemy_standard_info_bank_t;

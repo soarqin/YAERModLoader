@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct hit_effect_sfx_param_s {
+typedef struct er_hit_effect_sfx_param_s {
     /* 斬撃：標準
      *   斬撃：標準
      * Slash: Standard
@@ -120,4 +120,4 @@ typedef struct hit_effect_sfx_param_s {
      * Neutral: Specific 2
      *   Neutral: Specific 2 */
     int Neutral_Specific2;
-} hit_effect_sfx_param_t;
+} er_hit_effect_sfx_param_t;

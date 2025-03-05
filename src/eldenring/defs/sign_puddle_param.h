@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sign_puddle_param_s {
+typedef struct er_sign_puddle_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -61,4 +61,4 @@ typedef struct sign_puddle_param_s {
     int sortId;
 
     char endPad[4];
-} sign_puddle_param_t;
+} er_sign_puddle_param_t;

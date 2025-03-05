@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct weather_asset_replace_param_s {
+typedef struct er_weather_asset_replace_param_s {
     /* マップ番号
      *   マップ番号を8桁で指定します。オープン、レガシーの天球配置マップのみ指定可能です
      * Map ID
@@ -115,4 +115,4 @@ typedef struct weather_asset_replace_param_s {
     char CreateAssetLimitId3;
 
     char reserved1[4];
-} weather_asset_replace_param_t;
+} er_weather_asset_replace_param_t;

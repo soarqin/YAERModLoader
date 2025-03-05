@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct buddy_param_s {
+typedef struct er_buddy_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -214,4 +214,4 @@ typedef struct buddy_param_s {
     int unknown_0x98;
 
     unsigned int unknown_0x9c;
-} buddy_param_t;
+} er_buddy_param_t;

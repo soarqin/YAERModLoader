@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct posture_control_param_pro_s {
+typedef struct er_posture_control_param_pro_s {
     /* 右腕_内外
      *   右腕_内外
      * [a000] Right Arm - Inside/Outside
@@ -218,4 +218,4 @@ typedef struct posture_control_param_pro_s {
     short a016_leftArmFB;
 
     char pad[8];
-} posture_control_param_pro_t;
+} er_posture_control_param_pro_t;

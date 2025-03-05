@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct menu_param_color_table_s {
+typedef struct er_menu_param_color_table_s {
     /* 補間方法
      *   補間方法
      * Lerp Mode
@@ -60,4 +60,4 @@ typedef struct menu_param_color_table_s {
      *   Brightness 3. Treated as the third point of interpolation
      * Default Value  = 1 */
     float v3;
-} menu_param_color_table_t;
+} er_menu_param_color_table_t;

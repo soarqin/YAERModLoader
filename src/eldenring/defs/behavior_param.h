@@ -3,7 +3,7 @@
 /* Handles animation events, including attack frames or firing bullets.
  * Responsible for stamina consumption.
  * Note that in Elden Ring, SpEffects are applied directly from the animation. */
-typedef struct behavior_param_s {
+typedef struct er_behavior_param_s {
     /* 行動バリエーションID
      *   攻撃パラメータ用のIDを算出する際に使用します。実機上では直接使用しません。
      * Behavior Variation ID
@@ -70,4 +70,4 @@ typedef struct behavior_param_s {
 
     /* pad */
     char pad1[2];
-} behavior_param_t;
+} er_behavior_param_t;

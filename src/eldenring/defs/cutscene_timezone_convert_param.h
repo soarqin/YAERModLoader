@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cutscene_timezone_convert_param_s {
+typedef struct er_cutscene_timezone_convert_param_s {
     /* 変換前時間帯開始時刻[hour]
      *   カットシーン時刻に変換する時間帯の開始時刻[hour]
      * Source - Timezone Start
@@ -12,4 +12,4 @@ typedef struct cutscene_timezone_convert_param_s {
      * Destination - Cutscene Time
      *   Enter the time used during cutscene playback in hours [hour] */
     float DstCutscenTime;
-} cutscene_timezone_convert_param_t;
+} er_cutscene_timezone_convert_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_shader_quality_detail_s {
+typedef struct er_cs_shader_quality_detail_s {
     /* SSS有効
      *   SSS有効
      * SSS Enabled
@@ -22,4 +22,4 @@ typedef struct cs_shader_quality_detail_s {
 
     /* dmy */
     char dmy[1];
-} cs_shader_quality_detail_t;
+} er_cs_shader_quality_detail_t;

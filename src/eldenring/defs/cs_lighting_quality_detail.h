@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_lighting_quality_detail_s {
+typedef struct er_cs_lighting_quality_detail_s {
     /* ローカルライト有効距離係数
      *   ローカルライト有効距離係数(小さくすると、近い距離で消える)
      * Local Light Distance Factor
@@ -30,4 +30,4 @@ typedef struct cs_lighting_quality_detail_s {
     unsigned char localLightShadowSpecLevelMax;
 
     char dmy[1];
-} cs_lighting_quality_detail_t;
+} er_cs_lighting_quality_detail_t;

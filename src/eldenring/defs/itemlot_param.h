@@ -4,7 +4,7 @@
  * When doing this, consecutive IDs are also rolled.
  * A single result is produced by each row.
  * A row will not be rolled if the flag is already set. */
-typedef struct itemlot_param_s {
+typedef struct er_itemlot_param_s {
     /* １：アイテムID
      *   取得できるアイテムのID
      * 1 - Item ID
@@ -436,4 +436,4 @@ typedef struct itemlot_param_s {
     unsigned char PAD1:6;
 
     unsigned short PAD2;
-} itemlot_param_t;
+} er_itemlot_param_t;

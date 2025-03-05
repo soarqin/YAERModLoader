@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cutscene_gparam_time_param_s {
+typedef struct er_cutscene_gparam_time_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -71,4 +71,4 @@ typedef struct cutscene_gparam_time_param_s {
      *   Specify in-game time at the end of playback [hour] [-1.0 to 24.0] (-1 (less than 0): do nothing)
      * Default Value  = -1 */
     float PostPlayIngameTime;
-} cutscene_gparam_time_param_t;
+} er_cutscene_gparam_time_param_t;

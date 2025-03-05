@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct camera_fade_param_s {
+typedef struct er_camera_fade_param_s {
     /* 透明になりきる距離(m)
      *   Nearフェード最小距離(m) : α = 0になる距離
      * Proximity Fade: Minimum Near Distance
@@ -33,4 +33,4 @@ typedef struct camera_fade_param_s {
 
     /* ダミー */
     char dummy[12];
-} camera_fade_param_t;
+} er_camera_fade_param_t;

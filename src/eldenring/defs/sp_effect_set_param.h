@@ -1,7 +1,7 @@
 #pragma once
 
 /* Defines a set of SpEffects to be applied to a specific enemy from MSB (map). */
-typedef struct sp_effect_set_param_s {
+typedef struct er_sp_effect_set_param_s {
     /* 特殊効果ID1
      *   特殊効果ID1
      * SpEffect ID [1]
@@ -29,4 +29,4 @@ typedef struct sp_effect_set_param_s {
      *   Special effect ID4
      * Default Value  = -1 */
     int spEffectId4;
-} sp_effect_set_param_t;
+} er_sp_effect_set_param_t;

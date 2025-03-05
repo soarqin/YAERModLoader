@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct world_map_point_param_s {
+typedef struct er_world_map_point_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -497,4 +497,4 @@ typedef struct world_map_point_param_s {
     /* Text Disable Flag ID 2 [8]
      *   Hidden event flag ID of the text. If the event flag is On, it will not be displayed. It takes precedence over the display event flag ID. If the event flag ID (0) is invalid, it will be treated as Off. */
     int textDisableFlag2Id8;
-} world_map_point_param_t;
+} er_world_map_point_param_t;

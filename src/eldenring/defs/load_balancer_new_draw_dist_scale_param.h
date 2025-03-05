@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct load_balancer_new_draw_dist_scale_param_s {
+typedef struct er_load_balancer_new_draw_dist_scale_param_s {
     /* 発動レベル(開始)
      *   描画距離スケール発動レベル(開始)
      * Draw Distance - Level Start
@@ -68,4 +68,4 @@ typedef struct load_balancer_new_draw_dist_scale_param_s {
     /* 予備
      *   予備 */
     char reserve2[24];
-} load_balancer_new_draw_dist_scale_param_t;
+} er_load_balancer_new_draw_dist_scale_param_t;

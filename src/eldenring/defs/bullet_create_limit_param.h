@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct bullet_create_limit_param_s {
+typedef struct er_bullet_create_limit_param_s {
     /* グループ内上限弾数
      *   同一グループ内での作成上限数
      * Max Amount - By Group
@@ -20,4 +20,4 @@ typedef struct bullet_create_limit_param_s {
     /* パディング
      *   pad3 */
     char pad[30];
-} bullet_create_limit_param_t;
+} er_bullet_create_limit_param_t;

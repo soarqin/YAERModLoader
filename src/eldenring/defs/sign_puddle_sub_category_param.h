@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sign_puddle_sub_category_param_s {
+typedef struct er_sign_puddle_sub_category_param_s {
     char startPad[4];
 
     /* Sign Puddle Category Text ID */
@@ -12,4 +12,4 @@ typedef struct sign_puddle_sub_category_param_s {
     unsigned short unknown_0xa;
 
     char endPad[4];
-} sign_puddle_sub_category_param_t;
+} er_sign_puddle_sub_category_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct direction_camera_param_s {
+typedef struct er_direction_camera_param_s {
     /* オプションの影響を受けるか
      *   演出カメラON/OFFオプションの影響を受けるか？
      * Is Use Option
@@ -14,4 +14,4 @@ typedef struct direction_camera_param_s {
     /* パッド
      *   pad */
     char pad1[15];
-} direction_camera_param_t;
+} er_direction_camera_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sign_puddle_tab_param_s {
+typedef struct er_sign_puddle_tab_param_s {
     /* Is DLC Sign Tab */
     int isDlcTab;
 
@@ -10,4 +10,4 @@ typedef struct sign_puddle_tab_param_s {
     int unknown_0x8;
 
     int unknown_0xc;
-} sign_puddle_tab_param_t;
+} er_sign_puddle_tab_param_t;

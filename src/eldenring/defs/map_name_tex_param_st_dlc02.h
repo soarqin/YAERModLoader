@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct map_name_tex_param_st_dlc02_s {
+typedef struct er_map_name_tex_param_st_dlc02_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -64,4 +64,4 @@ typedef struct map_name_tex_param_st_dlc02_s {
     int unknown_0x20;
 
     int unknown_0x24;
-} map_name_tex_param_st_dlc02_t;
+} er_map_name_tex_param_st_dlc02_t;

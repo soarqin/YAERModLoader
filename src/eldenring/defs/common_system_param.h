@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct common_system_param_s {
+typedef struct er_common_system_param_s {
     /* ゲーム開始時マップ名ID_セーブデータ用
      *   ゲーム開始時マップ名ID_セーブデータ用(SEQ15052)
      * Save Data - Game Start: Map Name
@@ -10,4 +10,4 @@ typedef struct common_system_param_s {
     /* リザーブ
      *   リザーブ */
     char reserve0[60];
-} common_system_param_t;
+} er_common_system_param_t;

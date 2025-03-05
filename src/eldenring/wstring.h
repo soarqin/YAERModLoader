@@ -16,7 +16,7 @@ typedef struct {
     void *unk2;
     uint64_t length;
     uint64_t capacity;
-} wstring_impl_t;
+} er_wstring_impl_t;
 
-extern const wchar_t *wstring_impl_str(const wstring_impl_t *str);
-extern wchar_t *wstring_impl_str_mutable(wstring_impl_t *str);
+extern const wchar_t *er_wstring_impl_str(const er_wstring_impl_t *str);
+extern wchar_t *er_wstring_impl_str_mutable(er_wstring_impl_t *str);

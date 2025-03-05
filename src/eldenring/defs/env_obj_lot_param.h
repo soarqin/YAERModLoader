@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct env_obj_lot_param_s {
+typedef struct er_env_obj_lot_param_s {
     /* Asset ID [0]
      *   AssetId_0 (-1 Ignore)
      * Default Value  = -1 */
@@ -92,4 +92,4 @@ typedef struct env_obj_lot_param_s {
     /* リザーブ
      *   リザーブ */
     char Reserve_0[24];
-} env_obj_lot_param_t;
+} er_env_obj_lot_param_t;

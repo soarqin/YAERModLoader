@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct wwise_value_to_str_convert_param_s {
+typedef struct er_wwise_value_to_str_convert_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -20,4 +20,4 @@ typedef struct wwise_value_to_str_convert_param_s {
      * Param String
      *   Wwise parameter string */
     char ParamStr[32];
-} wwise_value_to_str_convert_param_t;
+} er_wwise_value_to_str_convert_param_t;

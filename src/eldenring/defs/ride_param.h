@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct ride_param_s {
+typedef struct er_ride_param_s {
     /* 乗る側キャラID
      *   騎乗時に「乗る側」のキャラクタを特定するパラメータです
      * Rider - Character ID
@@ -85,4 +85,4 @@ typedef struct ride_param_s {
     /* 予約
      *   予約領域 */
     char pad[12];
-} ride_param_t;
+} er_ride_param_t;

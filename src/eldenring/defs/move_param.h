@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct move_param_s {
+typedef struct er_move_param_s {
     /* 待機
      *   待機
      * Stay ID
@@ -269,4 +269,4 @@ typedef struct move_param_s {
      * Wait No Anim Turn Angle
      *   If the turning angle is less than this value, the turning animation will not be played [when stopped] (only valid for 2 boss legs) */
     unsigned char turnWaitNoAnimAngle;
-} move_param_t;
+} er_move_param_t;

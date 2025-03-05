@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_texture_filter_quality_detail_s {
+typedef struct er_cs_texture_filter_quality_detail_s {
     /* フィルター
      *   フィルター
      * Texture Filter
@@ -16,4 +16,4 @@ typedef struct cs_texture_filter_quality_detail_s {
      *   Aniso level
      * Default Value  = 4 */
     unsigned int maxAnisoLevel;
-} cs_texture_filter_quality_detail_t;
+} er_cs_texture_filter_quality_detail_t;

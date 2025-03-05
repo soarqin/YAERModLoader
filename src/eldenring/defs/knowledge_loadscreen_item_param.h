@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct knowledge_loadscreen_item_param_s {
+typedef struct er_knowledge_loadscreen_item_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -32,4 +32,4 @@ typedef struct knowledge_loadscreen_item_param_s {
      * Message ID
      *   Text ID (Loading Text.xlsx). Used for both loading titles and loading text */
     int msgId;
-} knowledge_loadscreen_item_param_t;
+} er_knowledge_loadscreen_item_param_t;

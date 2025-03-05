@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_aa_quality_detail_s {
+typedef struct er_cs_aa_quality_detail_s {
     /* AA有効
      *   AA有効
      * AA Enabled
@@ -14,4 +14,4 @@ typedef struct cs_aa_quality_detail_s {
     unsigned char forceFXAA2;
 
     char dmy[2];
-} cs_aa_quality_detail_t;
+} er_cs_aa_quality_detail_t;

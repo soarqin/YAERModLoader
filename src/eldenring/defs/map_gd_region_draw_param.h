@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct map_gd_region_draw_param_s {
+typedef struct er_map_gd_region_draw_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -21,4 +21,4 @@ typedef struct map_gd_region_draw_param_s {
      *   Local light scale value at the time of IV shooting (0 or less - no overwrite) [GR] SEQ13338 [Irradiance volume] I want to change the indirect scale of the SFX light source uniformly.
      * Default Value  = -1 */
     float overrideIVLocalLightScale;
-} map_gd_region_draw_param_t;
+} er_map_gd_region_draw_param_t;

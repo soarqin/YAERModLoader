@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cutscene_map_id_param_s {
+typedef struct er_cutscene_map_id_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -78,4 +78,4 @@ typedef struct cutscene_map_id_param_s {
      *   Hit parts waiting to be read 1
      * Default Value  = -1 */
     int HitParts_1;
-} cutscene_map_id_param_t;
+} er_cutscene_map_id_param_t;

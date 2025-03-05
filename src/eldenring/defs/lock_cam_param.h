@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct lock_cam_param_s {
+typedef struct er_lock_cam_param_s {
     /* カメラ距離目標[m]
      *   カメラ距離目標
      * Camera Target Distance
@@ -133,4 +133,4 @@ typedef struct lock_cam_param_s {
 
     /* パディング */
     char pad[48];
-} lock_cam_param_t;
+} er_lock_cam_param_t;

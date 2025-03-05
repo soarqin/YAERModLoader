@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct object_material_sfx_param_s {
+typedef struct er_object_material_sfx_param_s {
     /* SFX識別子：00
      *   オブジェパラメータの「破壊後着地SFX識別子」に対応する、SFX識別子
      * Hit VFX [00]
@@ -192,4 +192,4 @@ typedef struct object_material_sfx_param_s {
      * Hit VFX [31]
      *   SFX identifier corresponding to the object parameter SFX identifier after destruction */
     unsigned int sfxId_31;
-} object_material_sfx_param_t;
+} er_object_material_sfx_param_t;

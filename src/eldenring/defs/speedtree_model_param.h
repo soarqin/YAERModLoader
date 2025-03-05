@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct speedtree_model_param_s {
+typedef struct er_speedtree_model_param_s {
     /* Leafの最小フェード値
      * Leaf - Min Fade */
     float MinFadeLeaf;
@@ -44,4 +44,4 @@ typedef struct speedtree_model_param_s {
      * Billboard Specular Suppression Value
      * Default Value  = 1 */
     float BillboardBackSpecularWeakenParam;
-} speedtree_model_param_t;
+} er_speedtree_model_param_t;

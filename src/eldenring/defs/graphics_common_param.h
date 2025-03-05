@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct graphics_common_param_s {
+typedef struct er_graphics_common_param_s {
     /* HIT INSに弾丸が当たった時のデカール発生位置オフセット
      *   HIT INSに当たった時に発生するデカールの発生位置を法線方向にこの値だけオフセットする
      * Hit Bullet Decal Offset - Hit INS
@@ -22,4 +22,4 @@ typedef struct graphics_common_param_s {
     /* 予約
      *   (dummy8) */
     char reserved04[240];
-} graphics_common_param_t;
+} er_graphics_common_param_t;

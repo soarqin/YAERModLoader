@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct runtime_bone_control_param_s {
+typedef struct er_runtime_bone_control_param_s {
     /* キャラID
      *   キャラID
      * Character ID
@@ -32,4 +32,4 @@ typedef struct runtime_bone_control_param_s {
      * Target Joint [2]
      *   Target joint 2 */
     char targetBone2[32];
-} runtime_bone_control_param_t;
+} er_runtime_bone_control_param_t;

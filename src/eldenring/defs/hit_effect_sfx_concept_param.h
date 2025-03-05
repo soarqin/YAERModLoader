@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct hit_effect_sfx_concept_param_s {
+typedef struct er_hit_effect_sfx_concept_param_s {
     /* 鉄製：概念１
      *   鉄製：概念１
      * Iron [1]
@@ -77,4 +77,4 @@ typedef struct hit_effect_sfx_concept_param_s {
 
     /* 予約領域 */
     char reserve[52];
-} hit_effect_sfx_concept_param_t;
+} er_hit_effect_sfx_concept_param_t;

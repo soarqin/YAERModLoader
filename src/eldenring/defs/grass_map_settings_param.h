@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct grass_map_settings_param_s {
+typedef struct er_grass_map_settings_param_s {
     /* 草の種類０
      * Grass Type [0] */
     unsigned int grassType0;
@@ -12,4 +12,4 @@ typedef struct grass_map_settings_param_s {
     /* 草の種類２
      * Grass Type [2] */
     unsigned int grassType2;
-} grass_map_settings_param_t;
+} er_grass_map_settings_param_t;

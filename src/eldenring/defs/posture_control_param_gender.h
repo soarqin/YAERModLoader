@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct posture_control_param_gender_s {
+typedef struct er_posture_control_param_gender_s {
     /* 右肘_内外
      *   右肘_内外
      * [a000] Right Elbow - Inside/Outside
@@ -164,4 +164,4 @@ typedef struct posture_control_param_gender_s {
     short a016_bothLegsIO;
 
     char pad[10];
-} posture_control_param_gender_t;
+} er_posture_control_param_gender_t;

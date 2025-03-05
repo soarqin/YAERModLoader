@@ -1,7 +1,7 @@
 #pragma once
 
 /* Provides growth functions for various mechanics. Handles all stat scaling. */
-typedef struct cacl_correct_graph_s {
+typedef struct er_cacl_correct_graph_s {
     /* 閾値ポイント0
      *   仕様書に「n次閾値[point]」と書いてあるもの
      * Threshold Point [0]
@@ -118,4 +118,4 @@ typedef struct cacl_correct_graph_s {
 
     /* パディング */
     char pad[4];
-} cacl_correct_graph_t;
+} er_cacl_correct_graph_t;

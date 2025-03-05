@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sound_auto_reverb_select_param_s {
+typedef struct er_sound_auto_reverb_select_param_s {
     /* リバーブタイプ
      *   リバーブタイプ
      * Reverb Type
@@ -71,4 +71,4 @@ typedef struct sound_auto_reverb_select_param_s {
      *   Condition: No Hit number (-1: invalid)
      * Default Value  = -1 */
     int NoHitNumMin;
-} sound_auto_reverb_select_param_t;
+} er_sound_auto_reverb_select_param_t;

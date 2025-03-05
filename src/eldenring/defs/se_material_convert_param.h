@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct se_material_convert_param_s {
+typedef struct er_se_material_convert_param_s {
     /* SE材質ID
      *   SFX材質ID（３桁）からSE材質ID（２桁）への変換
      * SE Material ID
@@ -10,4 +10,4 @@ typedef struct se_material_convert_param_s {
     /* パディング
      *   パディング */
     char pad[3];
-} se_material_convert_param_t;
+} er_se_material_convert_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct load_balancer_draw_dist_scale_param_s {
+typedef struct er_load_balancer_draw_dist_scale_param_s {
     /* Draw Distance Level 0
      *   Lv00 Drawing distance scale
      * Default Value  = 1 */
@@ -109,4 +109,4 @@ typedef struct load_balancer_draw_dist_scale_param_s {
     /* 予備
      *   予備 */
     char reserve[44];
-} load_balancer_draw_dist_scale_param_t;
+} er_load_balancer_draw_dist_scale_param_t;

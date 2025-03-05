@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct mimicry_establishment_tex_param_st_dlc02_s {
+typedef struct er_mimicry_establishment_tex_param_st_dlc02_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -53,4 +53,4 @@ typedef struct mimicry_establishment_tex_param_st_dlc02_s {
     int unknown_0x18;
 
     int unknown_0x1c;
-} mimicry_establishment_tex_param_st_dlc02_t;
+} er_mimicry_establishment_tex_param_st_dlc02_t;

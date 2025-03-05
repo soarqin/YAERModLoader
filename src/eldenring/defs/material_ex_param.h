@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct material_ex_param_s {
+typedef struct er_material_ex_param_s {
     /* マテリアルパラメータ名
      *   マテリアルのパラメータ名を設定する。最大31文字まで
      * Material Param Name
@@ -48,4 +48,4 @@ typedef struct material_ex_param_s {
     /* パディング
      *   パディング */
     char pad[8];
-} material_ex_param_t;
+} er_material_ex_param_t;

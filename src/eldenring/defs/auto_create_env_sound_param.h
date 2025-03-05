@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct auto_create_env_sound_param_s {
+typedef struct er_auto_create_env_sound_param_s {
     /* 出現距離Min[m]
      *   出現距離Min[m]
      * Appearance Distance - Min
@@ -55,4 +55,4 @@ typedef struct auto_create_env_sound_param_s {
      *   Angle limit Max [degree] (Specify the Y-axis angle +-in front of the camera. 180 is omnidirectional)
      * Default Value  = 180 */
     float LimiteRotateMax;
-} auto_create_env_sound_param_t;
+} er_auto_create_env_sound_param_t;

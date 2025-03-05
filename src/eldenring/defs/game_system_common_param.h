@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct game_system_common_param_s {
+typedef struct er_game_system_common_param_s {
     /* 基本強靭度耐久値回復時間
      *   強靭度回復時間の基本値です。（秒）
      * Base Toughness Recovery Time
@@ -1961,4 +1961,4 @@ typedef struct game_system_common_param_s {
     int baseReveredSpiritTorrentBlessingSpEffectId;
 
     char endPad[108];
-} game_system_common_param_t;
+} er_game_system_common_param_t;

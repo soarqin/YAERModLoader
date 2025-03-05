@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct actionbutton_param_s {
+typedef struct er_actionbutton_param_s {
     /* 範囲タイプ
      *   範囲形状(円柱、角柱、カプセル)
      * Region Type
@@ -163,4 +163,4 @@ typedef struct actionbutton_param_s {
 
     /* パディング6 */
     char padding6[28];
-} actionbutton_param_t;
+} er_actionbutton_param_t;

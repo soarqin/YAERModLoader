@@ -2,7 +2,7 @@
 
 /* Defines upgrades of Armor. Unused in Elden Ring.
  * Tailoring is handled by a shop and functions as total item replacement, not variation. */
-typedef struct reinforce_param_protector_s {
+typedef struct er_reinforce_param_protector_s {
     /* 物理防御力
      *   物理防御力の補正値
      * Defence %: Physical
@@ -131,4 +131,4 @@ typedef struct reinforce_param_protector_s {
      *   Madness resistance correction value
      * Default Value  = 1 */
     float resistMadnessRate;
-} reinforce_param_protector_t;
+} er_reinforce_param_protector_t;

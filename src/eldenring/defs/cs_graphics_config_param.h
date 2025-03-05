@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_graphics_config_param_s {
+typedef struct er_cs_graphics_config_param_s {
     /* テクスチャフィルタ品質
      *   テクスチャフィルタ品質(デフォルトMidele)
      * Texture Filter Quality
@@ -98,4 +98,4 @@ typedef struct cs_graphics_config_param_s {
 
     /* dmy */
     char m_dummy[2];
-} cs_graphics_config_param_t;
+} er_cs_graphics_config_param_t;

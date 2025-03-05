@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct parts_draw_param_s {
+typedef struct er_parts_draw_param_s {
     /* LODレベル0-1境界距離[m]
      *   切り替わる中心
      * LOD 0-1 Boundry Distance
@@ -250,4 +250,4 @@ typedef struct parts_draw_param_s {
     /* 予約
      *   予約 */
     char resereve[34];
-} parts_draw_param_t;
+} er_parts_draw_param_t;

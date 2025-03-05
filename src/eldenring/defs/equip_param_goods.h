@@ -2,7 +2,7 @@
 
 /* Defines an item, both consumable and key items.
  * Note that many key items are placebo and the item's effect is granted through scripting. Passive effects from ownership are not defined here. */
-typedef struct equip_param_goods_s {
+typedef struct er_equip_param_goods_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -713,4 +713,4 @@ typedef struct equip_param_goods_s {
     /* 予約領域
      *   予約領域 */
     char reserve3[8];
-} equip_param_goods_t;
+} er_equip_param_goods_t;

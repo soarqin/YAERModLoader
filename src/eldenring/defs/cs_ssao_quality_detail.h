@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_ssao_quality_detail_s {
+typedef struct er_cs_ssao_quality_detail_s {
     /* SSAO有効
      *   SSAO有効
      * SSAO Enabled
@@ -29,4 +29,4 @@ typedef struct cs_ssao_quality_detail_s {
     unsigned char cs_useNormalEnabledType;
 
     char dmy[1];
-} cs_ssao_quality_detail_t;
+} er_cs_ssao_quality_detail_t;

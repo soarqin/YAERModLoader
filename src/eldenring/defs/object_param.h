@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct object_param_s {
+typedef struct er_object_param_s {
     /* HP
      *   破壊までの耐久力(-1:破壊不可)
      * HP
@@ -493,4 +493,4 @@ typedef struct object_param_s {
 
     /* パディング */
     char pad_5[40];
-} object_param_t;
+} er_object_param_t;

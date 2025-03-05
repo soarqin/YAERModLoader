@@ -1,7 +1,7 @@
 #pragma once
 
 /* Governs hitboxes and damage of attacks */
-typedef struct atk_param_s {
+typedef struct er_atk_param_s {
     /* あたり0 半径
      *   球、カプセルの半径
      * Hit 0: Radius
@@ -1290,4 +1290,4 @@ typedef struct atk_param_s {
     unsigned char subCategory4;
 
     char pad7[10];
-} atk_param_t;
+} er_atk_param_t;

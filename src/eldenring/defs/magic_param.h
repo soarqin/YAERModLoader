@@ -1,7 +1,7 @@
 #pragma once
 
 /* Defines behaviour data of spells. Do not confuse with version in EquipParamGoods. */
-typedef struct magic_param_s {
+typedef struct er_magic_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -691,4 +691,4 @@ typedef struct magic_param_s {
     /* PAD12
      *   PAD12 */
     char pad[8];
-} magic_param_t;
+} er_magic_param_t;

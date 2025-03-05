@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct wet_aspect_param_s {
+typedef struct er_wet_aspect_param_s {
     /* ベースカラー 値R
      *   ベースカラー色Rです。
      * Base Color: R
@@ -63,4 +63,4 @@ typedef struct wet_aspect_param_s {
 
     /* 予備5 */
     char reserve_4[11];
-} wet_aspect_param_t;
+} er_wet_aspect_param_t;

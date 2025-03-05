@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct legacy_distant_view_parts_replace_param_s {
+typedef struct er_legacy_distant_view_parts_replace_param_s {
     /* マップID
      *   対象のマップIDを指定します。レガシーのみ。(m12_34_56_78→12345678) 。当初レガシーのみでしたがオープンの天球マップも対応しました
      * Target Map ID
@@ -129,4 +129,4 @@ typedef struct legacy_distant_view_parts_replace_param_s {
      *   MapGD Valid asset specification for local ID Asset ID range specification Max
      * Default Value  = -1 */
     int LimitedMapRegioAssetIdRangeMax;
-} legacy_distant_view_parts_replace_param_t;
+} er_legacy_distant_view_parts_replace_param_t;

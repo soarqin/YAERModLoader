@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct ai_attack_param_s {
+typedef struct er_ai_attack_param_s {
     /* 参照ID
      *   NPC思考パラメータで指定するID
      * Reference ID
@@ -305,4 +305,4 @@ typedef struct ai_attack_param_s {
      *   Distance used to determine the execution of attacks from the second stage onward
      * Default Value  = 180 */
     float comboExecRange;
-} ai_attack_param_t;
+} er_ai_attack_param_t;

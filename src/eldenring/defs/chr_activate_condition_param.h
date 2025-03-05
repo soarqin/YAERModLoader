@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct chr_activate_condition_param_s {
+typedef struct er_chr_activate_condition_param_s {
     /* 出現条件_晴れ
      *   天候が「晴れ」のときに出現するか
      * Appear during Weather: Sunny
@@ -128,4 +128,4 @@ typedef struct chr_activate_condition_param_s {
 
     /* pad */
     char pad2[2];
-} chr_activate_condition_param_t;
+} er_chr_activate_condition_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct load_balancer_param_s {
+typedef struct er_load_balancer_param_s {
     /* Lower FPS Threshold - Raise Balance Level
      *   If it falls below this FPS, increase the load balance level by 1.
      * Default Value  = 23 */
@@ -212,4 +212,4 @@ typedef struct load_balancer_param_s {
     /* 予備
      *   予備 */
     char reserve1[30];
-} load_balancer_param_t;
+} er_load_balancer_param_t;

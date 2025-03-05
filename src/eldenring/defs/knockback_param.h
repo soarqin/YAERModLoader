@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct knockback_param_s {
+typedef struct er_knockback_param_s {
     /* 極小ダメージ_速度維持時間[s]
      *   極小ダメージアニメの時に使用される維持時間を設定
      * Damage Level - Minimum - Maintenance Time
@@ -183,4 +183,4 @@ typedef struct knockback_param_s {
 
     /* pading */
     char pad[8];
-} knockback_param_t;
+} er_knockback_param_t;

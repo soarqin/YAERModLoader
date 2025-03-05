@@ -1,7 +1,7 @@
 #pragma once
 
 /* Defines all types of equippable Armor, including no armor. Responsible for model masks. */
-typedef struct equip_param_protector_s {
+typedef struct er_equip_param_protector_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -1300,4 +1300,4 @@ typedef struct equip_param_protector_s {
     /* パディング
      *   パディング */
     char pad404[14];
-} equip_param_protector_t;
+} er_equip_param_protector_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct menuproperty_layout_s {
+typedef struct er_menuproperty_layout_s {
     /* レイアウトパス
      * Layout Path */
     char LayoutPath[16];
@@ -23,4 +23,4 @@ typedef struct menuproperty_layout_s {
 
     /* 予約 */
     char reserved[4];
-} menuproperty_layout_t;
+} er_menuproperty_layout_t;

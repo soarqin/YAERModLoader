@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct bonfire_warp_sub_category_param_s {
+typedef struct er_bonfire_warp_sub_category_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -34,4 +34,4 @@ typedef struct bonfire_warp_sub_category_param_s {
     unsigned short sortId;
 
     char pad[4];
-} bonfire_warp_sub_category_param_t;
+} er_bonfire_warp_sub_category_param_t;

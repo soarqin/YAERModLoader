@@ -1,7 +1,7 @@
 #pragma once
 
 /* Governs which damage types scale with which stats. Includes correction values. */
-typedef struct attack_element_correct_param_s {
+typedef struct er_attack_element_correct_param_s {
     /* 筋力補正するか（物理）
      * Physical Correction: STR */
     unsigned char isStrengthCorrect_byPhysics:1;
@@ -407,4 +407,4 @@ typedef struct attack_element_correct_param_s {
 
     /* パディング */
     char pad2[24];
-} attack_element_correct_param_t;
+} er_attack_element_correct_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct posture_control_param_wep_right_s {
+typedef struct er_posture_control_param_wep_right_s {
     /* [a000] Right Arm - Front/Back
      *   Right arm_front and back */
     short a000_rightArmFB;
@@ -270,4 +270,4 @@ typedef struct posture_control_param_wep_right_s {
 
     /* [a016] Left Weapon Rotation */
     short a016_lefttWeaponRotation;
-} posture_control_param_wep_right_t;
+} er_posture_control_param_wep_right_t;

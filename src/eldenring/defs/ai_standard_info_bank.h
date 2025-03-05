@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct ai_standard_info_bank_s {
+typedef struct er_ai_standard_info_bank_s {
     /* 認識距離[m]
      *   敵性キャラクタを認識する距離
      * Recognition distance [m]
@@ -235,4 +235,4 @@ typedef struct ai_standard_info_bank_s {
 
     /* 予約 */
     char reserve_last[32];
-} ai_standard_info_bank_t;
+} er_ai_standard_info_bank_t;

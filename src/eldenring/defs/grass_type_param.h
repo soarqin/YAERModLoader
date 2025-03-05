@@ -1,7 +1,7 @@
 #pragma once
 
 /* Dynamic instanced assets, combined with a flat or billboard texture. Used to generate scattered grass or other such arrangements without the need for manual placement. */
-typedef struct grass_type_param_s {
+typedef struct er_grass_type_param_s {
     /* LOD距離
      * LOD Distance */
     unsigned short lodRange;
@@ -168,4 +168,4 @@ typedef struct grass_type_param_s {
     /* モデル名（１）
      * Model Name [1] */
     wchar_t model1Name[16];
-} grass_type_param_t;
+} er_grass_type_param_t;

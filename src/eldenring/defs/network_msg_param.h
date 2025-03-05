@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct network_msg_param_s {
+typedef struct er_network_msg_param_s {
     /* 優先度
      *   優先度
      * Priority
@@ -310,4 +310,4 @@ typedef struct network_msg_param_s {
     /* 予約
      *   予約 */
     char pad2_new[8];
-} network_msg_param_t;
+} er_network_msg_param_t;

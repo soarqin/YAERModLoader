@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cutscene_gparam_weather_param_s {
+typedef struct er_cutscene_gparam_weather_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -340,4 +340,4 @@ typedef struct cutscene_gparam_weather_param_s {
     short OverrideMapGdRegionId;
 
     char reserved1[12];
-} cutscene_gparam_weather_param_t;
+} er_cutscene_gparam_weather_param_t;

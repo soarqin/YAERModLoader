@@ -1,7 +1,7 @@
 #pragma once
 
 /* Associated with the NPC_ATK enum used in AI lua scripts. */
-typedef struct npc_ai_action_param_s {
+typedef struct er_npc_ai_action_param_s {
     /* 移動方向入力
      *   入力する移動方向
      * Move Direction
@@ -65,4 +65,4 @@ typedef struct npc_ai_action_param_s {
     /* パッド
      *   pad */
     char pad1[3];
-} npc_ai_action_param_t;
+} er_npc_ai_action_param_t;

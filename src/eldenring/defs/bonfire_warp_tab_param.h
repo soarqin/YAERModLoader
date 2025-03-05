@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct bonfire_warp_tab_param_s {
+typedef struct er_bonfire_warp_tab_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -35,4 +35,4 @@ typedef struct bonfire_warp_tab_param_s {
 
     /* パッド */
     char pad[2];
-} bonfire_warp_tab_param_t;
+} er_bonfire_warp_tab_param_t;

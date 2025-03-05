@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct network_param_s {
+typedef struct er_network_param_s {
     /* サイン高さオフセット[m]
      * Common - Sign Height Offset */
     float signVerticalOffset;
@@ -834,4 +834,4 @@ typedef struct network_param_s {
 
     /* 予約 */
     char pad14_1[8];
-} network_param_t;
+} er_network_param_t;

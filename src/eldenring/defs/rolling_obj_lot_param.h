@@ -1,7 +1,7 @@
 #pragma once
 
 /* Governs the appearance of random AEGs like glowing skulls and tumbleweed. Each row corresponds to a map ID. The AEGs referenced must have a param row and asset behavior type set to 'Dynamic'. */
-typedef struct rolling_obj_lot_param_s {
+typedef struct er_rolling_obj_lot_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -107,4 +107,4 @@ typedef struct rolling_obj_lot_param_s {
     /* リザーブ
      *   リザーブ */
     char Reserve_0[20];
-} rolling_obj_lot_param_t;
+} er_rolling_obj_lot_param_t;

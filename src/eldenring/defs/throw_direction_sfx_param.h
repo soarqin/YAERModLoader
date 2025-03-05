@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct throw_direction_sfx_param_s {
+typedef struct er_throw_direction_sfx_param_s {
     /* 0
      *   使用するSFXのID
      * SFX ID [0]
@@ -190,4 +190,4 @@ typedef struct throw_direction_sfx_param_s {
     /* パッド
      *   pad */
     char pad1[20];
-} throw_direction_sfx_param_t;
+} er_throw_direction_sfx_param_t;

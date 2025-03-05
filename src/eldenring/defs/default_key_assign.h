@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct default_key_assign_s {
+typedef struct er_default_key_assign_s {
     /* パッド0
      *   下位抑制パッド0
      * Pad 0
@@ -763,4 +763,4 @@ typedef struct default_key_assign_s {
      *   Analog-to-digital conversion threshold
      * Default Value  = 0.5 */
     float a2dThreshold_7;
-} default_key_assign_t;
+} er_default_key_assign_t;

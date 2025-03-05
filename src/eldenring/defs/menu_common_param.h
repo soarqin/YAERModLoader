@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct menu_common_param_s {
+typedef struct er_menu_common_param_s {
     /* ソロプレイ死亡時フェードアウト開始時間[秒]
      *   ソロプレイ死亡時で「YOU DIED」表示後、何秒経過したらフェードアウトを開始するか
      * [YOU DIED] Fade Out Duration - Host
@@ -412,4 +412,4 @@ typedef struct menu_common_param_s {
     /* 予約
      *   (dummy8) */
     char reserved33[17];
-} menu_common_param_t;
+} er_menu_common_param_t;

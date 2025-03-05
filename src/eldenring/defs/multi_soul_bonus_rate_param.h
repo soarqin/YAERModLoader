@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct multi_soul_bonus_rate_param_s {
+typedef struct er_multi_soul_bonus_rate_param_s {
     /* ホスト
      *   ホストの報酬ソウル倍率
      * Rune Reward Multiplier - Host
@@ -99,4 +99,4 @@ typedef struct multi_soul_bonus_rate_param_s {
 
     /* pad */
     char pad1[64];
-} multi_soul_bonus_rate_param_t;
+} er_multi_soul_bonus_rate_param_t;

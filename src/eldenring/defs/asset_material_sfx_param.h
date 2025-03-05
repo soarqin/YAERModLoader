@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct asset_material_sfx_param_s {
+typedef struct er_asset_material_sfx_param_s {
     /* SFX識別子：00
      *   アセットパラメータの「破壊後着地SFX識別子」に対応する、SFX識別子
      * SFX ID [00]
@@ -192,4 +192,4 @@ typedef struct asset_material_sfx_param_s {
      * SFX ID [31]
      *   SFX identifier corresponding to the asset parameter SFX identifier after destruction */
     unsigned int sfxId_31;
-} asset_material_sfx_param_t;
+} er_asset_material_sfx_param_t;

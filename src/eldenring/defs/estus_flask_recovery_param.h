@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct estus_flask_recovery_param_s {
+typedef struct er_estus_flask_recovery_param_s {
     /* ホスト
      *   ホストのエスト回復数
      * Host
@@ -123,4 +123,4 @@ typedef struct estus_flask_recovery_param_s {
     int paramReplaceId;
 
     char pad[8];
-} estus_flask_recovery_param_t;
+} er_estus_flask_recovery_param_t;

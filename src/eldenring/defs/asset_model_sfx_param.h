@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct asset_model_sfx_param_s {
+typedef struct er_asset_model_sfx_param_s {
     /* 0:SfxID
      *   0:SfxID
      * SFX ID [0]
@@ -150,4 +150,4 @@ typedef struct asset_model_sfx_param_s {
     /* 7:予約
      *   7:予約 */
     char reserve_7[7];
-} asset_model_sfx_param_t;
+} er_asset_model_sfx_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct map_piece_tex_param_s {
+typedef struct er_map_piece_tex_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -50,4 +50,4 @@ typedef struct map_piece_tex_param_s {
      *   Multiplayer area ID (-1 - invalid value)
      * Default Value  = -1 */
     int multiPlayAreaId;
-} map_piece_tex_param_t;
+} er_map_piece_tex_param_t;

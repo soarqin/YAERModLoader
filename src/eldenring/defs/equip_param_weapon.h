@@ -5,7 +5,7 @@
  * IDs not ending in a multiple of 100 are ignored.
  * Permitting affinities on a weapon without affinity rows at the correct IDs will result in the nearest 10000 being used.
  * SpEffects specified here can be modified by upgrades in ReinforceParamWeapon. */
-typedef struct equip_param_weapon_s {
+typedef struct er_equip_param_weapon_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -1742,4 +1742,4 @@ typedef struct equip_param_weapon_s {
     unsigned char restrictSpecialSwordArt;
 
     char pad[7];
-} equip_param_weapon_t;
+} er_equip_param_weapon_t;

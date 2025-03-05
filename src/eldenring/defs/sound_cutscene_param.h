@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sound_cutscene_param_s {
+typedef struct er_sound_cutscene_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -69,4 +69,4 @@ typedef struct sound_cutscene_param_s {
     char reserved[4];
 
     char reserved2[4];
-} sound_cutscene_param_t;
+} er_sound_cutscene_param_t;

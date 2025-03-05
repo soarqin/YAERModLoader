@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct toughness_param_s {
+typedef struct er_toughness_param_s {
     /* 武器強靭度補正倍率
      *   強靭度を求める際に武器の「強靭度補正倍率」に掛かる補正倍率です
      * Toughness Correction
@@ -47,4 +47,4 @@ typedef struct toughness_param_s {
     /* パッド
      *   pad */
     char pad1[8];
-} toughness_param_t;
+} er_toughness_param_t;

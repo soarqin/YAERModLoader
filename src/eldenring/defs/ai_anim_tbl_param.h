@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct ai_anim_tbl_param_s {
+typedef struct er_ai_anim_tbl_param_s {
     /* 攻撃1のEzStateアニメ番号
      *   攻撃1のEzStateアニメ番号
      * Attack 1 EzState Anime Number
@@ -724,4 +724,4 @@ typedef struct ai_anim_tbl_param_s {
     /* pad
      *   pad */
     char pad0[13];
-} ai_anim_tbl_param_t;
+} er_ai_anim_tbl_param_t;

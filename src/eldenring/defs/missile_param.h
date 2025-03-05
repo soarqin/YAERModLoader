@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct missile_param_s {
+typedef struct er_missile_param_s {
     /* FFXID
      *   ID on the FFX editor */
     int FFXID;
@@ -97,4 +97,4 @@ typedef struct missile_param_s {
 
     /* 予約 */
     char reserve_last[56];
-} missile_param_t;
+} er_missile_param_t;

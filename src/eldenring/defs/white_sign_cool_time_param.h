@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct white_sign_cool_time_param_s {
+typedef struct er_white_sign_cool_time_param_s {
     /* 制限時間（通常・指なし）
      *   制限時間[sec]（通常・干からびた指無）
      * Limitation Time - Normal
@@ -24,4 +24,4 @@ typedef struct white_sign_cool_time_param_s {
      * Limitation Time - Guardian (Dried Finger)
      *   Time limit [sec] (Map guardian / dry finger) */
     float limitationTime_GuardianDriedFinger;
-} white_sign_cool_time_param_t;
+} er_white_sign_cool_time_param_t;

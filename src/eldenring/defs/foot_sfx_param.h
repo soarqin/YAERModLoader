@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct foot_sfx_param_s {
+typedef struct er_foot_sfx_param_s {
     /* SFX識別子：00
      *   NPCパラメータの「フットエフェクト識別子」項目に入力された数値、特殊効果パラメータの「追加フットエフェクト識別子」項目に入力された数値、TAEアクション「フットエフェクト」に設定する、SFX識別子
      * SFX ID [00]
@@ -1200,4 +1200,4 @@ typedef struct foot_sfx_param_s {
      * SFX ID [199]
      *   Numerical value entered in the Foot effect identifier item of the NPC parameter, numerical value entered in the Additional foot effect identifier item of the special effect parameter, SFX identifier set in the TAE action Foot effect */
     unsigned int sfxId_199;
-} foot_sfx_param_t;
+} er_foot_sfx_param_t;

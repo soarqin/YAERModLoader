@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct basechr_select_menu_param_s {
+typedef struct er_basechr_select_menu_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -41,4 +41,4 @@ typedef struct basechr_select_menu_param_s {
 
     /* リザーブ */
     char reserve[12];
-} basechr_select_menu_param_t;
+} er_basechr_select_menu_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct grass_lod_range_param_s {
+typedef struct er_grass_lod_range_param_s {
     /* LOD0 - 距離
      * LOD 0 - Distance */
     float LOD0_range;
@@ -24,4 +24,4 @@ typedef struct grass_lod_range_param_s {
     /* LOD２ - 遊び
      * LOD 2 - Play */
     float LOD2_play;
-} grass_lod_range_param_t;
+} er_grass_lod_range_param_t;

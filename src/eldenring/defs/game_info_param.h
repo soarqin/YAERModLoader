@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct game_info_param_s {
+typedef struct er_game_info_param_s {
     /* タイトルのMsgID
      *   タイトル名
      * Title Message ID
@@ -34,4 +34,4 @@ typedef struct game_info_param_s {
     /* パディング
      *   パディング */
     char Pad[12];
-} game_info_param_t;
+} er_game_info_param_t;

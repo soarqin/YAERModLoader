@@ -13,13 +13,13 @@
 typedef enum {
     INIT_CS_REGULATION_MANAGER = 1,
     INIT_SOLO_PARAM_REPOSITORY = 2,
-} pointers_init_flag_t;
+} er_pointers_init_flag_t;
 
 typedef struct {
     void *cs_regulation_manager;
     void *solo_param_repository;
-} pointers_t;
+} er_pointers_t;
 
-uint32_t pointers_init(uint32_t init);
+uint32_t er_pointers_init(uint32_t init);
 
-extern pointers_t pointers;
+extern er_pointers_t er_pointers;

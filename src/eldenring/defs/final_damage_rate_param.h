@@ -1,7 +1,7 @@
 #pragma once
 
 /* PvP corrections */
-typedef struct final_damage_rate_param_s {
+typedef struct er_final_damage_rate_param_s {
     /* Physical Rate
      *   Unk
      * Damage %: Physical */
@@ -36,4 +36,4 @@ typedef struct final_damage_rate_param_s {
      *   Unk
      * Damage %: Poise */
     float saRate;
-} final_damage_rate_param_t;
+} er_final_damage_rate_param_t;

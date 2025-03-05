@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_volumetric_effect_quality_detail_s {
+typedef struct er_cs_volumetric_effect_quality_detail_s {
     /* フォグ有効
      *   フォグ有効
      * Fog Enabled
@@ -103,4 +103,4 @@ typedef struct cs_volumetric_effect_quality_detail_s {
 
     /* pad */
     char pad2[1];
-} cs_volumetric_effect_quality_detail_t;
+} er_cs_volumetric_effect_quality_detail_t;

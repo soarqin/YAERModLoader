@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct waypoint_param_s {
+typedef struct er_waypoint_param_s {
     /* 属性1
      * Attribute [1]
      * Default Value  = -1 */
@@ -23,4 +23,4 @@ typedef struct waypoint_param_s {
 
     /* パディング4 */
     char padding4[8];
-} waypoint_param_t;
+} er_waypoint_param_t;

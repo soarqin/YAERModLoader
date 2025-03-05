@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct weather_asset_create_param_s {
+typedef struct er_weather_asset_create_param_s {
     /* アセットId
      *   生成するアセットIDを指定します。AEG999_999 -> 999999
      * Asset ID
@@ -146,4 +146,4 @@ typedef struct weather_asset_create_param_s {
     char CreateAssetLimitId3;
 
     char Reserved2[4];
-} weather_asset_create_param_t;
+} er_weather_asset_create_param_t;

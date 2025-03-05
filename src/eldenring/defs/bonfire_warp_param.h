@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct bonfire_warp_param_s {
+typedef struct er_bonfire_warp_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -437,4 +437,4 @@ typedef struct bonfire_warp_param_s {
     /* Alternate Warp Prohibition Icon ID
      *   Icon ID when warp is prohibited, when certain conditions are met */
     unsigned short altForbiddenIconId;
-} bonfire_warp_param_t;
+} er_bonfire_warp_param_t;

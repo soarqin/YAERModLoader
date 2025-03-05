@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct phantom_param_s {
+typedef struct er_phantom_param_s {
     /* A
      *   エッジ色Aです。
      * Edge Color: Alpha
@@ -186,4 +186,4 @@ typedef struct phantom_param_s {
      * Glow Strength
      *   Glow strength */
     float glowScale;
-} phantom_param_t;
+} er_phantom_param_t;

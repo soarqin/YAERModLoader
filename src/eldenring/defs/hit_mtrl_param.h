@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct hit_mtrl_param_s {
+typedef struct er_hit_mtrl_param_s {
     /* 音半径倍率
      *   1倍のときは普通。0にすると音半径が0になる（SEとSFXは無関係のゲーム的なパラメータ）
      * AI Volume Rate
@@ -205,4 +205,4 @@ typedef struct hit_mtrl_param_s {
      *   Special effects for wetting 04
      * Default Value  = -1 */
     int spEffectId_forWet04;
-} hit_mtrl_param_t;
+} er_hit_mtrl_param_t;

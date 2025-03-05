@@ -1,7 +1,7 @@
 #pragma once
 
 /* Governs face and body data of human characters */
-typedef struct face_param_s {
+typedef struct er_face_param_s {
     /* 顔パーツID
      *   顔パーツID
      * Adjust Face Template - Bone Structure (Parts ID)
@@ -1665,4 +1665,4 @@ typedef struct face_param_s {
      *   Face - Geo Asym Data [25]
      * Default Value  = 128 */
     unsigned char faceGeoAsymData25;
-} face_param_t;
+} er_face_param_t;

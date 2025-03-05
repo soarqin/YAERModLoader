@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_key_assign_menuitem_param_s {
+typedef struct er_cs_key_assign_menuitem_param_s {
     /* テキスト
      *   キー指定あり⇒項目名、1行ヘルプのID。キー指定なし⇒カテゴリ名のID。テキスト指定なし⇒パッド/キー設定に表示しない(操作一覧表示のみ)
      * Text ID
@@ -62,4 +62,4 @@ typedef struct cs_key_assign_menuitem_param_s {
     unsigned char viewKeyboardMouse;
 
     char padding[6];
-} cs_key_assign_menuitem_param_t;
+} er_cs_key_assign_menuitem_param_t;

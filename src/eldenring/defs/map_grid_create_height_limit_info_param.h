@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct map_grid_create_height_limit_info_param_s {
+typedef struct er_map_grid_create_height_limit_info_param_s {
     /* グリッド構築可能高さMin[m]
      *   グリッド構築可能高さ最小値[m]。(LOD2単位)
      * Min Height - Grid Creation (LOD2)
@@ -18,4 +18,4 @@ typedef struct map_grid_create_height_limit_info_param_s {
     /* リザーブ
      *   リザーブ */
     char Reserve[24];
-} map_grid_create_height_limit_info_param_t;
+} er_map_grid_create_height_limit_info_param_t;

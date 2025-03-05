@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct face_range_param_s {
+typedef struct er_face_range_param_s {
     /* 顔パーツID
      *   顔パーツID
      * Face - Parts ID
@@ -1236,4 +1236,4 @@ typedef struct face_range_param_s {
      * Burn Scars
      *   Burn scars */
     float burn_scar;
-} face_range_param_t;
+} er_face_range_param_t;

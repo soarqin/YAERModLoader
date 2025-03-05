@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct key_assign_param_s {
+typedef struct er_key_assign_param_s {
     /* パッド
      *   パッド（物理キー）
      * Pad Key ID
@@ -35,4 +35,4 @@ typedef struct key_assign_param_s {
 
     /* ---- */
     char reserved[12];
-} key_assign_param_t;
+} er_key_assign_param_t;

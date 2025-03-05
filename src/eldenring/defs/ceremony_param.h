@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct ceremony_param_s {
+typedef struct er_ceremony_param_s {
     /* イベントレイヤーID
      *   イベントメーカーのレイヤーID
      * Event Layer ID
@@ -34,4 +34,4 @@ typedef struct ceremony_param_s {
     int overrideSaveMapNameId;
 
     char pad2[16];
-} ceremony_param_t;
+} er_ceremony_param_t;

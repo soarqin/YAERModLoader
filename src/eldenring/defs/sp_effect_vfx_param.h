@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sp_effect_vfx_param_s {
+typedef struct er_sp_effect_vfx_param_s {
     /* 効果中SfxID
      *   効果中SfxID(-1：無効)
      * Midst SFX ID
@@ -428,4 +428,4 @@ typedef struct sp_effect_vfx_param_s {
     /* パディング
      *   パディング */
     char pad[9];
-} sp_effect_vfx_param_t;
+} er_sp_effect_vfx_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct world_map_piece_param_s {
+typedef struct er_world_map_piece_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -91,4 +91,4 @@ typedef struct world_map_piece_param_s {
 
     /* パッド */
     char pad[12];
-} world_map_piece_param_t;
+} er_world_map_piece_param_t;

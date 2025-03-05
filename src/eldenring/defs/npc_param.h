@@ -2,7 +2,7 @@
 
 /* Defines the stats for a given enemy or group of enemies. Does not determine model or location.
  * Stats are often affected greatly by attached SpEffects. */
-typedef struct npc_param_s {
+typedef struct er_npc_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -2038,4 +2038,4 @@ typedef struct npc_param_s {
 
     /* パディング12 */
     char pad12[4];
-} npc_param_t;
+} er_npc_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct gparam_grid_region_info_param_s {
+typedef struct er_gparam_grid_region_info_param_s {
     /* MapGparam用オープン地方ID 
      *   MapGparam用オープンの地方ID。m60_00_00XX.gparamxmlのXXの部分に使用される
      * GPARAM Grid Region ID
@@ -10,4 +10,4 @@ typedef struct gparam_grid_region_info_param_s {
     /* リザーブ
      *   リザーブ */
     char Reserve[28];
-} gparam_grid_region_info_param_t;
+} er_gparam_grid_region_info_param_t;

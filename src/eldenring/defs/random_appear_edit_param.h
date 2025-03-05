@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct random_appear_edit_param_s {
+typedef struct er_random_appear_edit_param_s {
     /* 同時出現数
      *   同時出現数
      * Number of simultaneous appearances
@@ -318,4 +318,4 @@ typedef struct random_appear_edit_param_s {
      * Lottery weight rate 24
      *   Lottery weight rate 24 */
     unsigned int rate24;
-} random_appear_edit_param_t;
+} er_random_appear_edit_param_t;

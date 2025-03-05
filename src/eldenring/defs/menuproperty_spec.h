@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct menuproperty_spec_s {
+typedef struct er_menuproperty_spec_s {
     /* 項目名テキストID
      * Caption Text ID */
     int CaptionTextID;
@@ -26,4 +26,4 @@ typedef struct menuproperty_spec_s {
 
     /* パディング */
     char pad[16];
-} menuproperty_spec_t;
+} er_menuproperty_spec_t;

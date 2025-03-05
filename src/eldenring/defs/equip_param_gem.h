@@ -2,7 +2,7 @@
 
 /* Defines an Ash of War item. Determines what weapons it can be applied to and with what affinities.
  * Does not manage unique Ashes of War. Ashes of war may not immediately function on arbitrary weapons. */
-typedef struct equip_param_gem_s {
+typedef struct er_equip_param_gem_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -606,4 +606,4 @@ typedef struct equip_param_gem_s {
     int mountWepTextId;
 
     char pad6[8];
-} equip_param_gem_t;
+} er_equip_param_gem_t;

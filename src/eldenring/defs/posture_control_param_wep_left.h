@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct posture_control_param_wep_left_s {
+typedef struct er_posture_control_param_wep_left_s {
     /* 左腕_前後
      *   左腕_前後
      * [a000] Left Arm - Front/Back
@@ -65,4 +65,4 @@ typedef struct posture_control_param_wep_left_s {
     short a003_leftWeaponRotation;
 
     char pad[8];
-} posture_control_param_wep_left_t;
+} er_posture_control_param_wep_left_t;

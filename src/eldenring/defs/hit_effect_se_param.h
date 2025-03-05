@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct hit_effect_se_param_s {
+typedef struct er_hit_effect_se_param_s {
     /* 鉄製：斬撃：小
      *   鉄製：斬撃：小
      * Iron - Slash - Small
@@ -814,4 +814,4 @@ typedef struct hit_effect_se_param_s {
     /* 予約領域
      *   予約領域 */
     char reserve[100];
-} hit_effect_se_param_t;
+} er_hit_effect_se_param_t;

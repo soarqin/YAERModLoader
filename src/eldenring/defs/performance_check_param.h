@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct performance_check_param_s {
+typedef struct er_performance_check_param_s {
     /* 報告先_職種タグ
      *   報告先_職種タグ
      * Report destination_Job type tag
@@ -38,4 +38,4 @@ typedef struct performance_check_param_s {
      * Report destination_user tag
      *   Report to_Performance person tag */
     wchar_t userTag[16];
-} performance_check_param_t;
+} er_performance_check_param_t;

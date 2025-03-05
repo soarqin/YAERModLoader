@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct network_area_param_s {
+typedef struct er_network_area_param_s {
     /* セルサイズX
      *   セルサイズX
      * Cell Size - X
@@ -78,4 +78,4 @@ typedef struct network_area_param_s {
 
     /* ダミー */
     char dummy[3];
-} network_area_param_t;
+} er_network_area_param_t;

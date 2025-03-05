@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_effect_quality_detail_s {
+typedef struct er_cs_effect_quality_detail_s {
     /* ソフトパーティクル有効
      *   ソフトパーティクル有効
      * Soft Particles Enabled
@@ -79,4 +79,4 @@ typedef struct cs_effect_quality_detail_s {
 
     /* ダミー */
     char dmy[4];
-} cs_effect_quality_detail_t;
+} er_cs_effect_quality_detail_t;

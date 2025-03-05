@@ -1,7 +1,7 @@
 #pragma once
 
 /* Governs motion, hitbox and appearance of projetiles. Can reference AtkParam for damage. */
-typedef struct bullet_param_s {
+typedef struct er_bullet_param_s {
     /* 攻撃ID
      *   攻撃パラメータのＩＤをそれぞれ登録する.→攻撃タイプ／攻撃材質／物理攻撃力／魔法攻撃力／スタミナ攻撃力／ノックバック距離.
      * AtkParam ID
@@ -729,4 +729,4 @@ typedef struct bullet_param_s {
 
     /* pad */
     char pad4[8];
-} bullet_param_t;
+} er_bullet_param_t;

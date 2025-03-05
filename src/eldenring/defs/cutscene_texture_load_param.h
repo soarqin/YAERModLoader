@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cutscene_texture_load_param_s {
+typedef struct er_cutscene_texture_load_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -116,4 +116,4 @@ typedef struct cutscene_texture_load_param_s {
      * Texture DisplayName [15]
      *   Texture DisplayName [15] */
     char texName_15[16];
-} cutscene_texture_load_param_t;
+} er_cutscene_texture_load_param_t;

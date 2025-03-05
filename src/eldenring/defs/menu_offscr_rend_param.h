@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct menu_offscr_rend_param_s {
+typedef struct er_menu_offscr_rend_param_s {
     /* カメラ注視点X
      *   カメラ注視点X
      * Camera Gaze Point X
@@ -101,4 +101,4 @@ typedef struct menu_offscr_rend_param_s {
     /* 予約
      *   予約 */
     char pad[4];
-} menu_offscr_rend_param_t;
+} er_menu_offscr_rend_param_t;

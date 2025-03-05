@@ -3,7 +3,7 @@
 /* Defines various effects that can be applied to the player and to enemies.
  * Can define passive, activated, single-use and repeated or continuous application effects with indefinite duration.
  * Successful application may depend on spCategory or invocationConditions. */
-typedef struct sp_effect_param_s {
+typedef struct er_sp_effect_param_s {
     /* アイコンID
      *   アイコンID(-1の時は、アイコン必要なし)
      * Icon ID
@@ -2322,4 +2322,4 @@ typedef struct sp_effect_param_s {
     /* Spirit Summon Death SpEffect ID
      *   Special effect ID added at the end of life of spirit summon (-1 is ignored) */
     int spiritDeathSpEffectId;
-} sp_effect_param_t;
+} er_sp_effect_param_t;

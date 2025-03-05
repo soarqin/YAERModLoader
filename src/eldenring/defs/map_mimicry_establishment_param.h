@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct map_mimicry_establishment_param_s {
+typedef struct er_map_mimicry_establishment_param_s {
     /* 擬態重み0
      *   擬態重み0
      * Mimicry Weight [0]
@@ -88,4 +88,4 @@ typedef struct map_mimicry_establishment_param_s {
     /* パッド
      *   pad */
     char pad1[16];
-} map_mimicry_establishment_param_t;
+} er_map_mimicry_establishment_param_t;

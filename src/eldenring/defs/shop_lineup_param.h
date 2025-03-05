@@ -4,7 +4,7 @@
  * Available trades in a given shop are determined by a range defined in ESD and by game flags.
  * Items sold for less than their sell price will not appear in shops.
  * Material costs may not be shown in shop variants. */
-typedef struct shop_lineup_param_s {
+typedef struct er_shop_lineup_param_s {
     /* 装備ID
      *   販売している装備品のID
      * Reference ID
@@ -112,4 +112,4 @@ typedef struct shop_lineup_param_s {
 
     /* パディング */
     char pad2[2];
-} shop_lineup_param_t;
+} er_shop_lineup_param_t;

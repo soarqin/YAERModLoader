@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct weather_param_s {
+typedef struct er_weather_param_s {
     /* 天候SfxId(共通)
      *   天候用SfxId -1：天候Sfxなし 屋内屋外共通で出すものを設定。インタラクティブパーティクルの雨粒など、雨遮蔽(AboveShadow)で消せるものはこちらでOK
      * Weather SFX ID
@@ -118,4 +118,4 @@ typedef struct weather_param_s {
      *   Overwrite weight value in distant view camera (SEQ16724)
      * Default Value  = -1 */
     float DistViewWeatherGparamOverrideWeight;
-} weather_param_t;
+} er_weather_param_t;

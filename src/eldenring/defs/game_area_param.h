@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct game_area_param_s {
+typedef struct er_game_area_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -181,4 +181,4 @@ typedef struct game_area_param_s {
     /* 予約領域
      *   予約領域 */
     char reserve[9];
-} game_area_param_t;
+} er_game_area_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct map_default_info_param_s {
+typedef struct er_map_default_info_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -164,4 +164,4 @@ typedef struct map_default_info_param_s {
     /* リザーブ
      *   リザーブ */
     char Reserve[7];
-} map_default_info_param_t;
+} er_map_default_info_param_t;

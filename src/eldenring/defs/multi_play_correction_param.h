@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct multi_play_correction_param_s {
+typedef struct er_multi_play_correction_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -45,4 +45,4 @@ typedef struct multi_play_correction_param_s {
     /* pad
      *   pad */
     char pad3[15];
-} multi_play_correction_param_t;
+} er_multi_play_correction_param_t;

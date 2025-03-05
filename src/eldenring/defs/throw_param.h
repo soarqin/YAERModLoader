@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct throw_param_s {
+typedef struct er_throw_param_s {
     /* 投げ側キャラID
      *   投げ側キャラID
      * Attacker - Character ID
@@ -259,4 +259,4 @@ typedef struct throw_param_s {
     /* pad
      *   pad */
     char pad1[24];
-} throw_param_t;
+} er_throw_param_t;

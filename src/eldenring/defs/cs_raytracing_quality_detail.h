@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_raytracing_quality_detail_s {
+typedef struct er_cs_raytracing_quality_detail_s {
     /* Enable Raytracing Ambient Occlusion */
     unsigned char enableRaytraceAO;
 
@@ -25,4 +25,4 @@ typedef struct cs_raytracing_quality_detail_s {
 
     /* Render Distance */
     float renderDistance;
-} cs_raytracing_quality_detail_t;
+} er_cs_raytracing_quality_detail_t;

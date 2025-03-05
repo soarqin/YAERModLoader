@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct buddy_stone_param_s {
+typedef struct er_buddy_stone_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -86,4 +86,4 @@ typedef struct buddy_stone_param_s {
 
     /* パディング */
     char pad3[24];
-} buddy_stone_param_t;
+} er_buddy_stone_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct asset_geometory_param_s {
+typedef struct er_asset_geometory_param_s {
     /* サウンドのバンクID
      *   サウンドのバンクID(-1:バンクなし, それ以外:指定したIDのバンク)
      * Sound Bank ID
@@ -788,4 +788,4 @@ typedef struct asset_geometory_param_s {
     /* リザーブ0
      *   リザーブ0 */
     char Reserve_0[26];
-} asset_geometory_param_t;
+} er_asset_geometory_param_t;

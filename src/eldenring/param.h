@@ -18,7 +18,7 @@ typedef struct {
     uint64_t param_id;
     intptr_t offset;
     uint64_t unk0;
-} param_entry_offset_t;
+} er_param_entry_offset_t;
 
 typedef struct {
     uintptr_t vtable;
@@ -26,32 +26,32 @@ typedef struct {
     uint16_t count;
     uint16_t padding0[2];
     uintptr_t unk1[6];
-    param_entry_offset_t entries[0];
-} param_table_t;
+    er_param_entry_offset_t entries[0];
+} er_param_table_t;
 
 #pragma pack(pop)
 
-bool param_load_table();
-void param_unload();
-const param_table_t *param_find_table(const wchar_t *name);
+bool er_param_load_table();
+void er_param_unload();
+const er_param_table_t *er_param_find_table(const wchar_t *name);
 
 #define param_table_find_id(t, id, tp) { \
     uint16_t count = (t)->count; \
     for (uint16_t i = 0; i < count; i++) { \
-        const param_entry_offset_t *entry = &((t)->entries[i]); \
+        const er_param_entry_offset_t *entry = &((t)->entries[i]); \
         if (entry->param_id == id) { \
             return (tp*)((uintptr_t)t + entry->offset); \
         } \
     } \
 }
 
-#define param_table_iterate_begin(t, tp, var) do { \
+#define er_param_table_iterate_begin(t, tp, var) do { \
     uint16_t count = (t)->count; \
     for (uint16_t i = 0; i < count; i++) { \
-        const param_entry_offset_t *entry = &((t)->entries[i]); \
+        const er_param_entry_offset_t *entry = &((t)->entries[i]); \
         tp *var = (tp*)((uintptr_t)t + entry->offset); \
         if (!var) { \
             continue; \
         }
 
-#define param_table_iterate_end() } } while(0)
+#define er_param_table_iterate_end() } } while(0)

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct tutorial_param_s {
+typedef struct er_tutorial_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -74,4 +74,4 @@ typedef struct tutorial_param_s {
 
     /* パディング */
     char pad3[4];
-} tutorial_param_t;
+} er_tutorial_param_t;

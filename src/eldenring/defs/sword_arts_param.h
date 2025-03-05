@@ -2,7 +2,7 @@
 
 /* Defines Ashes of War, including unique AoW. Determines AoW animation.
  * Behaviour data remains in BehaviourParam. Unique AoW data is with the weapon and not with other AoW data. */
-typedef struct sword_arts_param_s {
+typedef struct er_sword_arts_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -132,4 +132,4 @@ typedef struct sword_arts_param_s {
      *   AI usage judgment ID
      * Default Value  = -1 */
     int aiUsageId;
-} sword_arts_param_t;
+} er_sword_arts_param_t;

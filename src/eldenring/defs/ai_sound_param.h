@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct ai_sound_param_s {
+typedef struct er_ai_sound_param_s {
     /* 音半径[m]
      *   AI音の半径
      * Radius
@@ -92,4 +92,4 @@ typedef struct ai_sound_param_s {
     /* パッド
      *   pad */
     char pad1[6];
-} ai_sound_param_t;
+} er_ai_sound_param_t;

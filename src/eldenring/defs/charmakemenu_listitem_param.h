@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct charmakemenu_listitem_param_s {
+typedef struct er_charmakemenu_listitem_param_s {
     /* 値
      *   プログラム側に扱う値。1つのグループ内で通し番号にする
      * Value
@@ -21,4 +21,4 @@ typedef struct charmakemenu_listitem_param_s {
 
     /* 予約 */
     char reserved[7];
-} charmakemenu_listitem_param_t;
+} er_charmakemenu_listitem_param_t;

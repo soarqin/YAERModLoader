@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_dof_quality_detail_s {
+typedef struct er_cs_dof_quality_detail_s {
     /* DOF許可
      *   DOF許可
      * Depth of Field Enabled
@@ -23,4 +23,4 @@ typedef struct cs_dof_quality_detail_s {
      *   Maximum blur level. 2- Maximum, 1- Level to one paragraph, 0- Further reduce accuracy
      * Default Value  = 1 */
     int maxBlurLevel;
-} cs_dof_quality_detail_t;
+} er_cs_dof_quality_detail_t;

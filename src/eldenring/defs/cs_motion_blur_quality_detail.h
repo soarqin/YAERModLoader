@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct cs_motion_blur_quality_detail_s {
+typedef struct er_cs_motion_blur_quality_detail_s {
     /* モーションブラー有効
      *   モーションブラー有効
      * Default Value  = 1 */
@@ -45,4 +45,4 @@ typedef struct cs_motion_blur_quality_detail_s {
      *   Scale value for blur maximum length parameter
      * Default Value  = 0.75 */
     float blurMaxLengthScale;
-} cs_motion_blur_quality_detail_t;
+} er_cs_motion_blur_quality_detail_t;

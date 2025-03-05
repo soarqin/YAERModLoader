@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct gparam_ref_settings_param_s {
+typedef struct er_gparam_ref_settings_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -25,4 +25,4 @@ typedef struct gparam_ref_settings_param_s {
     /* リザーブ
      *   リザーブ */
     char Reserve[24];
-} gparam_ref_settings_param_t;
+} er_gparam_ref_settings_param_t;

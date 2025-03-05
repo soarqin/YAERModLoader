@@ -111,7 +111,7 @@ for path in pathlist:
             slf = ''
     else:
         slf = ''
-    struct_content = slf + 'typedef struct ' + type_name + '_s {\n' + sfields + '} ' + type_name + '_t;\n'
+    struct_content = slf + 'typedef struct er_' + type_name + '_s {\n' + sfields + '} er_' + type_name + '_t;\n'
     with codecs.open('defs/' + type_name + '.h', 'w', 'utf-8') as f:
         f.write('#pragma once\n\n')
         f.write(struct_content)

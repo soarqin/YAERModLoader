@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct world_map_legacy_conv_param_s {
+typedef struct er_world_map_legacy_conv_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -108,4 +108,4 @@ typedef struct world_map_legacy_conv_param_s {
     /* パディング４
      *   パディング４ */
     char pad4[11];
-} world_map_legacy_conv_param_t;
+} er_world_map_legacy_conv_param_t;

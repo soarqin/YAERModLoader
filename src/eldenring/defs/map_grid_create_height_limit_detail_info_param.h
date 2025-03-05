@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct map_grid_create_height_limit_detail_info_param_s {
+typedef struct er_map_grid_create_height_limit_detail_info_param_s {
     /* Map ID
      *   Refers to the map ID without underscores. */
     int mapId;
@@ -44,4 +44,4 @@ typedef struct map_grid_create_height_limit_detail_info_param_s {
     int unknown_0x38;
 
     int unknown_0x3c;
-} map_grid_create_height_limit_detail_info_param_t;
+} er_map_grid_create_height_limit_detail_info_param_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct chr_model_param_s {
+typedef struct er_chr_model_param_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -44,4 +44,4 @@ typedef struct chr_model_param_s {
      *   Unk (Added in 1.06)
      * Default Value  = 0 */
     unsigned int unk;
-} chr_model_param_t;
+} er_chr_model_param_t;

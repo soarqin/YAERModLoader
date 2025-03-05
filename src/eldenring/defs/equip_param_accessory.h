@@ -1,7 +1,7 @@
 #pragma once
 
 /* Defines Talismans. */
-typedef struct equip_param_accessory_s {
+typedef struct er_equip_param_accessory_s {
     /* NT版出力から外すか
      *   ○をつけたパラメータをNT版パッケージでは除外します
      * Disable Param - Network Test
@@ -256,4 +256,4 @@ typedef struct equip_param_accessory_s {
     /* pad
      *   pad */
     char pad1[4];
-} equip_param_accessory_t;
+} er_equip_param_accessory_t;

@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct sound_common_system_param_s {
+typedef struct er_sound_common_system_param_s {
     /* パラメータのKey文字列
      *   パラメータのKey文字列です
      * Param Key
@@ -12,4 +12,4 @@ typedef struct sound_common_system_param_s {
      * Param Value
      *   Value string of the parameter */
     char ParamValueStr[32];
-} sound_common_system_param_t;
+} er_sound_common_system_param_t;

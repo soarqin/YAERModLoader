@@ -1,7 +1,7 @@
 #pragma once
 
 /* Defines costs associated with trades or upgrades. ID incrementation is used in places. */
-typedef struct equip_mtrl_set_param_s {
+typedef struct er_equip_mtrl_set_param_s {
     /* 必要素材アイテムID01
      *   武具強化に必要な素材アイテムIDです。
      * Material ID [1]
@@ -179,4 +179,4 @@ typedef struct equip_mtrl_set_param_s {
     /* パディング
      *   パディングです。 */
     char pad[3];
-} equip_mtrl_set_param_t;
+} er_equip_mtrl_set_param_t;

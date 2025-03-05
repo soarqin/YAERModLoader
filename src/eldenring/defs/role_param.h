@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct role_param_s {
+typedef struct er_role_param_s {
     /* チームタイプ
      *   チームタイプ
      * Team Type
@@ -200,4 +200,4 @@ typedef struct role_param_s {
     int nonPlayerSummonStartAnimId;
 
     char pad2[16];
-} role_param_t;
+} er_role_param_t;
