@@ -14,3 +14,4 @@ extern void extdlls_add(const char *name, const wchar_t *path);
 extern int extdlls_count();
 extern void extdlls_load_all();
 extern void extdlls_unload_all();
+extern void extdlls_on_param_initialized();

@@ -7,6 +7,7 @@ add_subdirectory(steam)
 add_subdirectory(eldenring)
 add_subdirectory(modloader)
 add_subdirectory(launcher)
+add_subdirectory(extdlls)
 
 add_dependencies(modloader_launcher modloader_dll)
 

@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 
-typedef struct {
+typedef struct er_wstring_impl_s {
     void *unk;
     wchar_t *string;
     void *unk2;

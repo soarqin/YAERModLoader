@@ -16,7 +16,7 @@ generate_version_info(dll_res_files
 add_project(modloader_dll SHARED
     modloader.c
     config.c config.h
-    extdll.c extdll.h
+    extdll.c extdll.h extdll_api.h
     gamehook.c gamehook.h
     mod.c mod.h
     filecache.c filecache.h

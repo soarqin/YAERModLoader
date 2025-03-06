@@ -14,13 +14,13 @@
 
 #pragma pack(push, 8)
 
-typedef struct {
+typedef struct er_param_entry_offset_s {
     uint64_t param_id;
     intptr_t offset;
     uint64_t unk0;
 } er_param_entry_offset_t;
 
-typedef struct {
+typedef struct er_param_table_s {
     uintptr_t vtable;
     uint16_t unk0;
     uint16_t count;
@@ -30,10 +30,6 @@ typedef struct {
 } er_param_table_t;
 
 #pragma pack(pop)
-
-bool er_param_load_table();
-void er_param_unload();
-const er_param_table_t *er_param_find_table(const wchar_t *name);
 
 #define param_table_find_id(t, id, tp) { \
     uint16_t count = (t)->count; \

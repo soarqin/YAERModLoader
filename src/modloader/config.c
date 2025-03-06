@@ -18,7 +18,15 @@
 
 #include <shlwapi.h>
 
-config_t config;
+config_t config = {
+    0,
+    false,
+    false,
+    true,
+    false,
+    false,
+    1.0f,
+};
 
 static wchar_t modloader_module_path[MAX_PATH];
 wchar_t env_config_path[MAX_PATH];

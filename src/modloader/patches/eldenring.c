@@ -10,6 +10,7 @@
 
 #include "modloader/config.h"
 #include "modloader/mod.h"
+#include "modloader/extdll.h"
 
 #include "process/image.h"
 #include "process/scanner.h"
@@ -18,7 +19,8 @@
 #include "steam/api.h"
 
 #include "eldenring/wstring.h"
-#include "eldenring/param.h"
+#include "eldenring/param_internal.h"
+#include "eldenring/pointers.h"
 #include "eldenring/defs/menu_common_param.h"
 
 #include <MinHook.h>
@@ -58,7 +60,9 @@ static uint64_t get_game_version() {
 */
 
 DWORD WINAPI async_operation_thread(LPVOID arg) {
+    er_pointers_init(INIT_CS_REGULATION_MANAGER);
     er_param_load_table();
+    extdlls_on_param_initialized();
 
     if (config.cpu_affinity_strategy != 0) set_process_cpu_affinity_strategy(config.cpu_affinity_strategy);
     if (config.world_map_cursor_speed != 1.0f) {
@@ -183,9 +187,7 @@ static bool hook_eldenring_archive_position_resolver() {
 bool eldenring_install() {
     game_running = true;
 
-    if (config.cpu_affinity_strategy > 0 || config.world_map_cursor_speed != 1.0f) {
-        async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
-    }
+    async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
     if (config.reset_achievements_on_new_game) {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
     }

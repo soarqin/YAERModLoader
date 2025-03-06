@@ -6,7 +6,7 @@
  * https://opensource.org/licenses/MIT.
  */
 
-#include "param.h"
+#include "param_internal.h"
 
 #include "pointers.h"
 
@@ -54,7 +54,6 @@ static er_param_type_t *param_types = NULL;
 
 bool er_param_load_table() {
     HASH_CLEAR(hh, param_types);
-    er_pointers_init(INIT_CS_REGULATION_MANAGER);
     if (!er_pointers.cs_regulation_manager) {
         return false;
     }
