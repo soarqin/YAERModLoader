@@ -204,25 +204,23 @@ uint8_t *sig_scan_with_mask(void *base, size_t size, const uint8_t *pattern, con
 */
 
 size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, uint8_t *out_mask, size_t out_size) {
-    static const uint8_t char_table[] = {
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 0, 0,
-        0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    static const int8_t char_table[] = {
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -2, -2, -2, -1, -2, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+         0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, -1, -1, -1, -1, -3,
+        -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     };
     size_t pattern_size = 0;
     bool second_char = false;
     while (*pattern) {
-        switch (*pattern) {
-            case '\t':
-            case '\v':
-            case ' ':
-            case '\r':
-            case '\n':
+        switch (char_table[*pattern]) {
+            case -1:
+                return (size_t)-2;
+            case -2:
                 if (second_char) {
                     if (out_mask[pattern_size] == 0xF)
                         out_mask[pattern_size] = 0xFF;
@@ -231,7 +229,7 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
                 }
                 pattern++;
                 break;
-            case '?':
+            case -3:
                 if (second_char) {
                     out_mask[pattern_size] <<= 4;
                     out_pattern[pattern_size] <<= 4;
@@ -247,33 +245,12 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
                 }
                 pattern++;
                 break;
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-            case 'a':
-            case 'b':
-            case 'c':
-            case 'd':
-            case 'e':
-            case 'f':
-            case 'A':
-            case 'B':
-            case 'C':
-            case 'D':
-            case 'E':
-            case 'F':
+            default:
                 if (second_char) {
                     out_mask[pattern_size] <<= 4;
                     out_pattern[pattern_size] <<= 4;
                     out_mask[pattern_size] |= 0xF;
-                    out_pattern[pattern_size] |= char_table[*pattern];
+                    out_pattern[pattern_size] |= (uint8_t)char_table[*pattern];
                     pattern_size++;
                     second_char = false;
                 } else {
@@ -281,13 +258,11 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
                         return (size_t)-1;
                     }
                     out_mask[pattern_size] = 0xF;
-                    out_pattern[pattern_size] = char_table[*pattern];
+                    out_pattern[pattern_size] = (uint8_t)char_table[*pattern];
                     second_char = true;
                 }
                 pattern++;
                 break;
-            default:
-                return (size_t)-2;
         }
     }
     if (second_char) {
@@ -300,25 +275,29 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
 
 uint8_t *sig_scan(void *base, size_t size, const char *pattern) {
     size_t out_size = 64;
+    uint8_t *out_pattern;
+    uint8_t *out_mask;
+    size_t pattern_size;
     for (;;) {
-        uint8_t *out_pattern = LocalAlloc(0, out_size);
-        uint8_t *out_mask = LocalAlloc(0, out_size);
-        size_t pattern_size = sig_build_pattern_with_mask(pattern, out_pattern, out_mask, out_size);
+        out_pattern = LocalAlloc(0, out_size);
+        out_mask = LocalAlloc(0, out_size);
+        pattern_size = sig_build_pattern_with_mask(pattern, out_pattern, out_mask, out_size);
         if (pattern_size == (size_t)-2) return NULL;
         if (pattern_size == (size_t)-1) {
             out_size <<= 1;
             continue;
         }
-        bool any_mask_not_0xff = false;
-        for (size_t i = 0; i < pattern_size; i++) {
-            if (out_mask[i] != 0xFF) {
-                any_mask_not_0xff = true;
-                break;
-            }
-        }
-        uint8_t *res = any_mask_not_0xff ? sig_scan_with_mask(base, size, out_pattern, out_mask, pattern_size) : sig_scan_without_mask(base, size, out_pattern, pattern_size);
-        LocalFree(out_pattern);
-        LocalFree(out_mask);
-        return res;
+        break;
     }
+    bool any_mask_not_0xff = false;
+    for (size_t i = 0; i < pattern_size; i++) {
+        if (out_mask[i] != 0xFF) {
+            any_mask_not_0xff = true;
+            break;
+        }
+    }
+    uint8_t *res = any_mask_not_0xff ? sig_scan_with_mask(base, size, out_pattern, out_mask, pattern_size) : sig_scan_without_mask(base, size, out_pattern, pattern_size);
+    LocalFree(out_pattern);
+    LocalFree(out_mask);
+    return res;
 }

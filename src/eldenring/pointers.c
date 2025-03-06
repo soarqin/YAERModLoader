@@ -23,11 +23,13 @@ static void *scan_indirect_pointer(void *image_base, size_t image_size, const ch
 }
 
 #define er_init_indirect_pointer(flag, name, pattern, offset) do { \
-    if (er_pointers.name == NULL) { \
-        er_pointers.name = scan_indirect_pointer(image_base, image_size, pattern, offset); \
-        if (er_pointers.name == NULL) break; \
+    if (init & flag) { \
+        if (er_pointers.name == NULL) { \
+            er_pointers.name = scan_indirect_pointer(image_base, image_size, pattern, offset); \
+            if (er_pointers.name == NULL) break; \
+        } \
+        res |= flag; \
     } \
-    res |= flag; \
 } while (0)
 
 uint32_t er_pointers_init(uint32_t init) {
