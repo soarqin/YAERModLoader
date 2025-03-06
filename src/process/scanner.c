@@ -12,7 +12,160 @@
 #include <windows.h>
 
 #include <stdbool.h>
+#include <stdint.h>
+#include <sys/types.h>
 
+/* Boyer Moore Matching Algorithm */
+#define BM_DATA_MAX_LEN 256
+
+// A utility function to get maximum of two integers
+#if defined(max)
+#undef max
+#endif
+static ssize_t max(ssize_t a, ssize_t b) { return a > b ? a : b; }
+
+// The preprocessing function for Boyer Moore's
+// bad character heuristic
+void bad_data_heuristic(const uint8_t *data, const uint8_t *mask, size_t size,
+                        ssize_t baddata[BM_DATA_MAX_LEN]) {
+    ssize_t i;
+
+    // Initialize all occurrences as -1
+    for (i = BM_DATA_MAX_LEN - 1; i >= 0; i--)
+        baddata[i] = -1;
+
+    // Fill the actual value of last occurrence
+    // of a character
+    if (mask == NULL) {
+        for (i = 0; i < size; i++)
+            baddata[data[i]] = i;
+    } else {
+        for (i = 0; i < size; i++)
+            if (mask[i] == 0xFF)
+                baddata[data[i]] = i;
+            else {
+                for (ssize_t j = 0; j < 256; j++)
+                    if ((data[i] & mask[i]) == (j & mask[i]))
+                        baddata[j] = i;
+            }
+    }
+}
+
+/* A pattern searching function that uses Bad
+   Character Heuristic of Boyer Moore Algorithm */
+uint8_t *sig_scan_without_mask(void *base, size_t data_size, const uint8_t *pat, size_t pat_size) {
+    ssize_t badchar[BM_DATA_MAX_LEN];
+    uint8_t *data = base;
+
+    /* Fill the bad character array by calling
+       the preprocessing function badCharHeuristic()
+       for given pattern */
+    bad_data_heuristic(pat, NULL, pat_size, badchar);
+
+    ssize_t s = 0; // s is shift of the pattern with
+    // respect to text
+    while (s <= data_size - pat_size) {
+        ssize_t j = (ssize_t)pat_size - 1;
+
+        /* Keep reducing index j of pattern while
+           characters of pattern and text are
+           matching at this shift s */
+        while (j >= 0 && pat[j] == data[s + j]) {
+            j--;
+        }
+    next:
+
+        /* If the pattern is present at current
+           shift, then index j will become -1 after
+           the above loop */
+        if (j < 0) {
+            /* printf("\n pattern occurs at shift = %zx", s); */
+            return data + s;
+
+            /* Shift the pattern so that the next
+               character in text aligns with the last
+               occurrence of it in pattern.
+               The condition s+m < n is necessary for
+               the case when pattern occurs at the end
+               of text */
+            /* s += s + pat_size < data_size ? pat_size - badchar[data[s + pat_size]] : 1; */
+        } else
+        /* Shift the pattern so that the bad character
+           in text aligns with the last occurrence of
+           it in pattern. The max function is used to
+           make sure that we get a positive shift.
+           We may get a negative shift if the last
+           occurrence  of bad character in pattern
+           is on the right side of the current
+           character. */
+            s += max(1, j - badchar[data[s + j]]);
+    }
+    return NULL;
+}
+
+uint8_t *sig_scan_with_mask(void *base, size_t data_size, const uint8_t *pat, const uint8_t *mask, size_t pat_size) {
+    ssize_t badchar[BM_DATA_MAX_LEN];
+    uint8_t *data = base;
+
+    /* Fill the bad character array by calling
+       the preprocessing function badCharHeuristic()
+       for given pattern */
+    bad_data_heuristic(pat, mask, pat_size, badchar);
+
+    ssize_t s = 0; // s is shift of the pattern with
+    // respect to text
+    while (s <= data_size - pat_size) {
+        ssize_t j = (ssize_t)pat_size - 1;
+
+        /* Keep reducing index j of pattern while
+           characters of pattern and text are
+           matching at this shift s */
+        while (j >= 0) {
+            switch (mask[j]) {
+                case 0:
+                    break;
+                case 0xFF:
+                    if (pat[j] != data[s + j])
+                        goto next;
+                    break;
+                default:
+                    if ((pat[j] & mask[j]) != (data[s + j] & mask[j]))
+                        goto next;
+                    break;
+            }
+            j--;
+        }
+    next:
+
+        /* If the pattern is present at current
+           shift, then index j will become -1 after
+           the above loop */
+        if (j < 0) {
+            /* printf("\n pattern occurs at shift = %zx", s); */
+            return data + s;
+
+            /* Shift the pattern so that the next
+               character in text aligns with the last
+               occurrence of it in pattern.
+               The condition s+m < n is necessary for
+               the case when pattern occurs at the end
+               of text */
+            /* s += s + pat_size < data_size ? pat_size - badchar[data[s + pat_size]] : 1; */
+        } else
+        /* Shift the pattern so that the bad character
+           in text aligns with the last occurrence of
+           it in pattern. The max function is used to
+           make sure that we get a positive shift.
+           We may get a negative shift if the last
+           occurrence  of bad character in pattern
+           is on the right side of the current
+           character. */
+            s += max(1, j - badchar[data[s + j]]);
+    }
+    return NULL;
+}
+
+/*
 uint8_t *sig_scan_without_mask(void *base, size_t size, const uint8_t *pattern, size_t pattern_size) {
     size_t end = size - pattern_size;
     uint8_t *u8_base = base;
@@ -48,6 +201,7 @@ uint8_t *sig_scan_with_mask(void *base, size_t size, const uint8_t *pattern, con
     }
     return NULL;
 }
+*/
 
 size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, uint8_t *out_mask, size_t out_size) {
     static const uint8_t char_table[] = {
@@ -64,7 +218,11 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
     bool second_char = false;
     while (*pattern) {
         switch (*pattern) {
-            case '\t': case '\v': case ' ': case '\r': case '\n':
+            case '\t':
+            case '\v':
+            case ' ':
+            case '\r':
+            case '\n':
                 if (second_char) {
                     if (out_mask[pattern_size] == 0xF)
                         out_mask[pattern_size] = 0xFF;
@@ -89,10 +247,28 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
                 }
                 pattern++;
                 break;
-            case '0': case '1': case '2': case '3': case '4': case '5':
-            case '6': case '7': case '8': case '9':
-            case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-            case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+            case 'a':
+            case 'b':
+            case 'c':
+            case 'd':
+            case 'e':
+            case 'f':
+            case 'A':
+            case 'B':
+            case 'C':
+            case 'D':
+            case 'E':
+            case 'F':
                 if (second_char) {
                     out_mask[pattern_size] <<= 4;
                     out_pattern[pattern_size] <<= 4;
@@ -140,9 +316,7 @@ uint8_t *sig_scan(void *base, size_t size, const char *pattern) {
                 break;
             }
         }
-        uint8_t *res = any_mask_not_0xff ?
-            sig_scan_with_mask(base, size, out_pattern, out_mask, pattern_size) :
-            sig_scan_without_mask(base, size, out_pattern, pattern_size);
+        uint8_t *res = any_mask_not_0xff ? sig_scan_with_mask(base, size, out_pattern, out_mask, pattern_size) : sig_scan_without_mask(base, size, out_pattern, pattern_size);
         LocalFree(out_pattern);
         LocalFree(out_mask);
         return res;
