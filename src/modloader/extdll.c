@@ -16,6 +16,8 @@
 #include "process/image.h"
 #include "process/scanner.h"
 
+#include <MinHook.h>
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shlwapi.h>
@@ -38,11 +40,25 @@ extdll_t *extdlls = NULL;
 int extdll_count = 0;
 int extdll_capacity = 0;
 
+static void (hook)(void *target, void *detour, void **original) {
+    MH_CreateHook(target, detour, original);
+    MH_EnableHook(target);
+}
+
+static void (unhook)(void *target) {
+    MH_DisableHook(target);
+    MH_RemoveHook(target);
+}
+
 static modloader_ext_api_t ext_api = {
     .get_module_image_base = get_module_image_base,
     .sig_scan = sig_scan,
     .er_param_find_table = er_param_find_table,
     .er_wstring_impl_str = er_wstring_impl_str,
+
+    /* V2 Added API */
+    .hook = hook,
+    .unhook = unhook,
 };
 
 void extdlls_add(const char *name, const wchar_t *path) {

@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-modloader_ext_api_t* the_api;
+static modloader_ext_api_t* the_api;
 
 void process_param(er_itemlot_param_t* param) {
 #define PARAM_IS_MISSABLE_EQUIPMENT(n) bool is_missable_##n = param->lotItemBasePoint##n > 0 && param->lotItemBasePoint##n < 1000 && (param->lotItemCategory##n == 3 || param->lotItemCategory##n == 2 && (param->lotItemId##n < 43100000 || param->lotItemId##n >= 60000000))

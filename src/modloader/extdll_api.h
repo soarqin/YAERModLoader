@@ -30,6 +30,10 @@ typedef struct modloader_ext_api_s {
     /* ELDEN RING API */
     const er_param_table_t *(*er_param_find_table)(const wchar_t *name);
     const wchar_t *(*er_wstring_impl_str)(const er_wstring_impl_t *str);
+
+    /* V2 Added API */
+    void (*hook)(void *target, void *detour, void **original);
+    void (*unhook)(void *hook);
 } modloader_ext_api_t;
 
 typedef modloader_ext_def_t *(*modloader_ext_init_t)(modloader_ext_api_t *api);

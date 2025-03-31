@@ -1,3 +1,5 @@
+enable_language(ASM_NASM)
+
 file(GLOB dirs LIST_DIRECTORIES true ./*)
 foreach (dir ${dirs})
     if (NOT IS_DIRECTORY ${dir})
