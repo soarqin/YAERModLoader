@@ -10,14 +10,109 @@
 #include <eldenring/param.h>
 #include <eldenring/defs/itemlot_param.h>
 
+#include <ini.h>
+
+#include <windows.h>
+#include <shlwapi.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdbool.h>
 
 static modloader_ext_api_t* the_api;
 
+typedef struct config_s {
+    bool include_weapons;
+    bool include_arrows;
+    bool include_armors;
+    int *include_goods;
+    int include_goods_count;
+} config_t;
+
+static config_t config;
+
+static int compare_int(const void* a, const void* b) {
+    return *(int*)a - *(int*)b;
+}
+
+static int my_ini_handler(void* user, const char* section, const char* name, const char* value) {
+    config_t* cfg = (config_t*)user;
+    
+    if (section == NULL || section[0] == 0) {
+        if (strcmp(name, "include_weapons") == 0) {
+            cfg->include_weapons = strcmp(value, "true") == 0;
+        } else if (strcmp(name, "include_arrows") == 0) {
+            cfg->include_arrows = strcmp(value, "true") == 0;
+        } else if (strcmp(name, "include_armors") == 0) {
+            cfg->include_armors = strcmp(value, "true") == 0;
+        } else if (strcmp(name, "include_goods") == 0) {
+            char* goods_str = strdup(value);
+            char* goods_token = strtok(goods_str, ",");
+            int count = 16;
+            cfg->include_goods = (int*)LocalAlloc(LMEM_FIXED, sizeof(int) * count);
+            int i = 0;
+            while (goods_token != NULL) {
+                if (i >= count) {
+                    count *= 2;
+                    cfg->include_goods = (int*)LocalReAlloc(cfg->include_goods, sizeof(int) * count, LMEM_MOVEABLE);
+                }
+                cfg->include_goods[i] = atoi(goods_token);
+                i++;
+                goods_token = strtok(NULL, ",");
+            }
+            if (i < count) {
+                cfg->include_goods = (int*)LocalReAlloc(cfg->include_goods, sizeof(int) * i, LMEM_MOVEABLE);
+            }
+            cfg->include_goods_count = i;
+            qsort(cfg->include_goods, i, sizeof(int), compare_int);
+            free(goods_str);
+        }
+    }
+    return 1;
+}
+
+static void load_config(HMODULE module) {
+    wchar_t ini_path[512];
+    GetModuleFileNameW(module, ini_path, sizeof(ini_path) / sizeof(ini_path[0]));
+    PathRemoveFileSpecW(ini_path);
+    PathAppendW(ini_path, L"itemlot_rate.ini");
+    
+    config.include_weapons = true;
+    config.include_arrows = false; 
+    config.include_armors = true;
+    if (config.include_goods != NULL) {
+        LocalFree(config.include_goods);
+        config.include_goods = NULL;
+    }
+
+    FILE* file = _wfopen(ini_path, L"r");
+    if (file == NULL) {
+        return;
+    }
+    ini_parse_file(file, my_ini_handler, &config);
+    fclose(file);
+}
+
+static bool is_item_on_table(int category, int item_id) {
+    switch (category) {
+        case 1:
+            if (!config.include_goods) return false;
+            return bsearch(&item_id, config.include_goods, config.include_goods_count, sizeof(int), compare_int) != NULL;
+        case 2:
+            if (config.include_weapons && (item_id < 43100000 || item_id >= 60000000)) return true;
+            return config.include_arrows && item_id >= 43100000 && item_id < 60000000;
+        case 3:
+            return config.include_armors;
+        default:
+            return false;
+    }
+}
+
+static bool is_missable_equipment(short base_point, int category, int item_id) {
+    return base_point > 0 && base_point < 1000 && is_item_on_table(category, item_id);
+}
+
 void process_param(er_itemlot_param_t* param) {
-#define PARAM_IS_MISSABLE_EQUIPMENT(n) bool is_missable_##n = param->lotItemBasePoint##n > 0 && param->lotItemBasePoint##n < 1000 && (param->lotItemCategory##n == 3 || param->lotItemCategory##n == 2 && (param->lotItemId##n < 43100000 || param->lotItemId##n >= 60000000))
+#define PARAM_IS_MISSABLE_EQUIPMENT(n) bool is_missable_##n = is_missable_equipment(param->lotItemBasePoint##n, param->lotItemCategory##n, param->lotItemId##n)
 #define PROCESS_PARAM(n) if (is_missable_##n) { \
         param->lotItemBasePoint##n = 1000; \
         param->enableLuck##n = 0; \
@@ -75,4 +170,19 @@ __declspec(dllexport)
 modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
     the_api = api;
     return &def;
+}
+
+BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH:
+            load_config(module);
+            break;
+        case DLL_PROCESS_DETACH:
+            if (config.include_goods != NULL) {
+                LocalFree(config.include_goods);
+                config.include_goods = NULL;
+            }
+            break;
+    }
+    return TRUE;
 }
