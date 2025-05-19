@@ -26,6 +26,13 @@ typedef struct config_s {
     bool include_armors;
     int *include_goods;
     int include_goods_count;
+    struct alter_item_s {
+        int id;
+        int type;
+        int new_count;
+    } *alter_items;
+    int alter_items_count;
+    int alter_items_capacity;
 } config_t;
 
 static config_t config;
@@ -66,6 +73,31 @@ static int my_ini_handler(void* user, const char* section, const char* name, con
             qsort(cfg->include_goods, i, sizeof(int), compare_int);
             free(goods_str);
         }
+    } else if (lstrcmpA(section, "alter_count") == 0) {
+        int id = atoi(name);
+        char *str = strdup(value);
+        char *token = strtok(str, ",");
+        int type = 1;
+        if (lstrcmpA(token, "drop") == 0) {
+            type = 2;
+        } else if (lstrcmpA(token, "all") == 0) {
+            type = 3;
+        }
+        token = strtok(NULL, ",");
+        int new_count = atoi(token);
+        free(str);
+        if (cfg->alter_items == NULL) {
+            cfg->alter_items_count = 0;
+            cfg->alter_items_capacity = 8;
+            cfg->alter_items = (typeof(cfg->alter_items))LocalAlloc(LMEM_FIXED, 8 * sizeof(*cfg->alter_items));
+        } else if (cfg->alter_items_count < cfg->alter_items_capacity) {
+            cfg->alter_items_capacity *= 2;
+            cfg->alter_items = (typeof(cfg->alter_items))LocalReAlloc(cfg->alter_items, sizeof(*cfg->alter_items) * (cfg->alter_items_capacity), LMEM_MOVEABLE);
+        }
+        cfg->alter_items[cfg->alter_items_count].id = id;
+        cfg->alter_items[cfg->alter_items_count].type = type;
+        cfg->alter_items[cfg->alter_items_count].new_count = new_count;
+        cfg->alter_items_count++;
     }
     return 1;
 }
@@ -111,7 +143,7 @@ static bool is_missable_equipment(short base_point, int category, int item_id) {
     return base_point > 0 && base_point < 1000 && is_item_on_table(category, item_id);
 }
 
-void process_param(er_itemlot_param_t* param) {
+void process_param_rate(er_itemlot_param_t* param) {
 #define PARAM_IS_MISSABLE_EQUIPMENT(n) bool is_missable_##n = is_missable_equipment(param->lotItemBasePoint##n, param->lotItemCategory##n, param->lotItemId##n)
 #define PROCESS_PARAM(n) if (is_missable_##n) { \
         param->lotItemBasePoint##n = 1000; \
@@ -133,30 +165,55 @@ void process_param(er_itemlot_param_t* param) {
     PARAM_IS_MISSABLE_EQUIPMENT(07);
     PARAM_IS_MISSABLE_EQUIPMENT(08);
     if (is_missable_01 || is_missable_02 || is_missable_03 || is_missable_04 || is_missable_05 || is_missable_06 || is_missable_07 || is_missable_08) {
-        PROCESS_PARAM(01);
-        PROCESS_PARAM(02);
-        PROCESS_PARAM(03);
-        PROCESS_PARAM(04);
-        PROCESS_PARAM(05);
-        PROCESS_PARAM(06);
-        PROCESS_PARAM(07);
-        PROCESS_PARAM(08);
+        PROCESS_PARAM(01)
+        PROCESS_PARAM(02)
+        PROCESS_PARAM(03)
+        PROCESS_PARAM(04)
+        PROCESS_PARAM(05)
+        PROCESS_PARAM(06)
+        PROCESS_PARAM(07)
+        PROCESS_PARAM(08)
         param->cumulateNumMax = 0;
     }
 #undef PARAM_IS_MISSABLE_EQUIPMENT
 #undef PROCESS_PARAM
 }
 
+void process_param_count(er_itemlot_param_t* param, int type) {
+#define LOT_ITEM_NUM(n) if (item->type & type) { \
+        if (param->lotItemId##n == item->id && param->lotItemNum##n > 0 && param->lotItemBasePoint##n > 0) { \
+            param->lotItemNum##n = item->new_count; \
+            return; \
+        } \
+    }
+    for (int i = config.alter_items_count - 1; i >= 0; i--) {
+        struct alter_item_s* item = &config.alter_items[i];
+        LOT_ITEM_NUM(01)
+        LOT_ITEM_NUM(02)
+        LOT_ITEM_NUM(03)
+        LOT_ITEM_NUM(04)
+        LOT_ITEM_NUM(05)
+        LOT_ITEM_NUM(06)
+        LOT_ITEM_NUM(07)
+        LOT_ITEM_NUM(08)
+    }
+}
+
 void on_param_initialized(void* userp) {
     (void)userp;
-    const er_param_table_t* table = the_api->er_param_find_table(L"ItemLotParam_enemy");
-    if (table == NULL) {
-        return;
+    const er_param_table_t* table = the_api->er_param_find_table(L"ItemLotParam_map");
+    if (table != NULL) {
+        er_param_table_iterate_begin(table, er_itemlot_param_t, param) {
+            process_param_count(param, 1);
+        } er_param_table_iterate_end();
     }
-
-    er_param_table_iterate_begin(table, er_itemlot_param_t, param) {
-        process_param(param);
-    } er_param_table_iterate_end();
+    table = the_api->er_param_find_table(L"ItemLotParam_enemy");
+    if (table != NULL) {
+        er_param_table_iterate_begin(table, er_itemlot_param_t, param) {
+            process_param_rate(param);
+            process_param_count(param, 2);
+        } er_param_table_iterate_end();
+    }
 }
 
 modloader_ext_def_t def = {
