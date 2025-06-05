@@ -53,7 +53,7 @@ static wchar_t replaced_seamless_coop_save_filename_bak[64] = L"";
 
 static bool str_ends_with(const wchar_t *str, size_t str_len, const wchar_t *suffix, size_t suffix_len) {
     if (suffix_len > str_len) return false;
-    return StrCmpNW(str + str_len - suffix_len, suffix, suffix_len) == 0;
+    return StrCmpNIW(str + str_len - suffix_len, suffix, suffix_len) == 0;
 }
 
 /*
@@ -101,10 +101,11 @@ typedef HANDLE (WINAPI *CreateFileW_t)(LPCWSTR lpFileName,
                                        DWORD dwCreationDisposition,
                                        DWORD dwFlagsAndAttributes,
                                        HANDLE hTemplateFile);
-
+typedef BOOL (WINAPI *CopyFileW_t)(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, BOOL bFailIfExists);
 
 static map_archive_path_t old_map_archive_path = NULL;
 static CreateFileW_t old_CreateFileW = NULL;
+static CopyFileW_t old_CopyFileW = NULL;
 
 void *__cdecl map_archive_path(er_wstring_impl_t *path, const uint64_t p2, const uint64_t p3, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
     void *res = old_map_archive_path(path, p2, p3, p4, p5, p6);
@@ -118,23 +119,14 @@ void *__cdecl map_archive_path(er_wstring_impl_t *path, const uint64_t p2, const
     return res;
 }
 
-HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
-                                const DWORD dwDesiredAccess,
-                                const DWORD dwShareMode,
-                                LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-                                const DWORD dwCreationDisposition,
-                                const DWORD dwFlagsAndAttributes,
-                                HANDLE hTemplateFile) {
-    const wchar_t *replace = mods_file_search_prefixed(lpFileName);
-    if (replace != NULL) {
-        return old_CreateFileW(replace == NULL ? lpFileName : replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    }
+wchar_t *check_replace_file(const wchar_t *lpFileName) {
     bool has_replaced = replaced_save_filename[0] != L'\0';
     bool has_seamless_coop_replaced = replaced_seamless_coop_save_filename[0] != L'\0';
     if (!has_replaced && !has_seamless_coop_replaced) {
-        goto original;
+        return NULL;
     }
     size_t len = lstrlenW(lpFileName);
+    const wchar_t *replace = NULL;
     if (has_replaced) {
         if (str_ends_with(lpFileName, len, ORIGINAL_SAVE_FILENAME, ORIGINAL_SAVE_FILENAME_LEN)) {
             replace = replaced_save_filename;
@@ -150,21 +142,55 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
         }
     }
     if (replace == NULL) {
-        goto original;
+        return NULL;
     }
     wchar_t *full_path = malloc((64 + len) * sizeof(wchar_t));
     if (full_path == NULL) {
-        goto original;
+        return NULL;
     }
     lstrcpyW(full_path, lpFileName);
     PathRemoveFileSpecW(full_path);
     PathAppendW(full_path, replace);
+    return full_path;
+}
+
+HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
+                                const DWORD dwDesiredAccess,
+                                const DWORD dwShareMode,
+                                LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                                const DWORD dwCreationDisposition,
+                                const DWORD dwFlagsAndAttributes,
+                                HANDLE hTemplateFile) {
+    if (lpFileName[0] == L'\\') {
+        return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    }
+    const wchar_t *replace = mods_file_search_prefixed(lpFileName);
+    if (replace != NULL) {
+        return old_CreateFileW(replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    }
+    wchar_t *full_path = check_replace_file(lpFileName);
+    if (full_path == NULL) {
+        return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    }
     HANDLE h = old_CreateFileW(full_path, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     free(full_path);
     return h;
+}
 
-original:
-    return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+BOOL WINAPI CopyFile_hooked(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, BOOL bFailIfExists) {
+    wchar_t *new_existing_filename = check_replace_file(lpExistingFileName);
+    if (new_existing_filename == NULL) {
+        return old_CopyFileW(lpExistingFileName, lpNewFileName, bFailIfExists);
+    }
+    wchar_t *new_new_filename = check_replace_file(lpNewFileName);
+    if (new_new_filename == NULL) {
+        free(new_existing_filename);
+        return old_CopyFileW(new_existing_filename, lpNewFileName, bFailIfExists);
+    }
+    BOOL res = old_CopyFileW(new_existing_filename, new_new_filename, bFailIfExists);
+    free(new_existing_filename);
+    free(new_new_filename);
+    return res;
 }
 
 DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
@@ -241,6 +267,10 @@ static void hook_eldenring_create_file() {
     MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
 }
 
+static void hook_eldenring_copy_file() {
+    MH_CreateHook(CopyFileW, (void*)&CopyFile_hooked, (void**)&old_CopyFileW);
+}
+
 static bool patch_regulation_safety_check() {
     uint8_t *addr = sig_scan(image_base, image_size, "48 8B 43 08 48 89 88 C8 00 00 00 38 0D ?? ?? ?? ?? 75 ?? E8 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 88 05");
     if (!addr) return false;
@@ -255,7 +285,7 @@ bool eldenring_install() {
     if (config.replaced_save_filename[0] == L'.') {
         lstrcpyW(replaced_save_filename, ORIGINAL_SAVE_FILENAME);
         PathRemoveExtensionW(replaced_save_filename);
-        PathAppendW(replaced_save_filename, config.replaced_save_filename);
+        lstrcatW(replaced_save_filename, config.replaced_save_filename);
     } else {
         lstrcpyW(replaced_save_filename, config.replaced_save_filename);
     }
@@ -267,7 +297,7 @@ bool eldenring_install() {
     if (config.replaced_seamless_coop_save_filename[0] == L'.') {
         lstrcpyW(replaced_seamless_coop_save_filename, SEAMLESS_COOP_SAVE_FILENAME);
         PathRemoveExtensionW(replaced_seamless_coop_save_filename);
-        PathAppendW(replaced_seamless_coop_save_filename, config.replaced_seamless_coop_save_filename);
+        lstrcatW(replaced_seamless_coop_save_filename, config.replaced_seamless_coop_save_filename);
     } else {
         lstrcpyW(replaced_seamless_coop_save_filename, config.replaced_seamless_coop_save_filename);
     }
@@ -298,6 +328,7 @@ bool eldenring_install() {
 
     if (replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
         patch_regulation_safety_check();
+        hook_eldenring_copy_file();
     }
 
     int modcount = mods_count();
