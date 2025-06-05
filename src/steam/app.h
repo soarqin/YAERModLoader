@@ -12,4 +12,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern bool app_find_game_path(uint32_t app_id, wchar_t *path);
+
+#ifdef __cplusplus
+}
+#endif

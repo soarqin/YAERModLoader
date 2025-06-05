@@ -37,6 +37,25 @@ static HANDLE reset_achievements_on_new_game_thread_handle = NULL;
 static void *image_base;
 static size_t image_size;
 
+static wchar_t replaced_save_filename[64] = L"";
+static wchar_t replaced_save_filename_bak[64] = L"";
+static wchar_t replaced_seamless_coop_save_filename[64] = L"";
+static wchar_t replaced_seamless_coop_save_filename_bak[64] = L"";
+
+#define ORIGINAL_SAVE_FILENAME L"ER0000.sl2"
+#define ORIGINAL_SAVE_FILENAME_LEN 10
+#define ORIGIANL_SAVE_FILENAME_BAK L"ER0000.sl2.bak"
+#define ORIGIANL_SAVE_FILENAME_BAK_LEN 14
+#define SEAMLESS_COOP_SAVE_FILENAME L"ER0000.co2"
+#define SEAMLESS_COOP_SAVE_FILENAME_LEN 10
+#define SEAMLESS_COOP_SAVE_FILENAME_BAK L"ER0000.co2.bak"
+#define SEAMLESS_COOP_SAVE_FILENAME_BAK_LEN 14
+
+static bool str_ends_with(const wchar_t *str, size_t str_len, const wchar_t *suffix, size_t suffix_len) {
+    if (suffix_len > str_len) return false;
+    return StrCmpNW(str + str_len - suffix_len, suffix, suffix_len) == 0;
+}
+
 /*
 static uint64_t get_game_version() {
     wchar_t exepath[MAX_PATH];
@@ -107,7 +126,45 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
                                 const DWORD dwFlagsAndAttributes,
                                 HANDLE hTemplateFile) {
     const wchar_t *replace = mods_file_search_prefixed(lpFileName);
-    return old_CreateFileW(replace == NULL ? lpFileName : replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    if (replace != NULL) {
+        return old_CreateFileW(replace == NULL ? lpFileName : replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    }
+    bool has_replaced = replaced_save_filename[0] != L'\0';
+    bool has_seamless_coop_replaced = replaced_seamless_coop_save_filename[0] != L'\0';
+    if (!has_replaced && !has_seamless_coop_replaced) {
+        goto original;
+    }
+    size_t len = lstrlenW(lpFileName);
+    if (has_replaced) {
+        if (str_ends_with(lpFileName, len, ORIGINAL_SAVE_FILENAME, ORIGINAL_SAVE_FILENAME_LEN)) {
+            replace = replaced_save_filename;
+        } else if (str_ends_with(lpFileName, len, ORIGIANL_SAVE_FILENAME_BAK, ORIGIANL_SAVE_FILENAME_BAK_LEN)) {
+            replace = replaced_save_filename_bak;
+        }
+    }
+    if (has_seamless_coop_replaced) {
+        if (str_ends_with(lpFileName, len, SEAMLESS_COOP_SAVE_FILENAME, SEAMLESS_COOP_SAVE_FILENAME_LEN)) {
+            replace = replaced_seamless_coop_save_filename;
+        } else if (str_ends_with(lpFileName, len, SEAMLESS_COOP_SAVE_FILENAME_BAK, SEAMLESS_COOP_SAVE_FILENAME_BAK_LEN)) {
+            replace = replaced_seamless_coop_save_filename_bak;
+        }
+    }
+    if (replace == NULL) {
+        goto original;
+    }
+    wchar_t *full_path = malloc((64 + len) * sizeof(wchar_t));
+    if (full_path == NULL) {
+        goto original;
+    }
+    lstrcpyW(full_path, lpFileName);
+    PathRemoveFileSpecW(full_path);
+    PathAppendW(full_path, replace);
+    HANDLE h = old_CreateFileW(full_path, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    free(full_path);
+    return h;
+
+original:
+    return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
 
 DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
@@ -171,20 +228,54 @@ static bool patch_eldenring_remove_vignette() {
 
 static bool hook_eldenring_archive_position_resolver() {
     uint8_t *addr = sig_scan(image_base, image_size, "48 83 7B 20 08 48 8D 4B 08 72 03 48 8B 09 4C 8B 4B 18 41 B8 05 00 00 00 4D 3B C8");
-    if (!addr) {
-        return false;
-    }
+    if (!addr) return false;
     addr += *(int32_t*)(addr - 4);
     while (*addr == 0xE9) {
         addr += *(int32_t*)(addr + 1) + 5;
     }
     MH_CreateHook(addr, (void*)&map_archive_path, (void**)&old_map_archive_path);
+    return true;
+}
 
+static void hook_eldenring_create_file() {
     MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
+}
+
+static bool patch_regulation_safety_check() {
+    uint8_t *addr = sig_scan(image_base, image_size, "48 8B 43 08 48 89 88 C8 00 00 00 38 0D ?? ?? ?? ?? 75 ?? E8 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 88 05");
+    if (!addr) return false;
+    DWORD old_protect;
+    VirtualProtect(addr, 1, PAGE_EXECUTE_READWRITE, &old_protect);
+    *addr = 0x30;
+    VirtualProtect(addr, 1, old_protect, &old_protect);
     return true;
 }
 
 bool eldenring_install() {
+    if (config.replaced_save_filename[0] == L'.') {
+        lstrcpyW(replaced_save_filename, ORIGINAL_SAVE_FILENAME);
+        PathRemoveExtensionW(replaced_save_filename);
+        PathAppendW(replaced_save_filename, config.replaced_save_filename);
+    } else {
+        lstrcpyW(replaced_save_filename, config.replaced_save_filename);
+    }
+    if (config.replaced_save_filename[0] != L'\0') {
+        lstrcpyW(replaced_save_filename_bak, replaced_save_filename);
+        lstrcatW(replaced_save_filename_bak, L".bak");
+    }
+
+    if (config.replaced_seamless_coop_save_filename[0] == L'.') {
+        lstrcpyW(replaced_seamless_coop_save_filename, SEAMLESS_COOP_SAVE_FILENAME);
+        PathRemoveExtensionW(replaced_seamless_coop_save_filename);
+        PathAppendW(replaced_seamless_coop_save_filename, config.replaced_seamless_coop_save_filename);
+    } else {
+        lstrcpyW(replaced_seamless_coop_save_filename, config.replaced_seamless_coop_save_filename);
+    }
+    if (config.replaced_seamless_coop_save_filename[0] != L'\0') {
+        lstrcpyW(replaced_seamless_coop_save_filename_bak, replaced_seamless_coop_save_filename);
+        lstrcatW(replaced_seamless_coop_save_filename_bak, L".bak");
+    }
+
     game_running = true;
 
     async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
@@ -205,9 +296,18 @@ bool eldenring_install() {
         patch_eldenring_remove_vignette();
     }
 
+    if (replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
+        patch_regulation_safety_check();
+    }
+
+    int modcount = mods_count();
+    if (modcount > 0 || replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
+        hook_eldenring_create_file();
+    }
     /* Do not hook if no mod is added, to improve game performance during loading. */
-    if (mods_count() <= 0) return true;
-    if (!hook_eldenring_archive_position_resolver()) return false;
+    if (modcount > 0) {
+        if (!hook_eldenring_archive_position_resolver()) return false;
+    }
     return true;
 }
 

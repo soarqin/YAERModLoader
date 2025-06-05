@@ -9,6 +9,7 @@
 #include "param_internal.h"
 
 #include "pointers.h"
+#include "wstring.h"
 
 #define uthash_malloc(sz) LocalAlloc(0, sz)
 #define uthash_free(ptr,sz) LocalFree(ptr)

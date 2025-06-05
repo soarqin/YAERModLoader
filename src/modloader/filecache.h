@@ -10,7 +10,15 @@
 
 #include <wchar.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void filecache_init();
 extern void filecache_uninit();
 extern const wchar_t *filecache_add(const wchar_t *path, const wchar_t *replace);
 extern const wchar_t *filecache_find(const wchar_t *path);
+
+#ifdef __cplusplus
+}
+#endif

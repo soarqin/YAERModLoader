@@ -59,6 +59,10 @@
 #define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
 #define DETOUR_ASSERT(expr)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern const GUID DETOUR_EXE_RESTORE_GUID;
 
 const GUID DETOUR_EXE_RESTORE_GUID = {
@@ -579,3 +583,7 @@ static PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule) {
     return ((PBYTE)pDosHeader) +
            pNtHeader->OptionalHeader.AddressOfEntryPoint;
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -10,6 +10,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct er_wstring_impl_s {
     void *unk;
     wchar_t *string;
@@ -20,3 +24,7 @@ typedef struct er_wstring_impl_s {
 
 extern const wchar_t *er_wstring_impl_str(const er_wstring_impl_t *str);
 extern wchar_t *er_wstring_impl_str_mutable(er_wstring_impl_t *str);
+
+#ifdef __cplusplus
+}
+#endif

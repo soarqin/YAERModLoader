@@ -10,5 +10,13 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern bool eldenring_install();
 extern void eldenring_uninstall();
+
+#ifdef __cplusplus
+}
+#endif

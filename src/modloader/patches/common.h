@@ -10,5 +10,13 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern bool common_install();
 extern void common_uninstall();
+
+#ifdef __cplusplus
+}
+#endif

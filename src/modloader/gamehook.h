@@ -8,8 +8,15 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern bool gamehook_install();
 extern void gamehook_uninstall();
+
+#ifdef __cplusplus
+}
+#endif

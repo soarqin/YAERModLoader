@@ -11,4 +11,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern uint8_t *sig_scan(void *base, size_t size, const char *pattern);
+
+#ifdef __cplusplus
+}
+#endif

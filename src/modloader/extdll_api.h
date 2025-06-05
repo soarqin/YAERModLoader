@@ -10,6 +10,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct modloader_ext_def_s {
     const char *name;
 
@@ -37,3 +41,7 @@ typedef struct modloader_ext_api_s {
 } modloader_ext_api_t;
 
 typedef modloader_ext_def_t *(*modloader_ext_init_t)(modloader_ext_api_t *api);
+
+#ifdef __cplusplus
+}
+#endif

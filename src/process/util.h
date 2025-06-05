@@ -8,4 +8,12 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void set_process_cpu_affinity_strategy(int strategy);
+
+#ifdef __cplusplus
+}
+#endif

@@ -26,6 +26,8 @@ config_t config = {
     false,
     false,
     1.0f,
+    L"",
+    L"",
 };
 
 static wchar_t modloader_module_path[MAX_PATH];
@@ -74,6 +76,10 @@ static int ini_read_cb(void *user, const char *section,
             } else if (config.world_map_cursor_speed > 10.0f) {
                 config.world_map_cursor_speed = 10.0f;
             }
+        } else if (lstrcmpA(name, "replace_save_filename") == 0) {
+            MultiByteToWideChar(CP_UTF8, 0, value, -1, config.replaced_save_filename, 64);
+        } else if (lstrcmpA(name, "replace_seamless_coop_save_filename") == 0) {
+            MultiByteToWideChar(CP_UTF8, 0, value, -1, config.replaced_seamless_coop_save_filename, 64);
         }
     } else if (lstrcmpA(section, "dlls") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);

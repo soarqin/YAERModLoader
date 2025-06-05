@@ -10,6 +10,14 @@
 
 #include "param.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern bool er_param_load_table();
 extern void er_param_unload();
 extern const er_param_table_t *er_param_find_table(const wchar_t *name);
+
+#ifdef __cplusplus
+}
+#endif

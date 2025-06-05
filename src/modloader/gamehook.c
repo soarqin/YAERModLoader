@@ -14,16 +14,11 @@
 
 #include <MinHook.h>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-#include <wchar.h>
-
 bool gamehook_install() {
     steamapi_init();
+    bool result = common_install() && eldenring_install();
     MH_EnableHook(MH_ALL_HOOKS);
-
-    return common_install() && eldenring_install();
+    return result;
 }
 
 void gamehook_uninstall() {

@@ -8,9 +8,12 @@
 
 #pragma once
 
-#include "wstring.h"
-
 #include <stdbool.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #pragma pack(push, 8)
 
@@ -51,3 +54,7 @@ typedef struct er_param_table_s {
         }
 
 #define er_param_table_iterate_end() } } while(0)
+
+#ifdef __cplusplus
+}
+#endif

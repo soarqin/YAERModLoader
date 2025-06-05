@@ -10,6 +10,10 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct isteam_userstats isteam_userstats;
 
 extern void steamapi_init();
@@ -18,3 +22,7 @@ extern void steamapi_uninit();
 extern isteam_userstats *steam_userstats();
 extern bool isteam_userstats_store_stats(isteam_userstats *steam_userstats);
 extern bool isteam_userstats_reset_all_stats(isteam_userstats *steam_userstats, bool achievements_too);
+
+#ifdef __cplusplus
+}
+#endif

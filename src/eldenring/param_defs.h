@@ -1,5 +1,11 @@
 #pragma once
 
+#include <wchar.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "defs/actionbutton_param.h"
 #include "defs/ai_anim_tbl_param.h"
 #include "defs/ai_attack_param.h"
@@ -194,3 +200,7 @@
 #include "defs/world_map_place_name_param.h"
 #include "defs/world_map_point_param.h"
 #include "defs/wwise_value_to_str_convert_param.h"
+
+#ifdef __cplusplus
+}
+#endif

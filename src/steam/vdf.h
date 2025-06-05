@@ -2,12 +2,12 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <wchar.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
-#include <wchar.h>
 
 enum vdf_data_type {
     VDF_TYPE_NONE,

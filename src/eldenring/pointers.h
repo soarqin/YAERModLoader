@@ -10,6 +10,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     INIT_CS_REGULATION_MANAGER = 1,
     INIT_SOLO_PARAM_REPOSITORY = 2,
@@ -23,3 +27,7 @@ typedef struct {
 uint32_t er_pointers_init(uint32_t init);
 
 extern er_pointers_t er_pointers;
+
+#ifdef __cplusplus
+}
+#endif
