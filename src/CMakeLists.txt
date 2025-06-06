@@ -1,6 +1,6 @@
 include(GenerateVersionInfo)
 
-set(YAERMODLOADER_VERSION "0.3.3")
+set(YAERMODLOADER_VERSION "0.4.0")
 
 add_subdirectory(process)
 add_subdirectory(steam)

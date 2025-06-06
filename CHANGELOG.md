@@ -1,5 +1,9 @@
-#### NEXT VERSION
+#### 0.4.0
 * Added new option: `world_map_cursor_speed`
+* Added new options: `replace_save_filename` and `replace_seamless_coop_save_filename`
+* Added 2 individual external dlls (uncomment in `YAERModLoader.ini` to enable them)
+  * `autoloot.dll`: Auto-loot materials and player corpse runes
+  * `itemlot_rate.dll`: Change item drop rate, modify `itemlot_rate.ini` to satisfy your use
 
 #### 0.3.3
 * Fixed broken '-p' option
