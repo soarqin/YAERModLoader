@@ -276,7 +276,7 @@ static bool patch_regulation_safety_check() {
     if (!addr) return false;
     DWORD old_protect;
     VirtualProtect(addr, 1, PAGE_EXECUTE_READWRITE, &old_protect);
-    *addr = 0x30;
+    *(addr + 36) = 0x30;
     VirtualProtect(addr, 1, old_protect, &old_protect);
     return true;
 }
