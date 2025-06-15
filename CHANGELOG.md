@@ -1,3 +1,6 @@
+#### 0.4.1
+* Fixed a crash caused by save filename changing.
+
 #### 0.4.0
 * Added new option: `world_map_cursor_speed`
 * Added new options: `replace_save_filename` and `replace_seamless_coop_save_filename`
