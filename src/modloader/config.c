@@ -26,6 +26,7 @@ config_t config = {
     false,
     false,
     1.0f,
+    false,
     L"",
     L"",
 };
@@ -76,6 +77,8 @@ static int ini_read_cb(void *user, const char *section,
             } else if (config.world_map_cursor_speed > 10.0f) {
                 config.world_map_cursor_speed = 10.0f;
             }
+        } else if (lstrcmpA(name, "disable_mouse_camera_control") == 0) {
+            config.disable_mouse_camera_control = value_to_bool(value);
         } else if (lstrcmpA(name, "replace_save_filename") == 0) {
             MultiByteToWideChar(CP_UTF8, 0, value, -1, config.replaced_save_filename, 64);
         } else if (lstrcmpA(name, "replace_seamless_coop_save_filename") == 0) {
