@@ -26,6 +26,7 @@ typedef struct {
     bool remove_chromatic_aberration;
     bool remove_vignette;
     float world_map_cursor_speed;
+    bool disable_mouse_camera_control;
     wchar_t replaced_save_filename[64];
     wchar_t replaced_seamless_coop_save_filename[64];
 } config_t;
