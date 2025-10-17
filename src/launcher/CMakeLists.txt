@@ -24,9 +24,7 @@ add_project(modloader_launcher WIN32
 )
 
 target_include_directories(modloader_launcher PRIVATE ..)
-if (MSVC)
-    target_compile_options(modloader_launcher PRIVATE /utf-8)
-else ()
+if (NOT MSVC)
     target_link_options(modloader_launcher PRIVATE -municode)
 endif ()
 target_link_libraries(modloader_launcher steam wingetopt #[[lzma]] shlwapi)

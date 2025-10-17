@@ -15,6 +15,11 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+#define ssize_t SSIZE_T
+#endif
+
 /* Boyer Moore Matching Algorithm */
 #define BM_DATA_MAX_LEN 256
 

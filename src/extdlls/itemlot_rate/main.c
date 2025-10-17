@@ -89,10 +89,10 @@ static int my_ini_handler(void* user, const char* section, const char* name, con
         if (cfg->alter_items == NULL) {
             cfg->alter_items_count = 0;
             cfg->alter_items_capacity = 8;
-            cfg->alter_items = (typeof(cfg->alter_items))LocalAlloc(LMEM_FIXED, 8 * sizeof(*cfg->alter_items));
+            cfg->alter_items = (struct alter_item_s *)LocalAlloc(LMEM_FIXED, 8 * sizeof(struct alter_item_s));
         } else if (cfg->alter_items_count < cfg->alter_items_capacity) {
             cfg->alter_items_capacity *= 2;
-            cfg->alter_items = (typeof(cfg->alter_items))LocalReAlloc(cfg->alter_items, sizeof(*cfg->alter_items) * (cfg->alter_items_capacity), LMEM_MOVEABLE);
+            cfg->alter_items = (struct alter_item_s *)LocalReAlloc(cfg->alter_items, sizeof(struct alter_item_s) * (cfg->alter_items_capacity), LMEM_MOVEABLE);
         }
         cfg->alter_items[cfg->alter_items_count].id = id;
         cfg->alter_items[cfg->alter_items_count].type = type;

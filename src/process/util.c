@@ -12,13 +12,14 @@
 #include <windows.h>
 #include <sysinfoapi.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 void set_process_cpu_affinity_strategy(const int strategy) {
     DWORD len = 0;
     GetLogicalProcessorInformationEx(RelationProcessorCore, NULL, &len);
     if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) return;
-    char *data = malloc(len);
+    char *data = (char *)malloc(len);
     if (!data) return;
     if (!GetLogicalProcessorInformationEx(RelationProcessorCore, (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)data, &len)) {
         free(data);
