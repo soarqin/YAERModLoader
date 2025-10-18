@@ -180,8 +180,8 @@ fail1:
 */
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLine, int nShowCmd) {
-    STARTUPINFOW si = {};
-    PROCESS_INFORMATION pi = {};
+    STARTUPINFOW si = {0};
+    PROCESS_INFORMATION pi = {0};
     char filepath[MAX_PATH];
     wchar_t game_folder[MAX_PATH];
 

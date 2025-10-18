@@ -25,7 +25,7 @@ void set_process_cpu_affinity_strategy(const int strategy) {
         free(data);
         return;
     }
-    uint64_t masks[256] = {};
+    uint64_t masks[256] = {0};
     uint64_t all_masks = 0;
     uint64_t nonzero_masks = 0;
     DWORD offset = 0;
