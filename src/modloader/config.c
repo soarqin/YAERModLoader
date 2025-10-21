@@ -192,6 +192,7 @@ void config_load() {
             }
 #endif
         }
+        lstrcpyW(env_config_path, config_path);
     }
     config_file = _wfopen(config_path, L"r");
     if (config_file == NULL) return;

@@ -23,7 +23,6 @@
 #include <shlwapi.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <stdint.h>
 
 typedef struct extdll_t {
     char *name;
