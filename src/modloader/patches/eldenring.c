@@ -252,6 +252,32 @@ static bool patch_eldenring_remove_vignette() {
     return true;
 }
 
+float (*old_get_mouse_delta_h)(void*);
+float patch_get_mouse_delta_h(void *p)
+{
+    return 0.0f;
+}
+
+float (*old_get_mouse_delta_v)(void*);
+float patch_get_mouse_delta_v(void *p)
+{
+    return 0.0f;
+}
+
+static bool patch_eldenring_disable_mouse_camera_control() {
+    uint8_t *addr = sig_scan(image_base, image_size, "48 8D 4D ?? E8 ?? ?? ?? ?? 0F 28 F0 48 8D 4D ?? E8 ?? ?? ?? ?? F3 0F 11 45 07 F3 0F 11 75 0B");
+    if (!addr) return false;
+
+    uint8_t *jmp = addr + 4;
+    uint8_t *real_addr = jmp + *(int32_t*)(jmp + 1) + 5;
+    MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_h, (void**)&old_get_mouse_delta_h);
+
+    jmp = addr + 0x10;
+    real_addr = jmp + *(int32_t*)(jmp + 1) + 5;
+    MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_v, (void**)&old_get_mouse_delta_v);
+    return true;
+}
+
 static bool hook_eldenring_archive_position_resolver() {
     uint8_t *addr = sig_scan(image_base, image_size, "48 83 7B 20 08 48 8D 4B 08 72 03 48 8B 09 4C 8B 4B 18 41 B8 05 00 00 00 4D 3B C8");
     if (!addr) return false;
@@ -324,6 +350,10 @@ bool eldenring_install() {
 
     if (config.remove_vignette) {
         patch_eldenring_remove_vignette();
+    }
+
+    if (config.disable_mouse_camera_control) {
+        patch_eldenring_disable_mouse_camera_control();
     }
 
     if (replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
