@@ -3,14 +3,14 @@
 
 static modloader_ext_api_t* the_api;
 
-void* exec_action_button_param_proxy;
+void* exec_action_button_param_proxy = NULL;
 uintptr_t execute_action_button_param_proxy_return = 0;
 
 extern int exec_action_button_param_proxy_hook();
 
 void on_uninit(void* userp) {
     (void)userp;
-    the_api->unhook((void*)exec_action_button_param_proxy);
+    the_api->unhook(exec_action_button_param_proxy);
 }
 
 #include <stdio.h>
