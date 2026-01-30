@@ -130,8 +130,8 @@ static bool is_item_on_table(int category, int item_id) {
             if (!config.include_goods) return false;
             return bsearch(&item_id, config.include_goods, config.include_goods_count, sizeof(int), compare_int) != NULL;
         case 2:
-            if (config.include_weapons && (item_id < 43100000 || item_id >= 60000000)) return true;
-            return config.include_arrows && item_id >= 43100000 && item_id < 60000000;
+            if (config.include_weapons && (item_id < 50000000 || item_id >= 60000000)) return true;
+            return config.include_arrows && item_id >= 50000000 && item_id < 60000000;
         case 3:
             return config.include_armors;
         default:
@@ -232,6 +232,7 @@ modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
+            DisableThreadLibraryCalls(module);
             load_config(module);
             break;
         case DLL_PROCESS_DETACH:

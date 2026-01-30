@@ -1,4 +1,6 @@
 #include <modloader/extdll_api.h>
+
+#include <windows.h>
 #include <stddef.h>
 
 static modloader_ext_api_t* the_api;
@@ -74,4 +76,15 @@ extern int check_exec_action_button_param_filters(uintptr_t action_button_region
         }
     }
     return -1;
+}
+
+BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH:
+            DisableThreadLibraryCalls(module);
+            break;
+        case DLL_PROCESS_DETACH:
+            break;
+    }
+    return TRUE;
 }
