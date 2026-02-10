@@ -71,6 +71,7 @@ static void update_item_count(uint8_t *addr, int32_t count, int32_t max_count) {
                     if (item_id >= 50000000 && item_id < 60000000) {
                         continue;
                     }
+                    item_id = item_id / 10000 * 10000;
                     /* fall through */
                 case 1:
                 case 2:
@@ -147,6 +148,7 @@ static int item_spawn_hook(void *map_item_man, spawn_request_t *request, uint32_
                     update_if_needed();
                     updated = true;
                 }
+                item_id = item_id / 10000 * 10000;
                 HASH_FIND_INT(item_count_map, &item_id, item_count);
                 if (item_count && item_count->count >= 2) {
                     item->item_id = 0;
