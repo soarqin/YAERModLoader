@@ -37,8 +37,8 @@ typedef struct spawn_request_s {
 
 #pragma pack(pop)
 
-static void *item_spawn = NULL;
-static void *game_data_man = NULL;
+static uint8_t *item_spawn = NULL;
+static uint8_t *game_data_man = NULL;
 static int (*item_spawn_return)(void *map_item_man, spawn_request_t *request, uint32_t *output, uint32_t unk) = NULL;
 
 static int inventory_item_count = 0;
@@ -74,7 +74,9 @@ static void update_item_count(uint8_t *addr, int32_t count, int32_t max_count) {
                     item_id = item_id / 10000 * 10000;
                     /* fall through */
                 case 1:
+                    break;
                 case 2:
+                    if (item_id == 6070) continue;
                     break;
                 default:
                     continue;
