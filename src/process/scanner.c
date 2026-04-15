@@ -222,7 +222,7 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
     size_t pattern_size = 0;
     bool second_char = false;
     while (*pattern) {
-        switch (char_table[*pattern]) {
+        switch (char_table[(unsigned char)*pattern]) {
             case -1:
                 return (size_t)-2;
             case -2:
@@ -287,8 +287,14 @@ uint8_t *sig_scan(void *base, size_t size, const char *pattern) {
         out_pattern = LocalAlloc(0, out_size);
         out_mask = LocalAlloc(0, out_size);
         pattern_size = sig_build_pattern_with_mask(pattern, out_pattern, out_mask, out_size);
-        if (pattern_size == (size_t)-2) return NULL;
+        if (pattern_size == (size_t)-2) {
+            LocalFree(out_pattern);
+            LocalFree(out_mask);
+            return NULL;
+        }
         if (pattern_size == (size_t)-1) {
+            LocalFree(out_pattern);
+            LocalFree(out_mask);
             out_size <<= 1;
             continue;
         }

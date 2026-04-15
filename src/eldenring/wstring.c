@@ -8,15 +8,19 @@
 
 #include "wstring.h"
 
+/* MSVC std::wstring SSO threshold: strings with capacity >= 8 wchar_t (16 bytes)
+   use heap-allocated buffer via pointer; shorter strings are stored inline. */
+#define WSTRING_SSO_THRESHOLD 15
+
 const wchar_t *er_wstring_impl_str(const er_wstring_impl_t *str) {
-    if (sizeof(wchar_t) * str->capacity >= 15) {
+    if (sizeof(wchar_t) * str->capacity >= WSTRING_SSO_THRESHOLD) {
         return str->string;
     }
     return (const wchar_t*)&str->string;
 }
 
 wchar_t *er_wstring_impl_str_mutable(er_wstring_impl_t *str) {
-    if (sizeof(wchar_t) * str->capacity >= 15) {
+    if (sizeof(wchar_t) * str->capacity >= WSTRING_SSO_THRESHOLD) {
         return str->string;
     }
     return (wchar_t*)&str->string;

@@ -46,13 +46,15 @@ BOOL APIENTRY DllMain(const HMODULE module, const DWORD ul_reason_for_call, LPVO
             DetourRestoreAfterWith();
             module_instance = module;
             {
-                MH_Initialize();
+                if (MH_Initialize() != MH_OK) break;
                 void *old_entrypoint = DetourGetEntryPoint(NULL);
                 MH_CreateHook(old_entrypoint, new_entrypoint, (LPVOID*)&orig_entrypoint);
                 MH_EnableHook(old_entrypoint);
             }
             break;
         case DLL_PROCESS_DETACH:
+            /* WARNING: FreeLibrary / MH_Uninitialize under loader lock is risky.
+               Acceptable here because this only runs on game process exit. */
             extdlls_unload_all();
             gamehook_uninstall();
             mods_uninit();

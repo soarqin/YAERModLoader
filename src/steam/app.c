@@ -29,6 +29,7 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
     }
     RegCloseKey(key);
     _snwprintf(library_path, MAX_PATH, L"%ls\\steamapps\\libraryfolders.vdf", steam_path);
+    library_path[MAX_PATH - 1] = L'\0';
     struct vdf_object *library_folders = vdf_parse_file(library_path);
     if (library_folders == NULL) {
         return false;
@@ -46,9 +47,11 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
         const struct vdf_object *sub3 = vdf_object_index_array_str(sub, "apps");
         if (sub3 == NULL || sub3->type != VDF_TYPE_ARRAY) continue;
         _snprintf(app_id_str, 16, "%u", app_id);
+        app_id_str[15] = '\0';
         sub3 = vdf_object_index_array_str(sub3, app_id_str);
         if (sub3 == NULL || (sub3->type != VDF_TYPE_STRING && sub3->type != VDF_TYPE_INT)) continue;
         _snwprintf(library_path, MAX_PATH, L"%hs\\steamapps\\appmanifest_%u.acf", vdf_object_get_string(sub2), app_id);
+        library_path[MAX_PATH - 1] = L'\0';
         struct vdf_object *acf = vdf_parse_file(library_path);
         if (acf == NULL) continue;
         if (strcmp(acf->key, "AppState") != 0 || acf->type != VDF_TYPE_ARRAY) {
@@ -61,6 +64,7 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
             continue;
         }
         _snwprintf(path, MAX_PATH, L"%hs\\steamapps\\common\\%hs", vdf_object_get_string(sub2), vdf_object_get_string(sub3));
+        path[MAX_PATH - 1] = L'\0';
         vdf_free_object(acf);
         break;
     }

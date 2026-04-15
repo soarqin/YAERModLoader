@@ -42,19 +42,19 @@ bool parse_args(const int argc, wchar_t *argv[]) {
                 /* we only support ER now, ignore this */
                 break;
             case 'p':
-                lstrcpyW(full_game_path, optarg);
+                lstrcpynW(full_game_path, optarg, MAX_PATH);
                 break;
             case 'c':
-                lstrcpyW(full_config_path, optarg);
+                lstrcpynW(full_config_path, optarg, MAX_PATH);
                 break;
             case 'd':
-                lstrcpyW(full_modengine_dll, optarg);
+                lstrcpynW(full_modengine_dll, optarg, MAX_PATH);
                 break;
             case 's':
                 suspend = true;
                 break;
             case '?':
-                fwprintf(stderr, L"bad arument: %c\n", optopt);
+                fwprintf(stderr, L"bad argument: %c\n", optopt);
                 return false;
             case ':':
                 fwprintf(stderr, L"missing argument for : %c\n", optopt);
@@ -225,6 +225,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
         /* set SteamAppId here, to make sure the game can be launched w/o EAC */
         wchar_t app_id_str[16];
         _snwprintf(app_id_str, 16, L"%d", ER_APP_ID);
+        app_id_str[15] = L'\0';
         SetEnvironmentVariableW(L"SteamAppId", app_id_str);
     }
 

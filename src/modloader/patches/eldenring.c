@@ -44,8 +44,8 @@ static wchar_t replaced_seamless_coop_save_filename_bak[64] = L"";
 
 #define ORIGINAL_SAVE_FILENAME L"ER0000.sl2"
 #define ORIGINAL_SAVE_FILENAME_LEN 10
-#define ORIGIANL_SAVE_FILENAME_BAK L"ER0000.sl2.bak"
-#define ORIGIANL_SAVE_FILENAME_BAK_LEN 14
+#define ORIGINAL_SAVE_FILENAME_BAK L"ER0000.sl2.bak"
+#define ORIGINAL_SAVE_FILENAME_BAK_LEN 14
 #define SEAMLESS_COOP_SAVE_FILENAME L"ER0000.co2"
 #define SEAMLESS_COOP_SAVE_FILENAME_LEN 10
 #define SEAMLESS_COOP_SAVE_FILENAME_BAK L"ER0000.co2.bak"
@@ -130,7 +130,7 @@ wchar_t *check_replace_file(const wchar_t *lpFileName) {
     if (has_replaced) {
         if (str_ends_with(lpFileName, len, ORIGINAL_SAVE_FILENAME, ORIGINAL_SAVE_FILENAME_LEN)) {
             replace = replaced_save_filename;
-        } else if (str_ends_with(lpFileName, len, ORIGIANL_SAVE_FILENAME_BAK, ORIGIANL_SAVE_FILENAME_BAK_LEN)) {
+        } else if (str_ends_with(lpFileName, len, ORIGINAL_SAVE_FILENAME_BAK, ORIGINAL_SAVE_FILENAME_BAK_LEN)) {
             replace = replaced_save_filename_bak;
         }
     }
@@ -144,7 +144,7 @@ wchar_t *check_replace_file(const wchar_t *lpFileName) {
     if (replace == NULL) {
         return NULL;
     }
-    wchar_t *full_path = malloc((64 + len) * sizeof(wchar_t));
+    wchar_t *full_path = LocalAlloc(0, (64 + len) * sizeof(wchar_t));
     if (full_path == NULL) {
         return NULL;
     }
@@ -173,7 +173,7 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
         return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     }
     HANDLE h = old_CreateFileW(full_path, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    free(full_path);
+    LocalFree(full_path);
     return h;
 }
 
@@ -184,12 +184,13 @@ BOOL WINAPI CopyFile_hooked(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, B
     }
     wchar_t *new_new_filename = check_replace_file(lpNewFileName);
     if (new_new_filename == NULL) {
-        free(new_existing_filename);
-        return old_CopyFileW(new_existing_filename, lpNewFileName, bFailIfExists);
+        BOOL res = old_CopyFileW(new_existing_filename, lpNewFileName, bFailIfExists);
+        LocalFree(new_existing_filename);
+        return res;
     }
     BOOL res = old_CopyFileW(new_existing_filename, new_new_filename, bFailIfExists);
-    free(new_existing_filename);
-    free(new_new_filename);
+    LocalFree(new_existing_filename);
+    LocalFree(new_new_filename);
     return res;
 }
 
@@ -230,7 +231,7 @@ static bool patch_eldenring_skip_intro() {
     return true;
 }
 
-static bool patch_eldenring_remove_chromatic_aberratio() {
+static bool patch_eldenring_remove_chromatic_aberration() {
     static const uint8_t new_bytes[] = { 0x66, 0x0f, 0xef, 0xc9 };
     uint8_t *addr = sig_scan(image_base, image_size, "0F 11 ?? 60 ?? 8D ?? 80 00 00 00 0F 10 ?? A0 00 00 00 0F 11 ?? F0 ?? 8D ?? B0 00 00 00 0F 10 ?? 0F 11 ?? 0F 10 ?? 10");
     if (!addr) return false;
@@ -334,18 +335,19 @@ bool eldenring_install() {
 
     game_running = true;
 
+    image_base = get_module_image_base(NULL, &image_size);
+
     async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
     if (config.reset_achievements_on_new_game) {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
     }
-    image_base = get_module_image_base(NULL, &image_size);
 
     if (config.skip_intro) {
         patch_eldenring_skip_intro();
     }
 
     if (config.remove_chromatic_aberration) {
-        patch_eldenring_remove_chromatic_aberratio();
+        patch_eldenring_remove_chromatic_aberration();
     }
 
     if (config.remove_vignette) {
@@ -375,9 +377,11 @@ bool eldenring_install() {
 void eldenring_uninstall() {
     game_running = false;
 
-    if (async_operations_thread_handle && WaitForSingleObject(async_operations_thread_handle, 1000) == WAIT_TIMEOUT)
+    /* NOTE: TerminateThread is unsafe (leaks stack, CRT state, held locks).
+       We use a longer timeout and accept the thread may still be running on process exit. */
+    if (async_operations_thread_handle && WaitForSingleObject(async_operations_thread_handle, 5000) == WAIT_TIMEOUT)
         TerminateThread(async_operations_thread_handle, 0);
-    if (reset_achievements_on_new_game_thread_handle && WaitForSingleObject(reset_achievements_on_new_game_thread_handle, 1000) == WAIT_TIMEOUT)
+    if (reset_achievements_on_new_game_thread_handle && WaitForSingleObject(reset_achievements_on_new_game_thread_handle, 5000) == WAIT_TIMEOUT)
         TerminateThread(reset_achievements_on_new_game_thread_handle, 0);
     er_param_unload();
 }

@@ -194,6 +194,9 @@ void config_load() {
                 PathAppendW(config_path, L"config_eldenring.toml");
             }
 #endif
+        } else {
+            /* Absolute file path */
+            lstrcpyW(config_path, env_config_path);
         }
         lstrcpyW(env_config_path, config_path);
     }

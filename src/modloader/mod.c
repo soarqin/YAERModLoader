@@ -92,14 +92,17 @@ const wchar_t *mods_file_search(const wchar_t *path) {
     wchar_t cpath[MAX_PATH];
     if (path[0] == '\\' || path[0] == '/')
         lstrcpyW(cpath, path);
-    else
+    else {
         _snwprintf(cpath, MAX_PATH, L"\\%ls", path);
+        cpath[MAX_PATH - 1] = L'\0';
+    }
     for (int n = (int)lstrlenW(cpath) - 1; n >= 0; n--) {
         if (cpath[n] == L'/') cpath[n] = L'\\';
     }
     for (int i = 0; i < mod_count; i++) {
         wchar_t full_path[MAX_PATH];
         _snwprintf(full_path, MAX_PATH, L"%ls%ls", mods[i].base_path, cpath);
+        full_path[MAX_PATH - 1] = L'\0';
         if (PathFileExistsW(full_path) && !PathIsDirectoryW(full_path)) {
             return filecache_add(path, full_path);
         }
@@ -118,6 +121,7 @@ const wchar_t *mods_file_search_prefixed(const wchar_t *path) {
     for (int i = 0; i < mod_count; i++) {
         wchar_t full_path[MAX_PATH];
         _snwprintf(full_path, MAX_PATH, L"%ls%ls", mods[i].base_path, cpath);
+        full_path[MAX_PATH - 1] = L'\0';
         if (PathFileExistsW(full_path) && !PathIsDirectoryW(full_path)) {
             return filecache_add(path, full_path);
         }

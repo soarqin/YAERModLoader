@@ -19,10 +19,10 @@ void set_process_cpu_affinity_strategy(const int strategy) {
     DWORD len = 0;
     GetLogicalProcessorInformationEx(RelationProcessorCore, NULL, &len);
     if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) return;
-    char *data = (char *)malloc(len);
+    char *data = (char *)LocalAlloc(0, len);
     if (!data) return;
     if (!GetLogicalProcessorInformationEx(RelationProcessorCore, (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)data, &len)) {
-        free(data);
+        LocalFree(data);
         return;
     }
     uint64_t masks[256] = {0};
@@ -39,7 +39,7 @@ void set_process_cpu_affinity_strategy(const int strategy) {
         if (eff > 0)
             nonzero_masks |= mask;
     }
-    free(data);
+    LocalFree(data);
 
     uint64_t process_mask;
     uint64_t system_mask;

@@ -59,10 +59,14 @@ bool er_param_load_table() {
         return false;
     }
     const cs_regulation_manager_t *reg_man;
-    while (1) {
+    const int max_retries = 300; /* ~30 seconds timeout */
+    for (int retry = 0; retry < max_retries; retry++) {
         reg_man = (const cs_regulation_manager_t*)*(uintptr_t*)er_pointers.cs_regulation_manager;
         if (reg_man != NULL && reg_man->start != NULL && reg_man->end != NULL && reg_man->loaded) break;
         Sleep(100);
+    }
+    if (reg_man == NULL || reg_man->start == NULL || reg_man->end == NULL || !reg_man->loaded) {
+        return false;
     }
     /*fwprintf(stderr, L"%p %p %zd\n", reg_man->start, reg_man->end, reg_man->end - reg_man->start);*/
     for (er_param_t **current = reg_man->start; current < reg_man->end; current++) {

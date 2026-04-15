@@ -64,6 +64,7 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
     if (ext != NULL && StrCmpIW(ext, L".wem") == 0) {
         wchar_t new_path[MAX_PATH];
         _snwprintf(new_path, MAX_PATH, L"wem/%lc%lc/%ls", replace[0], replace[1], replace);
+        new_path[MAX_PATH - 1] = L'\0';
         const wchar_t *new_replace = mods_file_search(new_path);
         if (new_replace != NULL) {
             return old_ak_file_location_resolver_open(p1, (wchar_t*)new_replace, openMode, p4, p5, p6);
@@ -72,6 +73,7 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
     for (int i = 0; i < 3; i++) {
         wchar_t new_path[MAX_PATH];
         _snwprintf(new_path, MAX_PATH, L"%ls%ls", prefixes[i], replace);
+        new_path[MAX_PATH - 1] = L'\0';
         const wchar_t *new_replace = mods_file_search(new_path);
         if (new_replace != NULL) {
             return old_ak_file_location_resolver_open(p1, (wchar_t*)new_replace, openMode, p4, p5, p6);

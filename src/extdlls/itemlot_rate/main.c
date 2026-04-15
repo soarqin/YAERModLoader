@@ -52,7 +52,7 @@ static int my_ini_handler(void* user, const char* section, const char* name, con
         } else if (strcmp(name, "include_armors") == 0) {
             cfg->include_armors = strcmp(value, "true") == 0;
         } else if (strcmp(name, "include_goods") == 0) {
-            char* goods_str = strdup(value);
+            char* goods_str = StrDupA(value);
             char* goods_token = strtok(goods_str, ",");
             int count = 16;
             cfg->include_goods = (int*)LocalAlloc(LMEM_FIXED, sizeof(int) * count);
@@ -71,11 +71,11 @@ static int my_ini_handler(void* user, const char* section, const char* name, con
             }
             cfg->include_goods_count = i;
             qsort(cfg->include_goods, i, sizeof(int), compare_int);
-            free(goods_str);
+            LocalFree(goods_str);
         }
     } else if (lstrcmpA(section, "alter_count") == 0) {
         int id = atoi(name);
-        char *str = strdup(value);
+        char *str = StrDupA(value);
         char *token = strtok(str, ",");
         int type = 1;
         if (lstrcmpA(token, "drop") == 0) {
@@ -84,13 +84,13 @@ static int my_ini_handler(void* user, const char* section, const char* name, con
             type = 3;
         }
         token = strtok(NULL, ",");
-        int new_count = atoi(token);
-        free(str);
+        int new_count = token ? atoi(token) : 0;
+        LocalFree(str);
         if (cfg->alter_items == NULL) {
             cfg->alter_items_count = 0;
             cfg->alter_items_capacity = 8;
             cfg->alter_items = (struct alter_item_s *)LocalAlloc(LMEM_FIXED, 8 * sizeof(struct alter_item_s));
-        } else if (cfg->alter_items_count < cfg->alter_items_capacity) {
+        } else if (cfg->alter_items_count >= cfg->alter_items_capacity) {
             cfg->alter_items_capacity *= 2;
             cfg->alter_items = (struct alter_item_s *)LocalReAlloc(cfg->alter_items, sizeof(struct alter_item_s) * (cfg->alter_items_capacity), LMEM_MOVEABLE);
         }

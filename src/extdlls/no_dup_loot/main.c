@@ -76,7 +76,7 @@ static void update_item_count(uint8_t *addr, int32_t count, int32_t max_count) {
                 case 1:
                     break;
                 case 2:
-                    if (item_id == 6070) continue;
+                    if (item_id == 6070) continue; /* Sacrificial Twig - skip to allow stacking */
                     break;
                 default:
                     continue;

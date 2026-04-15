@@ -2,6 +2,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
@@ -26,7 +29,7 @@ static char *local_strndup_escape(const char *s, const size_t n) {
     if (!s)
         return NULL;
 
-    char *retval = malloc(n + 1);
+    char *retval = LocalAlloc(0, n + 1);
     strncpy(retval, s, n);
     retval[n] = '\0';
 
@@ -90,7 +93,7 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
     if (!buffer)
         return NULL;
 
-    struct vdf_object *root_object = malloc(sizeof(struct vdf_object));
+    struct vdf_object *root_object = LocalAlloc(0, sizeof(struct vdf_object));
     root_object->key = NULL;
     root_object->parent = NULL;
     root_object->type = VDF_TYPE_NONE;
@@ -154,8 +157,8 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
                         assert(o->type == VDF_TYPE_ARRAY);
 
                         o->data.data_array.len++;
-                        o->data.data_array.data_value = realloc(o->data.data_array.data_value, (sizeof(void *)) * (o->data.data_array.len + 1));
-                        o->data.data_array.data_value[o->data.data_array.len] = malloc(sizeof(struct vdf_object)),
+                        o->data.data_array.data_value = LocalReAlloc(o->data.data_array.data_value, (sizeof(void *)) * (o->data.data_array.len + 1), LMEM_MOVEABLE);
+                        o->data.data_array.data_value[o->data.data_array.len] = LocalAlloc(0, sizeof(struct vdf_object)),
                             o->data.data_array.data_value[o->data.data_array.len]->parent = o;
 
                         o = o->data.data_array.data_value[o->data.data_array.len];
@@ -179,8 +182,8 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
 
                 o->type = VDF_TYPE_ARRAY;
                 o->data.data_array.len = 0;
-                o->data.data_array.data_value = malloc((sizeof(void *)) * (o->data.data_array.len + 1));
-                o->data.data_array.data_value[o->data.data_array.len] = malloc(sizeof(struct vdf_object));
+                o->data.data_array.data_value = LocalAlloc(0, (sizeof(void *)) * (o->data.data_array.len + 1));
+                o->data.data_array.data_value[o->data.data_array.len] = LocalAlloc(0, sizeof(struct vdf_object));
                 o->data.data_array.data_value[o->data.data_array.len]->parent = o;
 
                 o = o->data.data_array.data_value[o->data.data_array.len];
@@ -198,8 +201,8 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
                     o = o->parent;
                     assert(o->type == VDF_TYPE_ARRAY);
 
-                    o->data.data_array.data_value = realloc(o->data.data_array.data_value, (sizeof(void *)) * (o->data.data_array.len + 1));
-                    o->data.data_array.data_value[o->data.data_array.len] = malloc(sizeof(struct vdf_object)),
+                    o->data.data_array.data_value = LocalReAlloc(o->data.data_array.data_value, (sizeof(void *)) * (o->data.data_array.len + 1), LMEM_MOVEABLE);
+                    o->data.data_array.data_value[o->data.data_array.len] = LocalAlloc(0, sizeof(struct vdf_object)),
                         o->data.data_array.data_value[o->data.data_array.len]->parent = o;
 
                     o = o->data.data_array.data_value[o->data.data_array.len];
@@ -267,11 +270,11 @@ struct vdf_object *vdf_parse_file(const wchar_t *path) {
     rewind(fd);
 
     if (file_size) {
-        char *buffer = malloc(file_size);
+        char *buffer = LocalAlloc(0, file_size);
         fread(buffer, sizeof(*buffer), file_size, fd);
 
         o = vdf_parse_buffer(buffer, file_size);
-        free(buffer);
+        LocalFree(buffer);
     }
 
     fclose(fd);
@@ -381,13 +384,13 @@ void vdf_free_object(struct vdf_object *o) {
             for (size_t i = 0; i <= o->data.data_array.len; ++i) {
                 vdf_free_object(o->data.data_array.data_value[i]);
             }
-            free(o->data.data_array.data_value);
+            LocalFree(o->data.data_array.data_value);
             break;
 
 
         case VDF_TYPE_STRING:
             if (o->data.data_string.str)
-                free(o->data.data_string.str);
+                LocalFree(o->data.data_string.str);
             break;
 
         default:
@@ -397,9 +400,9 @@ void vdf_free_object(struct vdf_object *o) {
     }
 
     if (o->key)
-        free(o->key);
+        LocalFree(o->key);
 
     if (o->conditional)
-        free(o->conditional);
-    free(o);
+        LocalFree(o->conditional);
+    LocalFree(o);
 }

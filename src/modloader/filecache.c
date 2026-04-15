@@ -31,7 +31,7 @@ file_t *file_new(const wchar_t *base_path, const wchar_t *native_path) {
         return NULL;
     }
     file->base_path = StrDupW(base_path);
-    file->native_path = native_path && native_path[0] ? StrDupW(native_path) : NULL;
+    file->native_path = StrDupW(native_path && native_path[0] ? native_path : L"");
     return file;
 }
 
@@ -69,5 +69,5 @@ const wchar_t *filecache_find(const wchar_t *path) {
     file_t *file = NULL;
     HASH_FIND(hh, files, path, sizeof(wchar_t) * lstrlenW(path), file);
     if (!file) return NULL;
-    return file->native_path;
+    return file->native_path[0] ? file->native_path : NULL;
 }

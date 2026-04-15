@@ -39,6 +39,7 @@ extdll_t *extdlls = NULL;
 int extdll_count = 0;
 int extdll_capacity = 0;
 
+/* Parenthesized name to prevent macro expansion conflicts with MinHook */
 static void (hook)(void *target, void *detour, void **original) {
     MH_CreateHook(target, detour, original);
     MH_EnableHook(target);
