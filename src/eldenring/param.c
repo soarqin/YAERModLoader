@@ -11,14 +11,14 @@
 #include "pointers.h"
 #include "wstring.h"
 
-#define uthash_malloc(sz) LocalAlloc(0, sz)
-#define uthash_free(ptr,sz) LocalFree(ptr)
-#define uthash_bzero(a,n) ZeroMemory(a, n)
-#define uthash_strlen(s) lstrlenA(s)
-
-#include <uthash.h>
-
 #include <windows.h>
+
+#define kcalloc(N,Z)  LocalAlloc(LPTR, (N)*(Z))
+#define kmalloc(Z)    LocalAlloc(0, (Z))
+#define krealloc(P,Z) ((P) ? LocalReAlloc((P), (Z), LMEM_MOVEABLE) : LocalAlloc(0, (Z)))
+#define kfree(P)      LocalFree(P)
+#include "khash.h"
+#include "khash_wstr.h"
 
 #pragma pack(push, 8)
 
@@ -47,14 +47,14 @@ typedef struct {
 typedef struct {
     const wchar_t *name;
     const er_param_table_t *param;
-
-    UT_hash_handle hh;
 } er_param_type_t;
 
-static er_param_type_t *param_types = NULL;
+static khash_t(wstr) *param_types = NULL;
 
 bool er_param_load_table() {
-    HASH_CLEAR(hh, param_types);
+    /* preserve uthash HASH_CLEAR semantics: clears table without freeing user entries;
+       entries' lifetime is managed elsewhere (or pre-existing leak — out of scope) */
+    if (param_types) kh_clear(wstr, param_types); else param_types = kh_init(wstr);
     if (!er_pointers.cs_regulation_manager) {
         return false;
     }
@@ -71,22 +71,28 @@ bool er_param_load_table() {
     /*fwprintf(stderr, L"%p %p %zd\n", reg_man->start, reg_man->end, reg_man->end - reg_man->start);*/
     for (er_param_t **current = reg_man->start; current < reg_man->end; current++) {
         const er_param_t *param = *current;
-        er_param_type_t *pt = uthash_malloc(sizeof(er_param_type_t));
+        er_param_type_t *pt = (er_param_type_t*)LocalAlloc(0, sizeof(er_param_type_t));
         pt->name = er_wstring_impl_str(&param->name);
         pt->param = param->path->data;
         /*fwprintf(stderr, L"%p %ls\n", param, pt->name);*/
-        HASH_ADD_KEYPTR(hh, param_types, pt->name, lstrlenW(pt->name) * sizeof(wchar_t), pt);
+        int ret;
+        khiter_t k = kh_put(wstr, param_types, pt->name, &ret);
+        kh_value(param_types, k) = pt;
     }
     return true;
 }
 
 void er_param_unload() {
-    HASH_CLEAR(hh, param_types);
+    /* preserve uthash HASH_CLEAR semantics: clears table without freeing user entries;
+       entries' lifetime is managed elsewhere (or pre-existing leak — out of scope) */
+    if (param_types) kh_clear(wstr, param_types); else param_types = kh_init(wstr);
 }
 
 const er_param_table_t *er_param_find_table(const wchar_t *name) {
-    er_param_type_t *res = NULL;
-    HASH_FIND(hh, param_types, name, lstrlenW(name) * sizeof(wchar_t), res);
-    if (!res) return NULL;
+    /* NULL guard: kh_get on NULL is UB; uthash HASH_FIND on NULL head was safe — preserve that safety */
+    if (!param_types) return NULL;
+    khiter_t k = kh_get(wstr, param_types, name);
+    if (k == kh_end(param_types)) return NULL;
+    er_param_type_t *res = (er_param_type_t*)kh_value(param_types, k);
     return res->param;
 }

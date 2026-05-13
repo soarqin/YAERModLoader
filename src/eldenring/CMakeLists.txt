@@ -8,4 +8,5 @@ add_project(eldenring STATIC
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ..)
-target_link_libraries(${PROJECT_NAME} uthash::headers process)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
+target_link_libraries(${PROJECT_NAME} klib::headers process)
