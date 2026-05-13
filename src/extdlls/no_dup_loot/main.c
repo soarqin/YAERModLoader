@@ -8,16 +8,18 @@
 
 #include <modloader/extdll_api.h>
 
-#define uthash_malloc(sz) LocalAlloc(0, sz)
-#define uthash_free(ptr,sz) LocalFree(ptr)
-#define uthash_bzero(a,n) ZeroMemory(a, n)
-#include <uthash.h>
-
 #include <windows.h>
 #include <shlwapi.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdbool.h>
+
+#define kcalloc(N,Z)   LocalAlloc(LPTR, (N)*(Z))
+#define kmalloc(Z)     LocalAlloc(0, (Z))
+#define krealloc(P,Z)  ((P) ? LocalReAlloc((P), (Z), LMEM_MOVEABLE) : LocalAlloc(0, (Z)))
+#define kfree(P)       LocalFree(P)
+#include "khash.h"
+KHASH_MAP_INIT_INT(item_count, int32_t)
 
 static modloader_ext_api_t* the_api;
 
@@ -44,18 +46,14 @@ static int (*item_spawn_return)(void *map_item_man, spawn_request_t *request, ui
 static int inventory_item_count = 0;
 static int chest_item_count = 0;
 
-typedef struct item_count_s {
-    uint32_t item_id;   /* 0x00 */
-    int32_t count;
-    UT_hash_handle hh;
-} item_count_t;
-
-static item_count_t *item_count_map = NULL;
+static khash_t(item_count) *item_count_map = NULL;
 
 static void clear_item_count() {
-    item_count_t *item_count, *tmp;
-    HASH_ITER(hh, item_count_map, item_count, tmp) {
-        item_count->count = 0;
+    khiter_t k;
+    for (k = kh_begin(item_count_map); k != kh_end(item_count_map); ++k) {
+        if (kh_exist(item_count_map, k)) {
+            kh_value(item_count_map, k) = 0;
+        }
     }
 }
 
@@ -81,15 +79,13 @@ static void update_item_count(uint8_t *addr, int32_t count, int32_t max_count) {
                 default:
                     continue;
             }
-            item_count_t *item_count = NULL;
-            HASH_FIND_INT(item_count_map, &item_id, item_count);
-            if (item_count) {
-                item_count->count++;
+            int ret;
+            khiter_t k = kh_get(item_count, item_count_map, item_id);
+            if (k != kh_end(item_count_map)) {
+                kh_value(item_count_map, k)++;
             } else {
-                item_count = LocalAlloc(0, sizeof(item_count_t));
-                item_count->item_id = item_id;
-                item_count->count = 1;
-                HASH_ADD_INT(item_count_map, item_id, item_count);
+                k = kh_put(item_count, item_count_map, item_id, &ret);
+                kh_value(item_count_map, k) = 1;
             }
         }
     }
@@ -136,7 +132,6 @@ static void update_if_needed() {
 }
 
 static int item_spawn_hook(void *map_item_man, spawn_request_t *request, uint32_t *output, uint32_t unk) {
-    item_count_t *item_count = NULL;
     bool updated = false;
     for (int i = 0; i < request->count; i++) {
         spawn_item_t *item = &request->items[i];
@@ -151,20 +146,22 @@ static int item_spawn_hook(void *map_item_man, spawn_request_t *request, uint32_
                     updated = true;
                 }
                 item_id = item_id / 10000 * 10000;
-                HASH_FIND_INT(item_count_map, &item_id, item_count);
-                if (item_count && item_count->count >= 2) {
-                    item->item_id = 0;
-                    item->quantity = 0;
-                    continue;
-                }
-                if (item_count) {
-                    item_count->count++;
-                } else {
-                    item_count = LocalAlloc(0, sizeof(item_count_t));
-                    item_count->item_id = item_id;
-                    item_count->count = 1;
-                    HASH_ADD_INT(item_count_map, item_id, item_count);
-                    inventory_item_count++;
+                {
+                    int ret;
+                    khiter_t k = kh_get(item_count, item_count_map, item_id);
+                    int found = (k != kh_end(item_count_map));
+                    if (found && kh_value(item_count_map, k) >= 2) {
+                        item->item_id = 0;
+                        item->quantity = 0;
+                        continue;
+                    }
+                    if (found) {
+                        kh_value(item_count_map, k)++;
+                    } else {
+                        k = kh_put(item_count, item_count_map, item_id, &ret);
+                        kh_value(item_count_map, k) = 1;
+                        inventory_item_count++;
+                    }
                 }
                 break;
             case 1:
@@ -173,20 +170,22 @@ static int item_spawn_hook(void *map_item_man, spawn_request_t *request, uint32_
                     update_if_needed();
                     updated = true;
                 }
-                HASH_FIND_INT(item_count_map, &item_id, item_count);
-                if (item_count && item_count->count >= 1) {
-                    item->item_id = 0;
-                    item->quantity = 0;
-                    continue;
-                }
-                if (item_count) {
-                    item_count->count++;
-                } else {
-                    item_count = LocalAlloc(0, sizeof(item_count_t));
-                    item_count->item_id = item_id;
-                    item_count->count = 1;
-                    HASH_ADD_INT(item_count_map, item_id, item_count);
-                    inventory_item_count++;
+                {
+                    int ret;
+                    khiter_t k = kh_get(item_count, item_count_map, item_id);
+                    int found = (k != kh_end(item_count_map));
+                    if (found && kh_value(item_count_map, k) >= 1) {
+                        item->item_id = 0;
+                        item->quantity = 0;
+                        continue;
+                    }
+                    if (found) {
+                        kh_value(item_count_map, k)++;
+                    } else {
+                        k = kh_put(item_count, item_count_map, item_id, &ret);
+                        kh_value(item_count_map, k) = 1;
+                        inventory_item_count++;
+                    }
                 }
                 break;
             default:
@@ -202,6 +201,7 @@ static void init() {
     if (base == NULL) {
         return;
     }
+    item_count_map = kh_init(item_count);
     item_spawn = the_api->sig_scan(base, size, "40 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 C7 45 ?? ?? ?? ?? ?? 48 89 9C 24 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 44 89 4C 24");
     if (item_spawn == NULL) {
         return;
@@ -219,6 +219,10 @@ void on_uninit(void* userp) {
     (void)userp;
     if (item_spawn != NULL) {
         the_api->unhook(item_spawn);
+    }
+    if (item_count_map != NULL) {
+        kh_destroy(item_count, item_count_map);
+        item_count_map = NULL;
     }
 }
 
