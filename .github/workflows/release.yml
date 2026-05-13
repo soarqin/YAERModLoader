@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Verify version consistency
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+
+          # Check src/CMakeLists.txt
+          $cmakeContent = Get-Content src/CMakeLists.txt -Raw
+          if ($cmakeContent -notmatch [regex]::Escape("set(YAERMODLOADER_VERSION `"$version`")")) {
+            Write-Error "Version mismatch: src/CMakeLists.txt does not contain version $version"
+            exit 1
+          }
+
+          # Check CHANGELOG.md
+          $changelogContent = Get-Content CHANGELOG.md -Raw
+          if ($changelogContent -notmatch [regex]::Escape("#### $version")) {
+            Write-Error "Version mismatch: CHANGELOG.md does not contain entry for $version"
+            exit 1
+          }
+
+          Write-Output "Version $version is consistent across all files."
+
+      - name: Setup NASM
+        uses: ilammy/setup-nasm@v1
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake -S . -B build `
+            -G "Visual Studio 17 2022" `
+            -T v142 `
+            -DRELEASE_USE_STATIC_CRT=OFF
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          cmake --build build --config Release
+
+      - name: Package release
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "${{ steps.version.outputs.tag }}"
+          $pkgDir = "package"
+
+          # Create package root and dll subdirectory
+          New-Item -ItemType Directory -Path $pkgDir -Force | Out-Null
+          New-Item -ItemType Directory -Path "$pkgDir/dll" -Force | Out-Null
+
+          # Copy root-level files
+          Copy-Item "README.md"    "$pkgDir/"
+          Copy-Item "LICENSE"      "$pkgDir/"
+          Copy-Item "CHANGELOG.md" "$pkgDir/"
+          Copy-Item "build/bin/YAERModLoader.exe" "$pkgDir/"
+          Copy-Item "build/bin/YAERModLoader.dll" "$pkgDir/"
+          Copy-Item "src/YAERModLoader.ini"       "$pkgDir/"
+
+          # Copy entire dll/ output directory, then add itemlot_rate.ini
+          Copy-Item "build/bin/dll" "$pkgDir/" -Recurse
+          Copy-Item "src/extdlls/itemlot_rate/itemlot_rate.ini" "$pkgDir/dll/"
+
+          # Create zip archive
+          $zipName = "YAERModLoader-$tag.zip"
+          Compress-Archive -Path "$pkgDir/*" -DestinationPath $zipName -Force
+
+          Write-Output "Created $zipName"
+          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+        id: package
+
+      - name: Extract changelog for this version
+        id: changelog
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $content = Get-Content CHANGELOG.md -Raw
+
+          # Extract the section for this version up to the next section
+          if ($content -match "(?s)#### $([regex]::Escape($version))\r?\n(.*?)(?=\r?\n#### |\z)") {
+            $notes = $matches[1].Trim()
+          } else {
+            $notes = "See CHANGELOG.md for details."
+          }
+
+          # Write to a temp file to avoid multiline issues with GITHUB_OUTPUT
+          $notes | Out-File -FilePath release_notes.txt -Encoding utf8
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          body_path: release_notes.txt
+          files: ${{ steps.package.outputs.zip_name }}
+          draft: false
+          prerelease: false

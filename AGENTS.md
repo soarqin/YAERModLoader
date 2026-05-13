@@ -101,6 +101,24 @@ Tests are smoke tests only — they test the hash table logic in isolation, not 
 
 Tests are only built when `BUILD_TESTING=ON` is passed to CMake. Each test file is conditionally compiled only if the `.c` file exists (CMake checks `if(EXISTS ...)`), so adding a new test file is enough — no CMakeLists edit needed.
 
+## Release process
+
+Releases are automated via `.github/workflows/release.yml`. Before tagging a release:
+
+1. **Update `CHANGELOG.md`** — add a new `#### X.Y.Z` section at the top listing all changes since the previous release.
+2. **Update `src/CMakeLists.txt`** — change the `YAERMODLOADER_VERSION` value to match.
+3. **Verify consistency** — the tag, `src/CMakeLists.txt`, and `CHANGELOG.md` must all carry the same version string.
+4. **Tag and push** — use the format `vX.Y.Z` (e.g. `v0.5.0`). Pushing the tag triggers the workflow.
+
+```
+git add CHANGELOG.md src/CMakeLists.txt
+git commit -m "chore: release vX.Y.Z"
+git tag vX.Y.Z
+git push origin main --tags
+```
+
+The workflow will fail fast if the version in `src/CMakeLists.txt` or `CHANGELOG.md` does not match the pushed tag.
+
 ## What to avoid
 
 - Do not add C++ source files; the project is intentionally C11-only.
