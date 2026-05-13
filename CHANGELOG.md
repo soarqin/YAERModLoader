@@ -1,3 +1,15 @@
+#### 0.5.0
+* Added new option: `disable_mouse_camera_control`
+* Added new external dll: `no_dup_loot.dll` — prevents duplicate loot drops
+* Fixed use-after-free in `CopyFile_hooked`
+* Fixed inverted realloc condition and NULL deref in `itemlot_rate`
+* Fixed memory leak and signed char OOB in sig_scan/sig_build
+* Fixed race condition: init `image_base` before spawning threads
+* Fixed `config_load` dropping absolute file path from env var
+* Fixed filecache negative caching never working
+* Replaced uthash with klib khash across all hash table usages
+* Added smoke tests via CTest
+
 #### 0.4.1
 * Fixed a crash caused by save filename changing.
 
