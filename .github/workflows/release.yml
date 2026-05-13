@@ -69,9 +69,8 @@ jobs:
           $tag = "${{ steps.version.outputs.tag }}"
           $pkgDir = "package"
 
-          # Create package root and dll subdirectory
+          # Create package root
           New-Item -ItemType Directory -Path $pkgDir -Force | Out-Null
-          New-Item -ItemType Directory -Path "$pkgDir/dll" -Force | Out-Null
 
           # Copy root-level files
           Copy-Item "README.md"    "$pkgDir/"
