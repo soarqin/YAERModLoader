@@ -1,5 +1,6 @@
 add_subdirectory(getopt)
 add_subdirectory(inih)
+add_subdirectory(klib)
 add_subdirectory(lzma)
 add_subdirectory(minhook)
 add_subdirectory(toml-c)
