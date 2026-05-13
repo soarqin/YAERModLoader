@@ -8,22 +8,23 @@
 
 #include "filecache.h"
 
-#define uthash_malloc(sz) LocalAlloc(0, sz)
-#define uthash_free(ptr,sz) LocalFree(ptr)
-#define uthash_bzero(a,n) ZeroMemory(a, n)
-#define uthash_strlen(s) lstrlenA(s)
+#include <windows.h>
 
-#include <uthash.h>
+#define kcalloc(N,Z)  LocalAlloc(LPTR, (N)*(Z))
+#define kmalloc(Z)    LocalAlloc(0, (Z))
+#define krealloc(P,Z) ((P) ? LocalReAlloc((P), (Z), LMEM_MOVEABLE) : LocalAlloc(0, (Z)))
+#define kfree(P)      LocalFree(P)
+#include "khash.h"
+#include "khash_wstr.h"
+
 #include <shlwapi.h>
 
 typedef struct {
     wchar_t *base_path;
     wchar_t *native_path;
-
-    UT_hash_handle hh;
 } file_t;
 
-static file_t *files = NULL;
+static khash_t(wstr) *files = NULL;
 
 file_t *file_new(const wchar_t *base_path, const wchar_t *native_path) {
     file_t *file = LocalAlloc(0, sizeof(file_t));
@@ -45,15 +46,18 @@ void file_free(file_t *file) {
 }
 
 void filecache_init() {
-    files = NULL;
+    files = kh_init(wstr);
 }
 
 void filecache_uninit() {
-    file_t *file, *tmp;
-    HASH_ITER(hh, files, file, tmp) {
-        HASH_DEL(files, file);
-        file_free(file);
+    khiter_t k;
+    for (k = kh_begin(files); k != kh_end(files); ++k) {
+        if (kh_exist(files, k)) {
+            file_free((file_t*)kh_value(files, k));
+        }
     }
+    kh_destroy(wstr, files);
+    files = NULL;
 }
 
 const wchar_t *filecache_add(const wchar_t *path, const wchar_t *replace) {
@@ -61,13 +65,20 @@ const wchar_t *filecache_add(const wchar_t *path, const wchar_t *replace) {
     if (file == NULL) {
         return NULL;
     }
-    HASH_ADD_KEYPTR(hh, files, file->base_path, sizeof(wchar_t) * lstrlenW(file->base_path), file);
+    int ret;
+    khiter_t k = kh_put(wstr, files, file->base_path, &ret);
+    if (ret == 0) {
+        /* duplicate key — kh_put returns existing slot; free the new file and keep existing */
+        file_free(file);
+        return (const wchar_t*)kh_value(files, k) ? ((file_t*)kh_value(files, k))->native_path : NULL;
+    }
+    kh_value(files, k) = file;
     return file->native_path;
 }
 
 const wchar_t *filecache_find(const wchar_t *path) {
-    file_t *file = NULL;
-    HASH_FIND(hh, files, path, sizeof(wchar_t) * lstrlenW(path), file);
-    if (!file) return NULL;
+    khiter_t k = kh_get(wstr, files, path);
+    if (k == kh_end(files)) return NULL;
+    file_t *file = (file_t*)kh_value(files, k);
     return file->native_path[0] ? file->native_path : NULL;
 }
