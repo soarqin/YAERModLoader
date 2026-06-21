@@ -42,7 +42,7 @@ Check [CHANGELOG.md](CHANGELOG.md) for details.
 - [ModEngine](https://github.com/soulsmods/ModEngine2): The original mod loader for Souls games.
 - [Detours](https://github.com/microsoft/Detours): I stripped this library to a subset of its functions, to do dll injections only.
 - [minhook](https://github.com/TsudaKageyu/minhook): Used to hook functions in the game.
-- [uthash](https://github.com/troydhanson/uthash): The library used to handle hash tables.
+- [klib](https://github.com/attractivechaos/klib): The library used to handle hash tables.
 - [inih](https://github.com/benhoyt/inih): The library used to parse ini files.
 - [toml-c](https://github.com/arp242/toml-c): The library used to parse toml files, for ModEngine config file compatibility.
 - [wingetopt](https://github.com/alex85k/wingetopt): The library used to parse command line arguments.
