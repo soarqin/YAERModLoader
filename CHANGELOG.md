@@ -1,3 +1,7 @@
+#### 0.5.1
+* Fixed no sound when a mod overrides Wwise audio files (`.wem`/`.bnk`): override files on disk now use READ mode instead of READ_EBL
+* Updated CREDITS: klib replaces uthash
+
 #### 0.5.0
 * Added new option: `disable_mouse_camera_control`
 * Added new external dll: `no_dup_loot.dll` — prevents duplicate loot drops
