@@ -230,7 +230,6 @@ modloader_ext_def_t def = {
     "no_dup_loot",
     NULL,
     on_uninit,
-    NULL
 };
 
 __declspec(dllexport)
