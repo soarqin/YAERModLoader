@@ -386,17 +386,38 @@ git commit -m "build: remove eldenring static lib from main loader build"
 
 **Files:**
 - Modify: `src/extdlls/CMakeLists.txt`
+- Create: `src/extdlls/er_param/src/provider.c` (minimal stub, filled in Task 9)
 
-**说明:** 让 er_param 由 glob 发现但其有 CMakeLists.txt 时走 `add_subdirectory`, 其它 extdll 走原 `add_project`。所有 extdll link `er_param::headers`。此任务后 er_param 仍因缺 provider.c 不能构建, 但配置/拓扑成立。
+**说明:** 让 er_param 由 glob 发现但其有 CMakeLists.txt 时走 `add_subdirectory`, 其它 extdll 走原 `add_project`。所有 extdll link `er_param::headers`。
+
+**重要(实现中发现并修正的两点):**
+1. `if (EXISTS "${dir}/CMakeLists.txt")` 在 `get_filename_component NAME` 后用相对路径, CMake 的 `if(EXISTS)` 不可靠解析相对路径 → 返回 FALSE。改用绝对路径 `${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/CMakeLists.txt`。
+2. CMake ALIAS 目标必须在 `target_link_libraries` 调用时已存在(非生成期才解析)。glob 字母序 autoloot 早于 er_param, 单遍循环会让 autoloot 先于 er_param 创建而引用未定义的 `er_param::headers`。改用**两遍**: 第一遍处理带 CMakeLists.txt 的子目录(add_subdirectory, 使 INTERFACE/ALIAS 目标先存在), 第二遍构建常规 extdll 并 link `er_param::headers`。
+3. er_param 的 CMakeLists 显式列出 `src/provider.c` 为源, CMake configure 阶段会检查显式列出的源存在性。provider.c 在 Task 9 才创建, 故本任务先建一个最小 stub(仅 DllMain)使 configure/build 通过, Task 9 用完整实现覆盖它。
 
 - [ ] **Step 1: 改写 `src/extdlls/CMakeLists.txt`**
 
-完整新内容:
+完整新内容(两遍方案):
 
 ```cmake
 enable_language(ASM_NASM)
 
 file(GLOB dirs LIST_DIRECTORIES true ./*)
+
+# First pass: process self-contained subdirectories (with their own CMakeLists.txt)
+# via add_subdirectory so their INTERFACE/ALIAS targets exist before the second pass.
+foreach (dir ${dirs})
+    if (NOT IS_DIRECTORY ${dir})
+        continue()
+    endif ()
+    get_filename_component(subdir ${dir} NAME)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/CMakeLists.txt")
+        add_subdirectory(${subdir})
+    endif ()
+endforeach ()
+
+# Second pass: build regular extdlls (no CMakeLists.txt) and link er_param::headers
+# to every extdll target (including those created in the first pass).
 foreach (dir ${dirs})
     if (NOT IS_DIRECTORY ${dir})
         continue()
@@ -405,28 +426,57 @@ foreach (dir ${dirs})
     if (NOT files)
         continue()
     endif ()
-    get_filename_component(dir ${dir} NAME)
-    if (EXISTS "${dir}/CMakeLists.txt")
-        # 子目录自包含构建 (er_param: 定义 INTERFACE headers 目标)
-        add_subdirectory(${dir})
+    get_filename_component(subdir ${dir} NAME)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/CMakeLists.txt")
+        # already handled in first pass; just link er_param headers if target exists
+        if (TARGET extdll_${subdir})
+            target_link_libraries(extdll_${subdir} PRIVATE er_param::headers)
+        endif ()
     else ()
-        add_project(extdll_${dir} SHARED ${files} LANGUAGES C FOLDER extdlls OUTPUT_SUBDIR dll NO_PREFIX OUTPUT_NAME ${dir})
-        target_include_directories(extdll_${dir} PRIVATE ..)
-        target_link_libraries(extdll_${dir} PRIVATE inih klib shlwapi)
-    endif ()
-    # 对所有 extdll 统一提供 er_param 头 (CMake 允许引用稍后创建的目标)
-    if (TARGET extdll_${dir})
-        target_link_libraries(extdll_${dir} PRIVATE er_param::headers)
+        add_project(extdll_${subdir} SHARED ${files} LANGUAGES C FOLDER extdlls OUTPUT_SUBDIR dll NO_PREFIX OUTPUT_NAME ${subdir})
+        target_include_directories(extdll_${subdir} PRIVATE ..)
+        target_link_libraries(extdll_${subdir} PRIVATE inih klib shlwapi)
+        target_link_libraries(extdll_${subdir} PRIVATE er_param::headers)
     endif ()
 endforeach ()
 ```
 
-- [ ] **Step 2: 验证配置通过**
+- [ ] **Step 2: 创建 provider.c 最小 stub**
+
+`src/extdlls/er_param/src/provider.c` 内容(仅 DllMain, Task 9 用完整实现覆盖):
+
+```c
+/*
+ * Copyright (C) 2024,2025, Soar Qin<soarchin@gmail.com>
+
+ * Use of this source code is governed by an MIT-style
+ * license that can be found in the LICENSE file or at
+ * https://opensource.org/licenses/MIT.
+ */
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
+    (void)reserved;
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH:
+            DisableThreadLibraryCalls(module);
+            break;
+        case DLL_PROCESS_DETACH:
+            break;
+    }
+    return TRUE;
+}
+```
+
+- [ ] **Step 3: 验证配置 + 构建 er_param stub**
 
 ```bash
 cmake -S . -B cmake-build-debug -G "Visual Studio 18 2026" -DBUILD_TESTING=ON
+cmake --build cmake-build-debug --config Debug --target extdll_er_param
 ```
-预期: 成功。`extdll_er_param` 经 `add_subdirectory(er_param)` 创建, `er_param::headers` INTERFACE 目标存在, itemlot_rate/autoloot/no_dup_loot 经 `add_project` 创建并 link `er_param::headers`。
+预期: 配置成功; `extdll_er_param`(er_param.dll) 构建 stub 成功(param.c/pointers.c/wstring.c 编译, link process/klib/inih/shlwapi)。
 
 - [ ] **Step 3: Commit**
 
@@ -889,10 +939,10 @@ git commit -m "refactor(modloader): inline wstring SSO, remove param calls from 
 ## Task 9: 实现 er_param provider.c (核心: modloader_ext_init + api + 观察者 + cursor_speed)
 
 **Files:**
-- Create: `src/extdlls/er_param/src/provider.c`
+- Overwrite: `src/extdlls/er_param/src/provider.c` (Task 4 创建的最小 stub, 本任务用完整实现覆盖)
 - Create: `src/extdlls/er_param/er_param.ini`
 
-**说明:** 这是新组件的核心。实现 ext init(启动加载线程)、er_param_api_get(返回 api 结构)、观察者机制(CRITICAL_SECTION)、cursor_speed 内置、on_uninit。完成后 er_param.dll 可构建。
+**说明:** 这是新组件的核心。实现 ext init(启动加载线程)、er_param_api_get(返回 api 结构)、观察者机制(CRITICAL_SECTION)、cursor_speed 内置、on_uninit。完成后 er_param.dll 可构建。注意 provider.c 已有 Task 4 的 stub, 用 Write 工具整体覆盖即可(覆盖前需 Read 一次)。
 
 - [ ] **Step 1: 创建 `er_param.ini`**
 
