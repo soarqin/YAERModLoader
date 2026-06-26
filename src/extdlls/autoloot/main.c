@@ -16,7 +16,7 @@ void on_param_loaded(void* userp);
 
 void on_uninit(void* userp) {
     (void)userp;
-    if (param_api != NULL) {
+    if (param_api != NULL && GetModuleHandleW(L"er_param.dll") != NULL) {
         param_api->off_param_loaded(on_param_loaded, NULL);
     }
     the_api->unhook(exec_action_button_param_proxy);

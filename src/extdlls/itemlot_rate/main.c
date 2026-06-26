@@ -248,7 +248,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
             load_config(module);
             break;
         case DLL_PROCESS_DETACH:
-            if (param_api != NULL) {
+            if (param_api != NULL && GetModuleHandleW(L"er_param.dll") != NULL) {
                 param_api->off_param_loaded(on_param_loaded, NULL);
             }
             if (config.include_goods != NULL) {
