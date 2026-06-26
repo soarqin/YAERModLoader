@@ -25,7 +25,6 @@ config_t config = {
     true,
     false,
     false,
-    1.0f,
     false,
     L"",
     L"",
@@ -68,15 +67,6 @@ static int ini_read_cb(void *user, const char *section,
             config.remove_chromatic_aberration = value_to_bool(value);
         } else if (lstrcmpA(name, "remove_vignette") == 0) {
             config.remove_vignette = value_to_bool(value);
-        } else if (lstrcmpA(name, "world_map_cursor_speed") == 0) {
-            config.world_map_cursor_speed = strtof(value, NULL);
-            if (config.world_map_cursor_speed <= 0.0f) {
-                config.world_map_cursor_speed = 1.0f;
-            } else if (config.world_map_cursor_speed < 0.5f) {
-                config.world_map_cursor_speed = 0.5f;
-            } else if (config.world_map_cursor_speed > 10.0f) {
-                config.world_map_cursor_speed = 10.0f;
-            }
         } else if (lstrcmpA(name, "disable_mouse_camera_control") == 0) {
             config.disable_mouse_camera_control = value_to_bool(value);
         } else if (lstrcmpA(name, "replace_save_filename") == 0) {
