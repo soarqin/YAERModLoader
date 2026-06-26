@@ -60,15 +60,16 @@ static bool provider_on_param_loaded(void (*cb)(void *userp), void *userp) {
         return true;
     }
     if (observers_count >= observers_capacity) {
-        observers_capacity = observers_capacity == 0 ? 8 : observers_capacity * 2;
+        int new_capacity = observers_capacity == 0 ? 8 : observers_capacity * 2;
         observer_t *new_obs = observers == NULL
-            ? LocalAlloc(LMEM_ZEROINIT, observers_capacity * sizeof(observer_t))
-            : LocalReAlloc(observers, observers_capacity * sizeof(observer_t), LMEM_ZEROINIT);
+            ? LocalAlloc(LMEM_ZEROINIT, new_capacity * sizeof(observer_t))
+            : LocalReAlloc(observers, new_capacity * sizeof(observer_t), LMEM_ZEROINIT);
         if (new_obs == NULL) {
             LeaveCriticalSection(&observers_lock);
             return false;
         }
         observers = new_obs;
+        observers_capacity = new_capacity;
     }
     observers[observers_count].cb = cb;
     observers[observers_count].userp = userp;
@@ -141,7 +142,7 @@ static void load_config(HMODULE module) {
     fclose(file);
 }
 
-DWORD WINAPI param_thread(LPVOID arg) {
+static DWORD WINAPI param_thread(LPVOID arg) {
     (void)arg;
     er_pointers_init(INIT_CS_REGULATION_MANAGER);
     if (!er_param_load_table()) {
@@ -180,7 +181,7 @@ modloader_ext_def_t def = {
     NULL,
 };
 
-void on_uninit(void *userp) {
+static void on_uninit(void *userp) {
     (void)userp;
     if (param_thread_handle && WaitForSingleObject(param_thread_handle, 5000) == WAIT_TIMEOUT)
         TerminateThread(param_thread_handle, 0);
@@ -208,7 +209,9 @@ modloader_ext_def_t *modloader_ext_init(modloader_ext_api_t *api) {
     }
     load_config(g_module);
     def.on_uninit = on_uninit;
-    param_thread_handle = CreateThread(NULL, 0, param_thread, NULL, 0, NULL);
+    if (param_thread_handle == NULL) {
+        param_thread_handle = CreateThread(NULL, 0, param_thread, NULL, 0, NULL);
+    }
     return &def;
 }
 
