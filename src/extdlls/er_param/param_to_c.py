@@ -41,7 +41,7 @@ def param_type_to_c_type(s):
         return 'char'
 
 
-all_headers = codecs.open('param_defs.h', 'w', 'utf-8')
+all_headers = codecs.open('include/er_param/param_defs.h', 'w', 'utf-8')
 all_headers.write('#pragma once\n\n')
 
 pathlist = Path('ER/Defs').glob('*.xml')
@@ -112,7 +112,7 @@ for path in pathlist:
     else:
         slf = ''
     struct_content = slf + 'typedef struct er_' + type_name + '_s {\n' + sfields + '} er_' + type_name + '_t;\n'
-    with codecs.open('defs/' + type_name + '.h', 'w', 'utf-8') as f:
+    with codecs.open('include/er_param/defs/' + type_name + '.h', 'w', 'utf-8') as f:
         f.write('#pragma once\n\n')
         f.write(struct_content)
     all_headers.write('#include "defs/' + type_name + '.h"\n')

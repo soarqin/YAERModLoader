@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "param.h"
+#include <er_param/param.h>
 
 #ifdef __cplusplus
 extern "C" {

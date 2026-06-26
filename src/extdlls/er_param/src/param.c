@@ -9,7 +9,7 @@
 #include "param_internal.h"
 
 #include "pointers.h"
-#include "wstring.h"
+#include <er_param/wstring.h>
 
 #include <windows.h>
 

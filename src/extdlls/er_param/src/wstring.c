@@ -6,7 +6,7 @@
  * https://opensource.org/licenses/MIT.
  */
 
-#include "wstring.h"
+#include <er_param/wstring.h>
 
 /* MSVC std::wstring SSO threshold: strings with capacity >= 8 wchar_t (16 bytes)
    use heap-allocated buffer via pointer; shorter strings are stored inline. */
