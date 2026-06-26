@@ -10,7 +10,7 @@ add_project(extdll_er_param SHARED
     include/er_param/param_defs.h ${PARAM_DEF_SRC}
     LANGUAGES C FOLDER extdlls OUTPUT_SUBDIR dll NO_PREFIX OUTPUT_NAME er_param)
 
-target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/common)
 target_link_libraries(${PROJECT_NAME} PRIVATE process klib inih shlwapi)
 
 add_library(er_param_headers INTERFACE)
