@@ -13,5 +13,6 @@ add_project(extdll_er_param SHARED
 target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(${PROJECT_NAME} PRIVATE process klib inih shlwapi)
 
-add_library(er_param::headers INTERFACE)
-target_include_directories(er_param::headers INTERFACE include)
+add_library(er_param_headers INTERFACE)
+target_include_directories(er_param_headers INTERFACE include)
+add_library(er_param::headers ALIAS er_param_headers)

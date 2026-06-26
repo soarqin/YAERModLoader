@@ -13,6 +13,8 @@
 
 #include <er_param/param.h>
 
+typedef struct er_wstring_impl_s er_wstring_impl_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
