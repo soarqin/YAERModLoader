@@ -1507,6 +1507,8 @@ void on_uninit(void* userp) {
 }
 ```
 
+**注意:** `on_uninit` 在 autoloot 中定义于 `on_param_loaded`(原 `on_param_initialized`)之前, 现在它引用 `on_param_loaded`, 需在其之前加前向声明 `void on_param_loaded(void* userp);`(放在 `on_uninit` 定义之前)。
+
 - [ ] **Step 6: 验证 autoloot 构建**
 
 ```bash
