@@ -1068,7 +1068,7 @@ static void apply_cursor_speed(void) {
     er_param_table_iterate_end();
 }
 
-static int ini_handler(void *user, const char *section, const char *name, const char *value) {
+static int config_ini_handler(void *user, const char *section, const char *name, const char *value) {
     (void)user;
     if (section == NULL || section[0] == 0) {
         if (lstrcmpA(name, "world_map_cursor_speed") == 0) {
@@ -1092,7 +1092,7 @@ static void load_config(HMODULE module) {
     PathAppendW(ini_path, L"er_param.ini");
     FILE *file = _wfopen(ini_path, L"r");
     if (file == NULL) return;
-    ini_parse_file(file, ini_handler, NULL);
+    ini_parse_file(file, config_ini_handler, NULL);
     fclose(file);
 }
 
@@ -1185,38 +1185,18 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
 ```
 
 **注意点:**
-- `param_thread` 里 `the_api->get_module_image_base(NULL, &size)` 拿 base/size 供 `er_pointers_init` 内部用。但 `er_pointers_init`(pointers.c) 自己调 `get_module_image_base(NULL, &image_size)`——它直接用 `process/image.h` 的实现, **不经 the_api**。所以 param_thread 里那两行 `base = ...` 实际多余, 可删。但 pointers.c 的 `get_module_image_base` 来自 link 的 `process` 静态库。确认 `pointers.c` 第 38 行 `void *image_base = get_module_image_base(NULL, &image_size);` 仍可用(因 er_param link process, Task 2 Step 4 已加)。故 param_thread 不需调 the_api 取 base。简化:
+- `param_thread` 里 `the_api->get_module_image_base(NULL, &size)` 拿 base/size 供 `er_pointers_init` 内部用。但 `er_pointers_init`(pointers.c) 自己调 `get_module_image_base(NULL, &image_size)`——它直接用 `process/image.h` 的实现, **不经 the_api**。所以 param_thread 不需调 the_api 取 base, 上面的完整代码已省略(直接 `er_pointers_init`)。pointers.c 的 `get_module_image_base` 来自 link 的 `process` 静态库。
+- **ini 处理函数名**: inih 的 `ini.h` 导出了 `typedef int (*ini_handler)(...)` 类型, 与下面的本地函数名冲突(C2365)。故本地函数命名为 `config_ini_handler`(非 `ini_handler`)。上面代码已用此名。
+- `apply_cursor_speed` 用 `er_menu_common_param_t`, 该类型在 `include/er_param/defs/menu_common_param.h`。上面的完整代码已 `#include <er_param/defs/menu_common_param.h>`。
 
-将 param_thread 开头的:
-```c
-    size_t size;
-    void *base = the_api->get_module_image_base(NULL, &size);
-    (void)base;
-    er_pointers_init(INIT_CS_REGULATION_MANAGER);
-```
-改为:
-```c
-    er_pointers_init(INIT_CS_REGULATION_MANAGER);
-```
-(删除多余 base 取值; pointers.c 自带 get_module_image_base via process 库。)
-
-- [ ] **Step 3: 确认 `er_menu_common_param_t` 可见**
-
-`apply_cursor_speed` 用 `er_menu_common_param_t`。该类型在 `include/er_param/defs/menu_common_param.h`。provider.c 已 `#include <er_param/param.h>`(iterate 宏), 但 **未 include defs/menu_common_param.h**。需补 include。
-
-在 provider.c 的 include 区(`#include <er_param/wstring.h>` 之后)加:
-```c
-#include <er_param/defs/menu_common_param.h>
-```
-
-- [ ] **Step 4: 验证 er_param 构建**
+- [ ] **Step 3: 验证 er_param 构建**
 
 ```bash
 cmake --build cmake-build-debug --config Debug --target extdll_er_param
 ```
 预期: `extdll_er_param` 构建成功, 产出 `er_param.dll`。若报找不到 `process`/`inih`/`klib` 目标, 检查 er_param CMakeLists 的 link(Task 2 Step 4: `process klib inih shlwapi`)。
 
-- [ ] **Step 5: 验证全量构建 + 测试**
+- [ ] **Step 4: 验证 modloader + er_param + tests (不全量)**
 
 ```bash
 cmake --build cmake-build-debug --config Debug
@@ -1224,14 +1204,14 @@ ctest --test-dir cmake-build-debug -C Debug --output-on-failure
 ```
 预期: 全部目标构建成功(modloader_dll, extdll_*, er_param, launcher, tests)。ctest 3 个 smoke 测试通过(smoke_param/smoke_filecache/smoke_no_dup_loot)。注: itemlot_rate/autoloot 此刻仍用旧接口(`the_api->er_param_find_table`/`on_param_initialized` 字段), 会编译失败(因 ext_api 已无该字段, def 已无 on_param_initialized)。**这些会在 Task 10/11 修复**。因此全量构建此刻仍失败于 extdll_itemlot_rate/extdll_autoloot。
 
-修订: 此 Step 只验证 `modloader_dll` + `extdll_er_param` + tests, 不全量:
+实际只验证(不全量, 因 extdll 待 Task 10-12 修):
 ```bash
 cmake --build cmake-build-debug --config Debug --target modloader_dll extdll_er_param
 ctest --test-dir cmake-build-debug -C Debug --output-on-failure
 ```
 预期: modloader_dll + er_param 构建成功; ctest 通过。
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/extdlls/er_param/src/provider.c src/extdlls/er_param/er_param.ini
