@@ -1015,15 +1015,16 @@ static bool provider_on_param_loaded(void (*cb)(void *userp), void *userp) {
         return true;
     }
     if (observers_count >= observers_capacity) {
-        observers_capacity = observers_capacity == 0 ? 8 : observers_capacity * 2;
+        int new_capacity = observers_capacity == 0 ? 8 : observers_capacity * 2;
         observer_t *new_obs = observers == NULL
-            ? LocalAlloc(LMEM_ZEROINIT, observers_capacity * sizeof(observer_t))
-            : LocalReAlloc(observers, observers_capacity * sizeof(observer_t), LMEM_ZEROINIT);
+            ? LocalAlloc(LMEM_ZEROINIT, new_capacity * sizeof(observer_t))
+            : LocalReAlloc(observers, new_capacity * sizeof(observer_t), LMEM_ZEROINIT);
         if (new_obs == NULL) {
             LeaveCriticalSection(&observers_lock);
             return false;
         }
         observers = new_obs;
+        observers_capacity = new_capacity;
     }
     observers[observers_count].cb = cb;
     observers[observers_count].userp = userp;
@@ -1096,7 +1097,7 @@ static void load_config(HMODULE module) {
     fclose(file);
 }
 
-DWORD WINAPI param_thread(LPVOID arg) {
+static DWORD WINAPI param_thread(LPVOID arg) {
     (void)arg;
     size_t size;
     void *base = the_api->get_module_image_base(NULL, &size);
@@ -1138,7 +1139,7 @@ modloader_ext_def_t def = {
     NULL,
 };
 
-void on_uninit(void *userp) {
+static void on_uninit(void *userp) {
     (void)userp;
     if (param_thread_handle && WaitForSingleObject(param_thread_handle, 5000) == WAIT_TIMEOUT)
         TerminateThread(param_thread_handle, 0);
@@ -1166,7 +1167,9 @@ modloader_ext_def_t *modloader_ext_init(modloader_ext_api_t *api) {
     }
     load_config(g_module);
     def.on_uninit = on_uninit;
-    param_thread_handle = CreateThread(NULL, 0, param_thread, NULL, 0, NULL);
+    if (param_thread_handle == NULL) {
+        param_thread_handle = CreateThread(NULL, 0, param_thread, NULL, 0, NULL);
+    }
     return &def;
 }
 
@@ -1187,6 +1190,8 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
 **注意点:**
 - `param_thread` 里 `the_api->get_module_image_base(NULL, &size)` 拿 base/size 供 `er_pointers_init` 内部用。但 `er_pointers_init`(pointers.c) 自己调 `get_module_image_base(NULL, &image_size)`——它直接用 `process/image.h` 的实现, **不经 the_api**。所以 param_thread 不需调 the_api 取 base, 上面的完整代码已省略(直接 `er_pointers_init`)。pointers.c 的 `get_module_image_base` 来自 link 的 `process` 静态库。
 - **ini 处理函数名**: inih 的 `ini.h` 导出了 `typedef int (*ini_handler)(...)` 类型, 与下面的本地函数名冲突(C2365)。故本地函数命名为 `config_ini_handler`(非 `ini_handler`)。上面代码已用此名。
+- **grow 路径容量提交时机**: `provider_on_param_loaded` 的扩容逻辑先算 `new_capacity` 局部变量, 仅在 `LocalAlloc`/`LocalReAlloc` 成功后再提交 `observers_capacity = new_capacity`。避免分配失败时容量被抬高而 `observers` 仍指向旧块, 导致下次调用越界写(代码审查发现)。
+- **static 与线程守卫**: `param_thread`/`on_uninit` 标记 `static`(无需外部链接); `modloader_ext_init` 用 `param_thread_handle == NULL` 守卫 `CreateThread`, 避免重复 init 泄漏线程句柄。
 - `apply_cursor_speed` 用 `er_menu_common_param_t`, 该类型在 `include/er_param/defs/menu_common_param.h`。上面的完整代码已 `#include <er_param/defs/menu_common_param.h>`。
 
 - [ ] **Step 3: 验证 er_param 构建**
