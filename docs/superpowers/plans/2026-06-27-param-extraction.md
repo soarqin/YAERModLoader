@@ -84,6 +84,8 @@
 
 #include <er_param/param.h>
 
+typedef struct er_wstring_impl_s er_wstring_impl_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -122,12 +124,12 @@ add_project(extdll_er_param SHARED
     include/er_param/param_defs.h ${PARAM_DEF_SRC}
     LANGUAGES C FOLDER extdlls OUTPUT_SUBDIR dll NO_PREFIX OUTPUT_NAME er_param)
 
-target_include_directories(${PROJECT_NAME} PRIVATE src include)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
-target_link_libraries(${PROJECT_NAME} PRIVATE klib inih shlwapi)
+target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(${PROJECT_NAME} PRIVATE process klib inih shlwapi)
 
-add_library(er_param::headers INTERFACE)
-target_include_directories(er_param::headers INTERFACE include)
+add_library(er_param_headers INTERFACE)
+target_include_directories(er_param_headers INTERFACE include)
+add_library(er_param::headers ALIAS er_param_headers)
 ```
 
 **注意:** 此时 `src/provider.c` 等文件尚不存在, 配置阶段会因 `add_project` 列出的源文件缺失而失败。本任务先不配置构建, 仅建立文件骨架; Task 2 迁入实现后才能配置通过。因此本任务结束后**不验证构建**, 留到 Task 2 末尾。
@@ -229,18 +231,9 @@ git mv src/eldenring/param_to_c.py src/extdlls/er_param/param_to_c.py
 确认 `pointers.h` 是否 include 了其它路径。读 `src/pointers.h`:
 - 它 `#include "process/image.h"` / `#include "process/scanner.h"`(通过 include `src/` 根覆盖)。er_param 在 `src/extdlls/er_param/`, `src/` 根是其上两级 `../..`。
 
-er_param 的 CMakeLists(Task 1 Step 2 写的)中 `target_include_directories(${PROJECT_NAME} PRIVATE src include)` **缺少** 指向仓库 `src/` 根的 include。需补。修正 `src/extdlls/er_param/CMakeLists.txt` 的该行:
+er_param 的 CMakeLists(Task 1 已建, 含 fix)中 `target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DIR}/src)` —— **已包含** `${CMAKE_SOURCE_DIR}/src`, 此步无需再改 CMakeLists(已在 Task 1 落地)。
 
-旧(Task 1 Step 2 写的):
-```cmake
-target_include_directories(${PROJECT_NAME} PRIVATE src include)
-```
-新:
-```cmake
-target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DIR}/src)
-```
-
-- [ ] **Step 4: 修正 `src/pointers.c` 的 include**
+- [ ] **Step 4: 确认 `src/pointers.c` 的 include 与 link**
 
 当前 `src/eldenring/pointers.c` 第 9-11 行:
 ```c
@@ -249,18 +242,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DI
 #include "process/image.h"
 #include "process/scanner.h"
 ```
-`pointers.h` 同目录(已由 Step 3 的 `src` include 覆盖)。`process/image.h` / `process/scanner.h` 由 Step 3 新增的 `${CMAKE_SOURCE_DIR}/src` include 覆盖。**无需改动 pointers.c**。
+`pointers.h` 同目录(由 `src` include 覆盖)。`process/image.h` / `process/scanner.h` 由 `${CMAKE_SOURCE_DIR}/src` include 覆盖。**无需改动 pointers.c**。
 
-但 pointers.c 调用 `get_module_image_base` / `sig_scan`, 这些在 `process` 静态库。er_param CMakeLists 需 link `process`。修正 `src/extdlls/er_param/CMakeLists.txt` 的 `target_link_libraries`:
-
-旧(Task 1 Step 2 写的):
-```cmake
-target_link_libraries(${PROJECT_NAME} PRIVATE klib inih shlwapi)
-```
-新:
-```cmake
-target_link_libraries(${PROJECT_NAME} PRIVATE process klib inih shlwapi)
-```
+pointers.c 调用 `get_module_image_base` / `sig_scan`, 这些在 `process` 静态库。er_param CMakeLists 的 `target_link_libraries(${PROJECT_NAME} PRIVATE process klib inih shlwapi)` —— **已包含** `process`(已在 Task 1 落地), 此步无需再改 CMakeLists。
 
 - [ ] **Step 5: 修正 `src/wstring.c` 的 include**
 
