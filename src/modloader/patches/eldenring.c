@@ -10,7 +10,6 @@
 
 #include "modloader/config.h"
 #include "modloader/mod.h"
-#include "modloader/extdll.h"
 
 #include "process/image.h"
 #include "process/scanner.h"
