@@ -11,8 +11,6 @@
 #include "config.h"
 
 #include "extdll_api.h"
-#include "eldenring/param_internal.h"
-#include "eldenring/wstring.h"
 #include "process/image.h"
 #include "process/scanner.h"
 
@@ -32,7 +30,6 @@ typedef struct extdll_t {
 
     void *userp;
     void (*on_uninit)(void*);
-    void (*on_param_initialized)(void*);
 } extdll_t;
 
 extdll_t *extdlls = NULL;
@@ -53,10 +50,7 @@ static void (unhook)(void *target) {
 static modloader_ext_api_t ext_api = {
     .get_module_image_base = get_module_image_base,
     .sig_scan = sig_scan,
-    .er_param_find_table = er_param_find_table,
-    .er_wstring_impl_str = er_wstring_impl_str,
 
-    /* V2 Added API */
     .hook = hook,
     .unhook = unhook,
 };
@@ -108,7 +102,6 @@ void extdlls_load_all() {
             if (def) {
                 extdll->userp = def->userp;
                 extdll->on_uninit = def->on_uninit;
-                extdll->on_param_initialized = def->on_param_initialized;
                 fwprintf(stdout, L"Initialized external dll %hs (using extdll API)\n", extdll->name);
             }
             continue;
@@ -158,16 +151,5 @@ void extdlls_unload_all() {
         }
         extdll->userp = NULL;
         extdll->on_uninit = NULL;
-        extdll->on_param_initialized = NULL;
-    }
-}
-
-void extdlls_on_param_initialized() {
-    for (int i = 0; i < extdll_count; i++) {
-        extdll_t *extdll = &extdlls[i];
-        if (!extdll->dll_module) continue;
-        if (extdll->on_param_initialized) {
-            extdll->on_param_initialized(extdll->userp);
-        }
     }
 }
