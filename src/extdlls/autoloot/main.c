@@ -1,23 +1,30 @@
 #include <modloader/extdll_api.h>
+#include <er_param/er_param_api.h>
 
 #include <windows.h>
 #include <stddef.h>
 
 static modloader_ext_api_t* the_api;
+static const er_param_api_t* param_api = NULL;
 
 void* exec_action_button_param_proxy = NULL;
 uintptr_t execute_action_button_param_proxy_return = 0;
 
 extern int exec_action_button_param_proxy_hook();
 
+void on_param_loaded(void* userp);
+
 void on_uninit(void* userp) {
     (void)userp;
+    if (param_api != NULL) {
+        param_api->off_param_loaded(on_param_loaded, NULL);
+    }
     the_api->unhook(exec_action_button_param_proxy);
 }
 
 #include <stdio.h>
 
-void on_param_initialized(void* userp) {
+void on_param_loaded(void* userp) {
     size_t size;
     void* base = the_api->get_module_image_base(NULL, &size);
     if (base == NULL) {
@@ -34,12 +41,21 @@ modloader_ext_def_t def = {
     "autoloot",
     NULL,
     on_uninit,
-    on_param_initialized,
 };
 
 __declspec(dllexport)
 modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
     the_api = api;
+    HMODULE er_param_mod = GetModuleHandleW(L"er_param.dll");
+    if (er_param_mod != NULL) {
+        er_param_api_get_t get_api = (er_param_api_get_t)GetProcAddress(er_param_mod, "er_param_api_get");
+        if (get_api != NULL) {
+            param_api = get_api();
+        }
+    }
+    if (param_api != NULL) {
+        param_api->on_param_loaded(on_param_loaded, NULL);
+    }
     return &def;
 }
 
