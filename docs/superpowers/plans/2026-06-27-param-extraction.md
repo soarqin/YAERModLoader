@@ -1373,7 +1373,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
             load_config(module);
             break;
         case DLL_PROCESS_DETACH:
-            if (param_api != NULL) {
+            if (param_api != NULL && GetModuleHandleW(L"er_param.dll") != NULL) {
                 param_api->off_param_loaded(on_param_loaded, NULL);
             }
             if (config.include_goods != NULL) {
@@ -1385,6 +1385,8 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
     return TRUE;
 }
 ```
+
+**注意(卸载顺序):** `extdlls_unload_all` 按 ini 列表顺序卸载, er_param 排在第一位(加载顺序要求), 故它先被 `FreeLibrary`。消费者在 er_param 卸载后才跑自己的卸载(DllMain DETACH / on_uninit), 此时 `param_api` 指向已卸载的 er_param 内存, 直接调 `off_param_loaded` 是 use-after-free。故 off 调用前用 `GetModuleHandleW(L"er_param.dll") != NULL` 守卫, 若 er_param 已卸载则跳过(成为无害 no-op, 观察者列表已在 er_param.on_uninit 里释放)。itemlot_rate 与 autoloot 都加此守卫。
 
 - [ ] **Step 6: 验证 itemlot_rate 构建**
 
@@ -1500,7 +1502,7 @@ void on_uninit(void* userp) {
 ```c
 void on_uninit(void* userp) {
     (void)userp;
-    if (param_api != NULL) {
+    if (param_api != NULL && GetModuleHandleW(L"er_param.dll") != NULL) {
         param_api->off_param_loaded(on_param_loaded, NULL);
     }
     the_api->unhook(exec_action_button_param_proxy);
@@ -1508,6 +1510,7 @@ void on_uninit(void* userp) {
 ```
 
 **注意:** `on_uninit` 在 autoloot 中定义于 `on_param_loaded`(原 `on_param_initialized`)之前, 现在它引用 `on_param_loaded`, 需在其之前加前向声明 `void on_param_loaded(void* userp);`(放在 `on_uninit` 定义之前)。
+**卸载顺序守卫:** 与 itemlot_rate 同理, off 调用前加 `GetModuleHandleW(L"er_param.dll") != NULL` 守卫(er_param 先被卸载, 避免 use-after-free)。
 
 - [ ] **Step 6: 验证 autoloot 构建**
 
