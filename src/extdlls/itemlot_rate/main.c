@@ -7,8 +7,9 @@
  */
 
 #include <modloader/extdll_api.h>
-#include <eldenring/param.h>
-#include <eldenring/defs/itemlot_param.h>
+#include <er_param/param.h>
+#include <er_param/defs/itemlot_param.h>
+#include <er_param/er_param_api.h>
 
 #include <ini.h>
 
@@ -19,6 +20,7 @@
 #include <stdbool.h>
 
 static modloader_ext_api_t* the_api;
+static const er_param_api_t* param_api = NULL;
 
 typedef struct config_s {
     bool include_weapons;
@@ -199,15 +201,16 @@ void process_param_count(er_itemlot_param_t* param, int type) {
     }
 }
 
-void on_param_initialized(void* userp) {
+void on_param_loaded(void* userp) {
     (void)userp;
-    const er_param_table_t* table = the_api->er_param_find_table(L"ItemLotParam_map");
+    if (param_api == NULL) return;
+    const er_param_table_t* table = param_api->find_table(L"ItemLotParam_map");
     if (table != NULL) {
         er_param_table_iterate_begin(table, er_itemlot_param_t, param) {
             process_param_count(param, 1);
         } er_param_table_iterate_end();
     }
-    table = the_api->er_param_find_table(L"ItemLotParam_enemy");
+    table = param_api->find_table(L"ItemLotParam_enemy");
     if (table != NULL) {
         er_param_table_iterate_begin(table, er_itemlot_param_t, param) {
             process_param_rate(param);
@@ -220,12 +223,21 @@ modloader_ext_def_t def = {
     "item_lot_rate",
     NULL,
     NULL,
-    on_param_initialized
 };
 
 __declspec(dllexport)
 modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
     the_api = api;
+    HMODULE er_param_mod = GetModuleHandleW(L"er_param.dll");
+    if (er_param_mod != NULL) {
+        er_param_api_get_t get_api = (er_param_api_get_t)GetProcAddress(er_param_mod, "er_param_api_get");
+        if (get_api != NULL) {
+            param_api = get_api();
+        }
+    }
+    if (param_api != NULL) {
+        param_api->on_param_loaded(on_param_loaded, NULL);
+    }
     return &def;
 }
 
@@ -236,6 +248,9 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
             load_config(module);
             break;
         case DLL_PROCESS_DETACH:
+            if (param_api != NULL) {
+                param_api->off_param_loaded(on_param_loaded, NULL);
+            }
             if (config.include_goods != NULL) {
                 LocalFree(config.include_goods);
                 config.include_goods = NULL;
