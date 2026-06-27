@@ -394,18 +394,6 @@ static void hook_eldenring_copy_file() {
     MH_CreateHook(CopyFileW, (void*)&CopyFile_hooked, (void**)&old_CopyFileW);
 }
 
-static bool patch_regulation_safety_check() {
-    uint8_t *addr = sig_scan(image_base, image_size, "48 8B 43 08 48 89 88 C8 00 00 00 38 0D ?? ?? ?? ?? 75 ?? E8 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 88 05");
-    if (!addr) return false;
-    DWORD old_protect;
-    /* Protect the byte actually written (addr + 36), not addr: they can land
-     * on different pages. */
-    VirtualProtect(addr + 36, 1, PAGE_EXECUTE_READWRITE, &old_protect);
-    *(addr + 36) = 0x30;
-    VirtualProtect(addr + 36, 1, old_protect, &old_protect);
-    return true;
-}
-
 static void __cdecl regulation_step_idle_hooked(void *this_ptr) {
     static bool warned_manager = false;
     static bool warned_allocator = false;
@@ -672,7 +660,6 @@ bool eldenring_install() {
     }
 
     if (replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
-        patch_regulation_safety_check();
         hook_eldenring_copy_file();
     }
 
