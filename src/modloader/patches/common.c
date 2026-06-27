@@ -11,8 +11,7 @@
 #include "modloader/config.h"
 #include "modloader/mod.h"
 
-#include "process/image.h"
-#include "process/scanner.h"
+#include "process/rtti.h"
 
 #include <MinHook.h>
 
@@ -21,9 +20,6 @@
 #include <shlwapi.h>
 
 #include <stdint.h>
-
-static void *image_base;
-static size_t image_size;
 
 BOOL WINAPI ImmDisableIME_hooked(DWORD unused) {
     (void)unused;
@@ -50,6 +46,12 @@ typedef enum {
 
 typedef void *(__cdecl *ak_file_location_resolver_open_t)(uint64_t p1, wchar_t *path, AKOpenMode openMode, uint64_t p4, uint64_t p5, uint64_t p6);
 static ak_file_location_resolver_open_t old_ak_file_location_resolver_open = NULL;
+
+typedef struct dlmow_io_hook_blocking_vtable_s {
+    void *dtor;
+    void *open_by_id;
+    ak_file_location_resolver_open_t open_by_name;
+} dlmow_io_hook_blocking_vtable_t;
 
 void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, const AKOpenMode openMode, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
     static const wchar_t *prefixes[3] = {
@@ -88,15 +90,15 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
 }
 
 static bool hook_wwise_archive_position_resolver() {
-    uint8_t *addr = sig_scan(image_base, image_size, "4C 89 74 24 28 48 8B 84 24 90 00 00 00 48 89 44 24 20 4C 8B CE 45 8B C4 49 8B D7 48 8B CD E8");
-    if (!addr) {
+    void **vtable = rtti_find_vtable("DLMOW::IOHookBlocking");
+    if (vtable == NULL) {
         return false;
     }
-    addr += *(int32_t*)(addr + 31) + 35;
-    while (*addr == 0xE9) {
-        addr += *(int32_t*)(addr + 1) + 5;
+    ak_file_location_resolver_open_t open_by_name = ((dlmow_io_hook_blocking_vtable_t *)vtable)->open_by_name;
+    if (open_by_name == NULL) {
+        return false;
     }
-    MH_CreateHook(addr, (void*)&ak_file_location_resolver_open, (void**)&old_ak_file_location_resolver_open);
+    MH_CreateHook((void *)open_by_name, (void*)&ak_file_location_resolver_open, (void**)&old_ak_file_location_resolver_open);
     return true;
 }
 
@@ -104,7 +106,6 @@ bool common_install() {
     if (config.enable_ime) {
         patch_ime_disable();
     }
-    image_base = get_module_image_base(NULL, &image_size);
     /* Do not hook if no mod is added, to improve game performance during loading. */
     if (mods_count() <= 0) return true;
     if (!hook_wwise_archive_position_resolver()) return false;
