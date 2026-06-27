@@ -80,8 +80,9 @@ jobs:
           Copy-Item "build/bin/YAERModLoader.dll" "$pkgDir/"
           Copy-Item "src/YAERModLoader.ini"       "$pkgDir/"
 
-          # Copy entire dll/ output directory, then add itemlot_rate.ini
+          # Copy entire dll/ output directory, then add er_param.ini & itemlot_rate.ini
           Copy-Item "build/bin/dll" "$pkgDir/" -Recurse
+          Copy-Item "src/extdlls/er_param/er_param.ini" "$pkgDir/dll/"
           Copy-Item "src/extdlls/itemlot_rate/itemlot_rate.ini" "$pkgDir/dll/"
 
           # Create zip archive
