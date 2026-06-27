@@ -63,7 +63,7 @@ static bool provider_on_param_loaded(void (*cb)(void *userp), void *userp) {
         int new_capacity = observers_capacity == 0 ? 8 : observers_capacity * 2;
         observer_t *new_obs = observers == NULL
             ? LocalAlloc(LMEM_ZEROINIT, new_capacity * sizeof(observer_t))
-            : LocalReAlloc(observers, new_capacity * sizeof(observer_t), LMEM_ZEROINIT);
+            : LocalReAlloc(observers, new_capacity * sizeof(observer_t), LMEM_MOVEABLE | LMEM_ZEROINIT);
         if (new_obs == NULL) {
             LeaveCriticalSection(&observers_lock);
             return false;
