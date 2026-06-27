@@ -18,6 +18,8 @@ add_project(modloader_dll SHARED
     config.c config.h
     extdll.c extdll.h extdll_api.h
     gamehook.c gamehook.h
+    dl_allocator.c dl_allocator.h
+    mimalloc_allocator.c mimalloc_allocator.h
     mod.c mod.h
     filecache.c filecache.h
     detours_subset.h
@@ -40,7 +42,7 @@ if (STRIP_MODENGINE_CONFIG_SUPPORT)
 else ()
     target_link_libraries(modloader_dll toml-c)
 endif ()
-target_link_libraries(modloader_dll process steam minhook inih klib shlwapi version)
+target_link_libraries(modloader_dll process steam minhook inih klib mimalloc-static shlwapi version)
 if (NOT MSVC)
     target_link_options(modloader_dll PRIVATE -municode)
 endif ()

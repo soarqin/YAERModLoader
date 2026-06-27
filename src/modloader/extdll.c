@@ -123,9 +123,11 @@ void extdlls_load_all() {
 }
 
 void extdlls_unload_all() {
-    for (int i = 0; i < extdll_count; i++) {
+    for (int i = extdll_count - 1; i >= 0; i--) {
         extdll_t *extdll = &extdlls[i];
         if (!extdll->dll_module) continue;
+        fwprintf(stdout, L"Uninitializing external dll %hs\n", extdll->name);
+        fflush(stdout);
         if (extdll->on_uninit) {
             extdll->on_uninit(extdll->userp);
         } else if (extdll->extension_object) {

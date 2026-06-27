@@ -14,10 +14,18 @@
 
 #include <MinHook.h>
 
+#include <stdio.h>
+
 bool gamehook_install() {
     steamapi_init();
     bool result = common_install() && eldenring_install();
-    MH_EnableHook(MH_ALL_HOOKS);
+    MH_STATUS status = MH_EnableHook(MH_ALL_HOOKS);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: MH_EnableHook(MH_ALL_HOOKS) failed: %d\n", status);
+    } else {
+        fwprintf(stderr, L"NOTE: MH_EnableHook(MH_ALL_HOOKS) succeeded\n");
+        fflush(stderr);
+    }
     return result;
 }
 

@@ -3,6 +3,7 @@
 # independently — when a .c file is added by T5/T6/T7, CMake's automatic
 # reconfigure picks it up. Until then, the corresponding target simply does not exist.
 set(TEST_INCLUDES
+    ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/common
     ${CMAKE_SOURCE_DIR}/src/process
     ${CMAKE_SOURCE_DIR}/deps/klib
@@ -14,6 +15,10 @@ foreach(smoke_src ${smoke_sources})
     get_filename_component(smoke_target "${smoke_src}" NAME_WE)
     add_executable(${smoke_target} "${smoke_src}")
     target_link_libraries(${smoke_target} PRIVATE process klib)
+    if(smoke_target STREQUAL "smoke_mimalloc_allocator")
+        target_sources(${smoke_target} PRIVATE ${CMAKE_SOURCE_DIR}/src/modloader/mimalloc_allocator.c)
+        target_link_libraries(${smoke_target} PRIVATE mimalloc-static)
+    endif()
     target_include_directories(${smoke_target} PRIVATE ${TEST_INCLUDES})
     add_test(NAME ${smoke_target} COMMAND ${smoke_target})
 endforeach()

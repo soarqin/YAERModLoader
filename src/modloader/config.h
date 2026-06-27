@@ -26,6 +26,9 @@ typedef struct {
     bool remove_chromatic_aberration;
     bool remove_vignette;
     bool disable_mouse_camera_control;
+    bool prevent_regulation_save_write;
+    bool patch_mem;
+    bool patch_mem_hook_cs_graphics;
     wchar_t replaced_save_filename[64];
     wchar_t replaced_seamless_coop_save_filename[64];
 } config_t;

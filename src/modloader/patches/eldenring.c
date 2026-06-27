@@ -9,10 +9,15 @@
 #include "eldenring.h"
 
 #include "modloader/config.h"
+#include "modloader/dl_allocator.h"
+#include "modloader/mimalloc_allocator.h"
 #include "modloader/mod.h"
 
+#include "process/fd4_step.h"
 #include "process/image.h"
+#include "process/rtti.h"
 #include "process/scanner.h"
+#include "process/singleton.h"
 #include "process/util.h"
 
 #include "steam/api.h"
@@ -24,6 +29,8 @@
 #include <shlwapi.h>
 
 #include <stdint.h>
+#include <stddef.h>
+#include <stdarg.h>
 
 typedef struct er_wstring_local_s {
     void *unk;
@@ -42,6 +49,8 @@ static volatile bool game_running = false;
 static HANDLE reset_achievements_on_new_game_thread_handle = NULL;
 static void *image_base;
 static size_t image_size;
+static bool system_allocator_hook_installed = false;
+static INIT_ONCE after_main_once = INIT_ONCE_STATIC_INIT;
 
 /* 80: config values are up to 63 chars; the `.suffix` form prepends `ER0000`
  * (69 max) and the bak variants append `.bak` (73 max), plus terminator. */
@@ -62,6 +71,16 @@ static wchar_t replaced_seamless_coop_save_filename_bak[80] = L"";
 static bool str_ends_with(const wchar_t *str, size_t str_len, const wchar_t *suffix, size_t suffix_len) {
     if (suffix_len > str_len) return false;
     return StrCmpNIW(str + str_len - suffix_len, suffix, suffix_len) == 0;
+}
+
+static void er_log(const wchar_t *fmt, ...) {
+    va_list args;
+    fwprintf(stderr, L"NOTE: [eldenring] ");
+    va_start(args, fmt);
+    vfwprintf(stderr, fmt, args);
+    va_end(args);
+    fwprintf(stderr, L"\n");
+    fflush(stderr);
 }
 
 /*
@@ -104,6 +123,82 @@ typedef BOOL (WINAPI *CopyFileW_t)(LPCWSTR lpExistingFileName, LPCWSTR lpNewFile
 static map_archive_path_t old_map_archive_path = NULL;
 static CreateFileW_t old_CreateFileW = NULL;
 static CopyFileW_t old_CopyFileW = NULL;
+
+typedef dl_allocator_t *(__cdecl *get_system_allocator_override_t)(void);
+typedef bool (__cdecl *SteamAPI_Init_t)(void);
+typedef void (__cdecl *fd4_step_fn_t)(void *this_ptr);
+typedef void (__cdecl *game_noop_fn_t)(void *this_ptr);
+
+static get_system_allocator_override_t old_get_system_allocator_override = NULL;
+static SteamAPI_Init_t old_SteamAPI_Init = NULL;
+static fd4_step_fn_t old_regulation_step_idle = NULL;
+static game_noop_fn_t old_cs_memory_init = NULL;
+static game_noop_fn_t old_cs_memory_deinit = NULL;
+static game_noop_fn_t old_cs_graphics_init = NULL;
+
+typedef struct dl_vector_ptr_msvc2015_s {
+    dl_allocator_t *allocator;
+    void **first;
+    void **last;
+    void **end;
+} dl_vector_ptr_msvc2015_t;
+
+typedef struct cs_regulation_manager_s {
+    void *vtable;
+    void *regulation_step;
+    dl_vector_ptr_msvc2015_t param_res_caps;
+    uint8_t *raw_regulation;
+    size_t raw_regulation_len;
+} cs_regulation_manager_t;
+
+typedef struct cs_memory_vtable_s {
+    void (__cdecl *drop)(void *this_ptr);
+    void (__cdecl *init)(void *this_ptr);
+    void (__cdecl *deinit)(void *this_ptr);
+} cs_memory_vtable_t;
+
+_Static_assert(offsetof(cs_regulation_manager_t, raw_regulation) == 0x30, "CSRegulationManager raw_regulation offset mismatch");
+_Static_assert(offsetof(cs_regulation_manager_t, raw_regulation_len) == 0x38, "CSRegulationManager raw_regulation_len offset mismatch");
+
+static dl_allocator_t *__cdecl get_system_allocator_override_hooked(void) {
+    dl_allocator_t *allocator = mimalloc_dl_allocator();
+    static LONG logged = 0;
+    if (InterlockedCompareExchange(&logged, 1, 0) == 0) {
+        er_log(L"patch_mem system allocator hook invoked; returning mimalloc allocator=%p", allocator);
+    }
+    return allocator;
+}
+
+static void __cdecl cs_memory_init_nothing(void *this_ptr) {
+    (void)this_ptr;
+    static LONG logged = 0;
+    if (InterlockedCompareExchange(&logged, 1, 0) == 0) {
+        er_log(L"patch_mem CSMemoryImp::init no-op invoked");
+    }
+}
+
+static void __cdecl cs_memory_deinit_nothing(void *this_ptr) {
+    (void)this_ptr;
+    static LONG logged = 0;
+    if (InterlockedCompareExchange(&logged, 1, 0) == 0) {
+        er_log(L"patch_mem CSMemoryImp::deinit no-op invoked");
+    }
+}
+
+static void __cdecl cs_graphics_init_nothing(void *this_ptr) {
+    (void)this_ptr;
+    static LONG logged = 0;
+    if (InterlockedCompareExchange(&logged, 1, 0) == 0) {
+        er_log(L"patch_mem CSGraphicsImp first-slot no-op invoked");
+    }
+}
+
+static void warn_once_bool(bool *warned, const wchar_t *message) {
+    if (!*warned) {
+        fwprintf(stderr, L"WARNING: %ls\n", message);
+        *warned = true;
+    }
+}
 
 void *__cdecl map_archive_path(er_wstring_local_t *path, const uint64_t p2, const uint64_t p3, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
     void *res = old_map_archive_path(path, p2, p3, p4, p5, p6);
@@ -311,6 +406,208 @@ static bool patch_regulation_safety_check() {
     return true;
 }
 
+static void __cdecl regulation_step_idle_hooked(void *this_ptr) {
+    static bool warned_manager = false;
+    static bool warned_allocator = false;
+
+    old_regulation_step_idle(this_ptr);
+
+    cs_regulation_manager_t *mgr = singleton_find("CSRegulationManager");
+    if (mgr == NULL) {
+        warn_once_bool(&warned_manager, L"prevent_regulation_save_write could not find CSRegulationManager");
+        return;
+    }
+
+    uint8_t *raw = mgr->raw_regulation;
+    size_t len = mgr->raw_regulation_len;
+    if (raw == NULL) return;
+
+    mgr->raw_regulation = NULL;
+    mgr->raw_regulation_len = 0;
+    if (len == 0) return;
+
+    dl_allocator_t *allocator = dl_allocator_for_object(raw);
+    if (allocator == NULL) {
+        warn_once_bool(&warned_allocator, L"prevent_regulation_save_write cleared raw regulation but could not find its allocator; leaking one buffer");
+        return;
+    }
+    static bool logged_clear = false;
+    if (!logged_clear) {
+        er_log(L"prevent_regulation_save_write cleared raw regulation buffer len=%zu allocator=%p", len, allocator);
+        logged_clear = true;
+    }
+    dl_allocator_dealloc(allocator, raw);
+}
+
+static bool install_regulation_save_guard(void) {
+    void *step = fd4_step_find(L"CSRegulationStep::STEP_Idle");
+    if (step == NULL) {
+        fwprintf(stderr, L"WARNING: prevent_regulation_save_write could not find CSRegulationStep::STEP_Idle\n");
+        return false;
+    }
+    er_log(L"prevent_regulation_save_write step found: CSRegulationStep::STEP_Idle=%p", step);
+    MH_STATUS status = MH_CreateHook(step, (void *)&regulation_step_idle_hooked, (void **)&old_regulation_step_idle);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: prevent_regulation_save_write failed to create hook: %d\n", status);
+        return false;
+    }
+    status = MH_EnableHook(step);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: prevent_regulation_save_write failed to enable hook: %d\n", status);
+        return false;
+    }
+    er_log(L"prevent_regulation_save_write hook enabled");
+    return true;
+}
+
+static bool install_system_allocator_hook_before_main(void) {
+    uint8_t *addr = sig_scan(image_base, image_size, "E8 ?? ?? ?? ?? 48 8B 74 24 30 48 8B 5C 24 38 48 83 C4 20 5F E9 ?? ?? ?? ??");
+    if (addr == NULL) {
+        fwprintf(stderr, L"WARNING: patch_mem could not find system allocator override target\n");
+        return false;
+    }
+
+    void *target = addr + 25 + *(int32_t *)(addr + 21);
+    er_log(L"patch_mem system allocator override target=%p", target);
+    MH_STATUS status = MH_CreateHook(target, (void *)&get_system_allocator_override_hooked, (void **)&old_get_system_allocator_override);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: patch_mem failed to create system allocator hook: %d\n", status);
+        return false;
+    }
+    system_allocator_hook_installed = true;
+    er_log(L"patch_mem system allocator hook created; it will be enabled by MH_EnableHook(MH_ALL_HOOKS)");
+    return true;
+}
+
+static bool install_heap_allocator_patch(void) {
+    er_log(L"patch_mem heap substeps: cs_graphics=%d", config.patch_mem_hook_cs_graphics ? 1 : 0);
+
+    void **cs_memory_vtable = rtti_find_vtable("CS::CSMemoryImp");
+    if (cs_memory_vtable == NULL) {
+        cs_memory_vtable = rtti_find_vtable("NS_SPRJ::CSMemoryImp");
+    }
+    if (cs_memory_vtable == NULL) {
+        fwprintf(stderr, L"WARNING: patch_mem could not find CSMemoryImp vtable\n");
+        return false;
+    }
+    cs_memory_vtable_t *mem_vtable = (cs_memory_vtable_t *)cs_memory_vtable;
+    er_log(L"patch_mem CSMemoryImp vtable=%p init=%p deinit=%p", cs_memory_vtable, mem_vtable->init, mem_vtable->deinit);
+
+    void *cs_graphics_first = NULL;
+    if (config.patch_mem_hook_cs_graphics) {
+        void **cs_graphics_vtable = rtti_find_vtable("CS::CSGraphicsImp");
+        cs_graphics_first = cs_graphics_vtable ? *cs_graphics_vtable : NULL;
+        if (cs_graphics_first == NULL) {
+            fwprintf(stderr, L"WARNING: patch_mem could not find CSGraphicsImp first vtable slot\n");
+            return false;
+        }
+        er_log(L"patch_mem CSGraphicsImp vtable=%p first=%p", cs_graphics_vtable, cs_graphics_first);
+    } else {
+        er_log(L"patch_mem CSGraphicsImp hook disabled by config");
+    }
+
+    void **allocator_table_first = dl_allocator_table_first();
+    void **allocator_table_last = dl_allocator_table_last_er();
+    er_log(L"patch_mem allocator table first=%p last=%p", allocator_table_first, allocator_table_last);
+    if (!dl_allocator_fill_table(mimalloc_dl_allocator())) {
+        fwprintf(stderr, L"WARNING: patch_mem could not fill Dantelion allocator table\n");
+        return false;
+    }
+    er_log(L"patch_mem allocator table filled with mimalloc allocator=%p", mimalloc_dl_allocator());
+
+    MH_STATUS status = MH_CreateHook((void *)mem_vtable->init, (void *)&cs_memory_init_nothing, (void **)&old_cs_memory_init);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: patch_mem failed to create CSMemoryImp::init hook: %d\n", status);
+        return false;
+    }
+    status = MH_EnableHook((void *)mem_vtable->init);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: patch_mem failed to enable CSMemoryImp::init hook: %d\n", status);
+        return false;
+    }
+    er_log(L"patch_mem CSMemoryImp::init hook enabled");
+
+    status = MH_CreateHook((void *)mem_vtable->deinit, (void *)&cs_memory_deinit_nothing, (void **)&old_cs_memory_deinit);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: patch_mem failed to create CSMemoryImp::deinit hook: %d\n", status);
+    } else {
+        status = MH_EnableHook((void *)mem_vtable->deinit);
+        if (status != MH_OK) {
+            fwprintf(stderr, L"WARNING: patch_mem failed to enable CSMemoryImp::deinit hook: %d\n", status);
+        } else {
+            er_log(L"patch_mem CSMemoryImp::deinit hook enabled");
+        }
+    }
+
+    if (config.patch_mem_hook_cs_graphics) {
+        status = MH_CreateHook(cs_graphics_first, (void *)&cs_graphics_init_nothing, (void **)&old_cs_graphics_init);
+        if (status != MH_OK) {
+            fwprintf(stderr, L"WARNING: patch_mem failed to create CSGraphicsImp hook: %d\n", status);
+            return false;
+        }
+        status = MH_EnableHook(cs_graphics_first);
+        if (status != MH_OK) {
+            fwprintf(stderr, L"WARNING: patch_mem failed to enable CSGraphicsImp hook: %d\n", status);
+            return false;
+        }
+        er_log(L"patch_mem CSGraphicsImp hook enabled");
+    } else {
+        er_log(L"patch_mem CSGraphicsImp hook disabled by config");
+    }
+    er_log(L"patch_mem heap allocator patch complete");
+    return true;
+}
+
+static BOOL CALLBACK eldenring_after_main_install_once(PINIT_ONCE init_once, PVOID parameter, PVOID *context) {
+    (void)init_once;
+    (void)parameter;
+    (void)context;
+    er_log(L"after-main install start");
+    if (config.prevent_regulation_save_write) {
+        install_regulation_save_guard();
+    } else {
+        er_log(L"prevent_regulation_save_write disabled by config");
+    }
+    if (config.patch_mem && system_allocator_hook_installed) {
+        install_heap_allocator_patch();
+    } else if (config.patch_mem) {
+        fwprintf(stderr, L"WARNING: patch_mem skipping heap allocator patch because system allocator hook is not installed\n");
+    } else {
+        er_log(L"patch_mem disabled by config");
+    }
+    er_log(L"after-main install end");
+    return TRUE;
+}
+
+static bool __cdecl SteamAPI_Init_hooked(void) {
+    bool result = old_SteamAPI_Init();
+    er_log(L"SteamAPI_Init returned %d", result ? 1 : 0);
+    if (result) {
+        InitOnceExecuteOnce(&after_main_once, eldenring_after_main_install_once, NULL, NULL);
+    }
+    return result;
+}
+
+static bool install_steamapi_deferred_hook(void) {
+    HMODULE steam_api = LoadLibraryW(L"steam_api64.dll");
+    if (steam_api == NULL) {
+        fwprintf(stderr, L"WARNING: could not load steam_api64.dll for deferred Elden Ring hooks\n");
+        return false;
+    }
+    void *steam_api_init = (void *)GetProcAddress(steam_api, "SteamAPI_Init");
+    if (steam_api_init == NULL) {
+        fwprintf(stderr, L"WARNING: could not find SteamAPI_Init for deferred Elden Ring hooks\n");
+        return false;
+    }
+    MH_STATUS status = MH_CreateHook(steam_api_init, (void *)&SteamAPI_Init_hooked, (void **)&old_SteamAPI_Init);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to create SteamAPI_Init deferred hook: %d\n", status);
+        return false;
+    }
+    er_log(L"deferred SteamAPI_Init hook created at %p", steam_api_init);
+    return true;
+}
+
 bool eldenring_install() {
     if (config.replaced_save_filename[0] == L'.') {
         lstrcpyW(replaced_save_filename, ORIGINAL_SAVE_FILENAME);
@@ -339,6 +636,19 @@ bool eldenring_install() {
     game_running = true;
 
     image_base = get_module_image_base(NULL, &image_size);
+    er_log(L"install start: image_base=%p image_size=%zu prevent_regulation_save_write=%d patch_mem=%d", image_base, image_size, config.prevent_regulation_save_write ? 1 : 0, config.patch_mem ? 1 : 0);
+
+    if (config.patch_mem) {
+        install_system_allocator_hook_before_main();
+    } else {
+        er_log(L"patch_mem disabled by config before main");
+    }
+
+    if (config.prevent_regulation_save_write || config.patch_mem) {
+        install_steamapi_deferred_hook();
+    } else {
+        er_log(L"deferred SteamAPI_Init hook not needed");
+    }
 
     async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
     if (config.reset_achievements_on_new_game) {
@@ -378,6 +688,7 @@ bool eldenring_install() {
 }
 
 void eldenring_uninstall() {
+    er_log(L"uninstall start");
     game_running = false;
 
     /* NOTE: TerminateThread is unsafe (leaks stack, CRT state, held locks).

@@ -26,6 +26,9 @@ config_t config = {
     false,
     false,
     false,
+    true,
+    true,
+    true,
     L"",
     L"",
 };
@@ -69,6 +72,12 @@ static int ini_read_cb(void *user, const char *section,
             config.remove_vignette = value_to_bool(value);
         } else if (lstrcmpA(name, "disable_mouse_camera_control") == 0) {
             config.disable_mouse_camera_control = value_to_bool(value);
+        } else if (lstrcmpA(name, "prevent_regulation_save_write") == 0) {
+            config.prevent_regulation_save_write = value_to_bool(value);
+        } else if (lstrcmpA(name, "patch_mem") == 0) {
+            config.patch_mem = value_to_bool(value);
+        } else if (lstrcmpA(name, "patch_mem_hook_cs_graphics") == 0) {
+            config.patch_mem_hook_cs_graphics = value_to_bool(value);
         } else if (lstrcmpA(name, "replace_save_filename") == 0) {
             /* MultiByteToWideChar does not null-terminate on overflow; force it. */
             MultiByteToWideChar(CP_UTF8, 0, value, -1, config.replaced_save_filename, 64);
