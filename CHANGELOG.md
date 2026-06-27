@@ -1,5 +1,8 @@
+#### Unreleased
+* Fixed `LocalReAlloc` shrinking the `extdlls`/`mods`/`er_param` observers arrays in place: without `LMEM_MOVEABLE`, a fixed block can only grow in place and the realloc silently returns NULL once the heap can't extend it, dropping the entry that triggered the grow (notably the 9th item, since capacity grows 8 -> 16). Extension DLLs/mods listed past the 8th would intermittently go missing from the load list.
+
 #### 0.5.1
-* Fixed no sound when a mod overrides Wwise audio files (`.wem`/`.bnk`): override files on disk now use READ mode instead of READ_EBL
+* Fixed no sound when a mod overrides Wwise audio files (`.wem`/`.bnk`): override files on disk use READ mode instead of READ_EBL
 * Updated CREDITS: klib replaces uthash
 
 #### 0.5.0

@@ -64,7 +64,7 @@ static modloader_ext_api_t ext_api = {
 void extdlls_add(const char *name, const wchar_t *path) {
     if (extdll_count >= extdll_capacity) {
         extdll_capacity = extdll_capacity == 0 ? 8 : extdll_capacity * 2;
-        extdll_t *new_dlls = extdlls == NULL ? LocalAlloc(LMEM_ZEROINIT, extdll_capacity * sizeof(extdll_t)) : LocalReAlloc(extdlls, extdll_capacity * sizeof(extdll_t), LMEM_ZEROINIT);
+        extdll_t *new_dlls = extdlls == NULL ? LocalAlloc(LMEM_ZEROINIT, extdll_capacity * sizeof(extdll_t)) : LocalReAlloc(extdlls, extdll_capacity * sizeof(extdll_t), LMEM_MOVEABLE | LMEM_ZEROINIT);
         if (new_dlls == NULL) {
             return;
         }
