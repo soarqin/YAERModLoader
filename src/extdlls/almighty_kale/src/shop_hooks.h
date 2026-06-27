@@ -9,9 +9,10 @@
 
 #pragma once
 
-#include <stddef.h>
-
 #include <er_param/defs/shop_lineup_param.h>
+
+#include <stddef.h>
+#include <assert.h>
 
 #ifdef __cplusplus
 extern "C" {

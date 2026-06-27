@@ -20,6 +20,7 @@
 #include <shlwapi.h>
 
 #include <stdint.h>
+#include <stdio.h>
 
 BOOL WINAPI ImmDisableIME_hooked(DWORD unused) {
     (void)unused;
@@ -98,7 +99,16 @@ static bool hook_wwise_archive_position_resolver() {
     if (open_by_name == NULL) {
         return false;
     }
-    MH_CreateHook((void *)open_by_name, (void*)&ak_file_location_resolver_open, (void**)&old_ak_file_location_resolver_open);
+    MH_STATUS status = MH_CreateHook((void *)open_by_name, (void*)&ak_file_location_resolver_open, (void**)&old_ak_file_location_resolver_open);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to create Wwise archive resolver hook: %d\n", status);
+        return false;
+    }
+    status = MH_EnableHook((void *)open_by_name);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to enable Wwise archive resolver hook: %d\n", status);
+        return false;
+    }
     return true;
 }
 

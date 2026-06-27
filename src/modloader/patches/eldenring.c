@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <stdio.h>
 
 typedef struct er_wstring_local_s {
     void *unk;
@@ -367,11 +368,29 @@ static bool patch_eldenring_disable_mouse_camera_control() {
 
     uint8_t *jmp = addr + 4;
     uint8_t *real_addr = jmp + *(int32_t*)(jmp + 1) + 5;
-    MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_h, (void**)&old_get_mouse_delta_h);
+    MH_STATUS status = MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_h, (void**)&old_get_mouse_delta_h);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: disable_mouse_camera_control failed to create horizontal hook: %d\n", status);
+        return false;
+    }
+    status = MH_EnableHook(real_addr);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: disable_mouse_camera_control failed to enable horizontal hook: %d\n", status);
+        return false;
+    }
 
     jmp = addr + 0x10;
     real_addr = jmp + *(int32_t*)(jmp + 1) + 5;
-    MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_v, (void**)&old_get_mouse_delta_v);
+    status = MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_v, (void**)&old_get_mouse_delta_v);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: disable_mouse_camera_control failed to create vertical hook: %d\n", status);
+        return false;
+    }
+    status = MH_EnableHook(real_addr);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: disable_mouse_camera_control failed to enable vertical hook: %d\n", status);
+        return false;
+    }
     return true;
 }
 
@@ -382,16 +401,41 @@ static bool hook_eldenring_archive_position_resolver() {
     while (*addr == 0xE9) {
         addr += *(int32_t*)(addr + 1) + 5;
     }
-    MH_CreateHook(addr, (void*)&map_archive_path, (void**)&old_map_archive_path);
+    MH_STATUS status = MH_CreateHook(addr, (void*)&map_archive_path, (void**)&old_map_archive_path);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to create archive position resolver hook: %d\n", status);
+        return false;
+    }
+    status = MH_EnableHook(addr);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to enable archive position resolver hook: %d\n", status);
+        return false;
+    }
     return true;
 }
 
 static void hook_eldenring_create_file() {
-    MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
+    MH_STATUS status = MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to create CreateFileW hook: %d\n", status);
+        return;
+    }
+    status = MH_EnableHook(CreateFileW);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to enable CreateFileW hook: %d\n", status);
+    }
 }
 
 static void hook_eldenring_copy_file() {
-    MH_CreateHook(CopyFileW, (void*)&CopyFile_hooked, (void**)&old_CopyFileW);
+    MH_STATUS status = MH_CreateHook(CopyFileW, (void*)&CopyFile_hooked, (void**)&old_CopyFileW);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to create CopyFileW hook: %d\n", status);
+        return;
+    }
+    status = MH_EnableHook(CopyFileW);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to enable CopyFileW hook: %d\n", status);
+    }
 }
 
 static void __cdecl regulation_step_idle_hooked(void *this_ptr) {
@@ -462,8 +506,13 @@ static bool install_system_allocator_hook_before_main(void) {
         fwprintf(stderr, L"WARNING: patch_mem failed to create system allocator hook: %d\n", status);
         return false;
     }
+    status = MH_EnableHook(target);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: patch_mem failed to enable system allocator hook: %d\n", status);
+        return false;
+    }
     system_allocator_hook_installed = true;
-    er_log(L"patch_mem system allocator hook created; it will be enabled by MH_EnableHook(MH_ALL_HOOKS)");
+    er_log(L"patch_mem system allocator hook enabled");
     return true;
 }
 
@@ -592,7 +641,12 @@ static bool install_steamapi_deferred_hook(void) {
         fwprintf(stderr, L"WARNING: failed to create SteamAPI_Init deferred hook: %d\n", status);
         return false;
     }
-    er_log(L"deferred SteamAPI_Init hook created at %p", steam_api_init);
+    status = MH_EnableHook(steam_api_init);
+    if (status != MH_OK) {
+        fwprintf(stderr, L"WARNING: failed to enable SteamAPI_Init deferred hook: %d\n", status);
+        return false;
+    }
+    er_log(L"deferred SteamAPI_Init hook enabled at %p", steam_api_init);
     return true;
 }
 
