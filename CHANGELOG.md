@@ -1,4 +1,7 @@
-#### Unreleased
+#### 0.6.1
+* Fixed possible crash
+
+#### 0.6.0
 * Added new external dll: `almighty_kale.dll` — a 1:1 C port of the [Glorious Merchant](https://github.com/ThomasJClark/elden-ring-glorious-merchant) mod (MIT). It patches Kalé's dialogue to add "Browse Inventory" / "Browse Cut Content" submenus that open 22 free shops covering every obtainable item in the game (including DLC and cut content), unlocks all gestures, makes Kalé always alive, zeroes sell values while the shop is open, and keeps key items out of the storage box. Configurable via `almighty_kale.ini` (`auto_upgrade_weapons`).
 * Extended `er_param` (API bumped to v2; existing field offsets preserved, new accessors appended): added `from/` C struct headers (`ezstate.h`, `talk_commands.h`, `messages.h`, `game_data.h`) matching the merchant's reverse-engineered layouts, and runtime pointer accessors for `MsgRepositoryImp`, `GameDataMan`, `SoloParamRepositoryImp::LookupShopMenu`/`LookupShopLineup`, `MsgRepositoryImp::LookupEntry`, `EzState::state::Enter`, `CSFD4VirtualMemoryFlag::GetEventFlag`, `GetSellValue`, `GetMaxRepositoryNum`, and `OpenRegularShop` (scanned via signature patterns).
 * `src/steam` now also exposes `ISteamApps::GetCurrentGameLanguage` (vtable index 4) via `steam_apps()` / `isteam_apps_get_current_game_language()`, with a `SteamAPI_SteamApps_v008` → `v007` fallback. Used by `almighty_kale` to pick the localized menu text (14 languages; English fallback).
