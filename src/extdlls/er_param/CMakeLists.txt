@@ -1,5 +1,6 @@
 # er_param provider DLL - 自包含构建, 导出 INTERFACE headers 供其他 extdll 消费
 file(GLOB PARAM_DEF_SRC include/er_param/defs/*.h)
+file(GLOB FROM_HEADERS include/er_param/from/*.h)
 
 add_project(extdll_er_param SHARED
     src/provider.c
@@ -8,6 +9,7 @@ add_project(extdll_er_param SHARED
     src/wstring.c
     include/er_param/er_param_api.h include/er_param/param.h include/er_param/wstring.h
     include/er_param/param_defs.h ${PARAM_DEF_SRC}
+    ${FROM_HEADERS}
     LANGUAGES C FOLDER extdlls OUTPUT_SUBDIR dll NO_PREFIX OUTPUT_NAME er_param)
 
 target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/common)

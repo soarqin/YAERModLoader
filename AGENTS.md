@@ -6,7 +6,7 @@ A Windows-only C11 mod loader for Elden Ring (`YAERModLoader`). Produces two pri
 - `YAERModLoader.exe` — standalone launcher (`modloader_launcher`, WIN32 subsystem)
 - `YAERModLoader.dll` — injected DLL (`modloader_dll`, proxy for `dxgi.dll` / `dinput8.dll` / `winhttp.dll`)
 
-Optional extension DLLs live under `src/extdlls/` (e.g. `autoloot`, `no_dup_loot`, `itemlot_rate`). Each subdirectory with source files is auto-discovered and built as a separate shared library.
+Optional extension DLLs live under `src/extdlls/` (e.g. `autoloot`, `no_dup_loot`, `itemlot_rate`, `almighty_kale`). Each subdirectory with source files is auto-discovered and built as a separate shared library.
 
 ## Build system
 
@@ -55,10 +55,11 @@ src/
     patches/      Game-specific patches (common + eldenring)
     proxy/        Proxy DLL stubs for dxgi/dinput8/winhttp
   launcher/       Standalone EXE: injects the DLL into the game process
-  steam/          Steam API helpers (locate game folder via VDF)
+  steam/          Steam API helpers (locate game folder via VDF; ISteamApps::GetCurrentGameLanguage)
   process/        PE image utilities, signature scanner
   extdlls/        Optional extension DLLs (auto-discovered by CMake glob)
-    er_param/     Param provider DLL (param table access, pointers, wstring, cursor_speed)
+    er_param/     Param provider DLL (param table access, pointers, wstring, cursor_speed; also exposes `from/` C struct headers + runtime pointer accessors via API v2)
+    almighty_kale/ 1:1 C port of Glorious Merchant (free shops, gesture unlocks, Kalé-alive patch)
 deps/
   klib/           khash.h (header-only, INTERFACE target `klib` / alias `klib::headers`)
   minhook/        Function hooking
@@ -86,6 +87,8 @@ tests/
 Always `#define kcalloc/kmalloc/krealloc/kfree` before `#include "khash.h"` in production files.
 
 **Extension DLL API (V1):** External DLLs export a single `modloader_ext_init(modloader_ext_api_t*)` function returning `modloader_ext_def_t*`. The struct provides `on_uninit` only (the `on_param_initialized` callback was removed in V1; param-dependent DLLs register via `er_param_api_get()` instead). See `src/modloader/extdll_api.h` for the main loader API, and `src/extdlls/er_param/include/er_param/er_param_api.h` for the param provider API. Param-consuming extdlls must list `er_param` before themselves in the `[dlls]` ini section (load order dependency; no build-time runtime dependency system).
+
+**er_param API v2:** `er_param_api_t` (in `src/extdlls/er_param/include/er_param/er_param_api.h`) is at `api_version = 2`. New function pointers are appended after `off_param_loaded` so existing field offsets are preserved for already-compiled consumers. The v2 additions expose scanned runtime addresses/pointers (`get_msg_repository`, `get_game_data_man`, `get_lookup_shop_menu`, `get_lookup_shop_lineup`, `get_msg_repository_lookup_entry`, `get_ezstate_enter_state`, `get_get_event_flag`, `get_get_sell_value`, `get_get_max_repository_num`, `get_open_regular_shop`) plus the `from/` C struct headers (`include/er_param/from/ezstate.h`, `talk_commands.h`, `messages.h`, `game_data.h`) matching the in-game layouts. `almighty_kale` is the primary consumer.
 
 **Signature scanning:** Game function addresses are found at runtime via byte-pattern scanning (`the_api->sig_scan`). Patterns use `??` for wildcard bytes. Offsets in comments (e.g. `/* 0x5B8 for version < 1.12 */`) track version-specific differences.
 

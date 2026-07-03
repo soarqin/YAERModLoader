@@ -10,6 +10,8 @@
 #include <er_param/er_param_api.h>
 #include <er_param/param.h>
 #include <er_param/wstring.h>
+#include <er_param/from/messages.h>
+#include <er_param/from/game_data.h>
 #include <er_param/defs/menu_common_param.h>
 #include "param_internal.h"
 #include "pointers.h"
@@ -50,6 +52,25 @@ static const wchar_t *provider_wstring_str(const er_wstring_impl_t *str) {
 static bool provider_is_loaded(void) {
     return param_loaded;
 }
+
+static er_msg_repository_imp_t *provider_get_msg_repository(void) {
+    if (!er_pointers.msg_repository) return NULL;
+    return (er_msg_repository_imp_t *)*(uintptr_t *)er_pointers.msg_repository;
+}
+
+static er_game_data_man_t *provider_get_game_data_man(void) {
+    if (!er_pointers.game_data_man) return NULL;
+    return (er_game_data_man_t *)*(uintptr_t *)er_pointers.game_data_man;
+}
+
+static void *provider_get_lookup_shop_menu(void) { return er_pointers.lookup_shop_menu; }
+static void *provider_get_lookup_shop_lineup(void) { return er_pointers.lookup_shop_lineup; }
+static void *provider_get_msg_repository_lookup_entry(void) { return er_pointers.msg_repository_lookup_entry; }
+static void *provider_get_ezstate_enter_state(void) { return er_pointers.ezstate_enter_state; }
+static void *provider_get_get_event_flag(void) { return er_pointers.get_event_flag; }
+static void *provider_get_get_sell_value(void) { return er_pointers.get_sell_value; }
+static void *provider_get_get_max_repository_num(void) { return er_pointers.get_max_repository_num; }
+static void *provider_get_open_regular_shop(void) { return er_pointers.open_regular_shop; }
 
 static bool provider_on_param_loaded(void (*cb)(void *userp), void *userp) {
     if (cb == NULL) return false;
@@ -92,12 +113,22 @@ static void provider_off_param_loaded(void (*cb)(void *userp), void *userp) {
 }
 
 static const er_param_api_t g_api = {
-    .api_version = 1,
+    .api_version = 2,
     .find_table = provider_find_table,
     .wstring_str = provider_wstring_str,
     .is_loaded = provider_is_loaded,
     .on_param_loaded = provider_on_param_loaded,
     .off_param_loaded = provider_off_param_loaded,
+    .get_msg_repository = provider_get_msg_repository,
+    .get_game_data_man = provider_get_game_data_man,
+    .get_lookup_shop_menu = provider_get_lookup_shop_menu,
+    .get_lookup_shop_lineup = provider_get_lookup_shop_lineup,
+    .get_msg_repository_lookup_entry = provider_get_msg_repository_lookup_entry,
+    .get_ezstate_enter_state = provider_get_ezstate_enter_state,
+    .get_get_event_flag = provider_get_get_event_flag,
+    .get_get_sell_value = provider_get_get_sell_value,
+    .get_get_max_repository_num = provider_get_get_max_repository_num,
+    .get_open_regular_shop = provider_get_open_regular_shop,
 };
 
 __declspec(dllexport)
@@ -144,7 +175,7 @@ static void load_config(HMODULE module) {
 
 static DWORD WINAPI param_thread(LPVOID arg) {
     (void)arg;
-    er_pointers_init(INIT_CS_REGULATION_MANAGER);
+    er_pointers_init(INIT_CS_REGULATION_MANAGER | INIT_ALL_GAME);
     if (!er_param_load_table()) {
         return 1;
     }
