@@ -57,7 +57,7 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
         L"sd/enus/",
         L"sd/ja/",
     };
-    if (StrCmpNW(path, L"sd:/", 4) != 0)
+    if (path == NULL || StrCmpNW(path, L"sd:/", 4) != 0)
         return old_ak_file_location_resolver_open(p1, path, openMode, p4, p5, p6);
     const wchar_t *replace = path + 4;
     const wchar_t *ext = PathFindExtensionW(replace);

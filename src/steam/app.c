@@ -18,6 +18,9 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
     HKEY key;
     wchar_t steam_path[MAX_PATH];
     wchar_t library_path[MAX_PATH];
+    /* Ensure callers never see an uninitialized buffer when the game is not
+     * found in any library. */
+    path[0] = L'\0';
     DWORD valtype = REG_SZ;
     DWORD cbdata = MAX_PATH * sizeof(wchar_t);
     if (RegOpenKeyW(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", &key) != ERROR_SUCCESS) {

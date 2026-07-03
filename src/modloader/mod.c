@@ -85,13 +85,14 @@ int mods_count() {
 }
 
 const wchar_t *mods_file_search(const wchar_t *path) {
+    if (mod_count <= 0) return NULL;
     const wchar_t *res = filecache_find(path);
     if (res != NULL) {
         return res[0] == 0 ? NULL : res;
     }
     wchar_t cpath[MAX_PATH];
     if (path[0] == '\\' || path[0] == '/')
-        lstrcpyW(cpath, path);
+        lstrcpynW(cpath, path, MAX_PATH);
     else {
         _snwprintf(cpath, MAX_PATH, L"\\%ls", path);
         cpath[MAX_PATH - 1] = L'\0';
@@ -112,6 +113,7 @@ const wchar_t *mods_file_search(const wchar_t *path) {
 }
 
 const wchar_t *mods_file_search_prefixed(const wchar_t *path) {
+    if (mod_count <= 0) return NULL;
     if (StrCmpNIW(path, game_folder, game_folder_length) != 0) return NULL;
     const wchar_t *res = filecache_find(path);
     if (res != NULL) {

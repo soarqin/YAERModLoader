@@ -45,6 +45,9 @@ void steamapi_uninit() {
 }
 
 isteam_userstats *steam_userstats() {
+    if (steam_userstats_func == NULL) {
+        return NULL;
+    }
     return ((void*(*__cdecl)())steam_userstats_func)();
 }
 

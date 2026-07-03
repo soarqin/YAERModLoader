@@ -25,6 +25,14 @@ typedef struct {
 } file_t;
 
 static khash_t(wstr) *files = NULL;
+/* Guards `files`. Game hooks call filecache_find/filecache_add concurrently
+ * from multiple threads (CreateFileW hook, archive path hook, Wwise hook).
+ * khash is not thread-safe: kh_put may rehash and free internal arrays while
+ * another thread is probing them. Returned strings stay valid without the
+ * lock because file_t allocations are never freed until filecache_uninit. */
+static SRWLOCK files_lock = SRWLOCK_INIT;
+
+void file_free(file_t *file);
 
 file_t *file_new(const wchar_t *base_path, const wchar_t *native_path) {
     file_t *file = LocalAlloc(0, sizeof(file_t));
@@ -33,6 +41,10 @@ file_t *file_new(const wchar_t *base_path, const wchar_t *native_path) {
     }
     file->base_path = StrDupW(base_path);
     file->native_path = StrDupW(native_path && native_path[0] ? native_path : L"");
+    if (file->base_path == NULL || file->native_path == NULL) {
+        file_free(file);
+        return NULL;
+    }
     return file;
 }
 
@@ -51,6 +63,8 @@ void filecache_init() {
 
 void filecache_uninit() {
     khiter_t k;
+    if (files == NULL) return;
+    AcquireSRWLockExclusive(&files_lock);
     for (k = kh_begin(files); k != kh_end(files); ++k) {
         if (kh_exist(files, k)) {
             file_free((file_t*)kh_value(files, k));
@@ -58,6 +72,7 @@ void filecache_uninit() {
     }
     kh_destroy(wstr, files);
     files = NULL;
+    ReleaseSRWLockExclusive(&files_lock);
 }
 
 const wchar_t *filecache_add(const wchar_t *path, const wchar_t *replace) {
@@ -66,19 +81,27 @@ const wchar_t *filecache_add(const wchar_t *path, const wchar_t *replace) {
         return NULL;
     }
     int ret;
+    AcquireSRWLockExclusive(&files_lock);
     khiter_t k = kh_put(wstr, files, file->base_path, &ret);
     if (ret == 0) {
         /* duplicate key — kh_put returns existing slot; free the new file and keep existing */
+        const wchar_t *existing = ((file_t*)kh_value(files, k))->native_path;
+        ReleaseSRWLockExclusive(&files_lock);
         file_free(file);
-        return (const wchar_t*)kh_value(files, k) ? ((file_t*)kh_value(files, k))->native_path : NULL;
+        return existing;
     }
     kh_value(files, k) = file;
+    ReleaseSRWLockExclusive(&files_lock);
     return file->native_path;
 }
 
+/* Returns NULL when `path` has never been cached. For cached entries the
+ * stored native path is returned as-is: an empty string marks a negative
+ * entry (file not provided by any mod) — callers check res[0]. */
 const wchar_t *filecache_find(const wchar_t *path) {
+    AcquireSRWLockShared(&files_lock);
     khiter_t k = kh_get(wstr, files, path);
-    if (k == kh_end(files)) return NULL;
-    file_t *file = (file_t*)kh_value(files, k);
-    return file->native_path[0] ? file->native_path : NULL;
+    const wchar_t *res = k == kh_end(files) ? NULL : ((file_t*)kh_value(files, k))->native_path;
+    ReleaseSRWLockShared(&files_lock);
+    return res;
 }

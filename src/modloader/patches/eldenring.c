@@ -38,15 +38,17 @@ static wchar_t *wstring_str_mutable(er_wstring_local_t *str) {
 }
 
 static HANDLE async_operations_thread_handle = NULL;
-static bool game_running = false;
+static volatile bool game_running = false;
 static HANDLE reset_achievements_on_new_game_thread_handle = NULL;
 static void *image_base;
 static size_t image_size;
 
-static wchar_t replaced_save_filename[64] = L"";
-static wchar_t replaced_save_filename_bak[64] = L"";
-static wchar_t replaced_seamless_coop_save_filename[64] = L"";
-static wchar_t replaced_seamless_coop_save_filename_bak[64] = L"";
+/* 80: config values are up to 63 chars; the `.suffix` form prepends `ER0000`
+ * (69 max) and the bak variants append `.bak` (73 max), plus terminator. */
+static wchar_t replaced_save_filename[80] = L"";
+static wchar_t replaced_save_filename_bak[80] = L"";
+static wchar_t replaced_seamless_coop_save_filename[80] = L"";
+static wchar_t replaced_seamless_coop_save_filename_bak[80] = L"";
 
 #define ORIGINAL_SAVE_FILENAME L"ER0000.sl2"
 #define ORIGINAL_SAVE_FILENAME_LEN 10
@@ -140,7 +142,9 @@ wchar_t *check_replace_file(const wchar_t *lpFileName) {
     if (replace == NULL) {
         return NULL;
     }
-    wchar_t *full_path = LocalAlloc(0, (64 + len) * sizeof(wchar_t));
+    /* MAX_PATH of headroom: PathAppendW requires the destination buffer to
+     * hold at least MAX_PATH characters. */
+    wchar_t *full_path = LocalAlloc(0, (MAX_PATH + len) * sizeof(wchar_t));
     if (full_path == NULL) {
         return NULL;
     }
@@ -157,7 +161,8 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
                                 const DWORD dwCreationDisposition,
                                 const DWORD dwFlagsAndAttributes,
                                 HANDLE hTemplateFile) {
-    if (lpFileName[0] == L'\\') {
+    /* CreateFileW(NULL, ...) fails gracefully; do not crash on it here. */
+    if (lpFileName == NULL || lpFileName[0] == L'\\') {
         return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     }
     const wchar_t *replace = mods_file_search_prefixed(lpFileName);
@@ -298,9 +303,11 @@ static bool patch_regulation_safety_check() {
     uint8_t *addr = sig_scan(image_base, image_size, "48 8B 43 08 48 89 88 C8 00 00 00 38 0D ?? ?? ?? ?? 75 ?? E8 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 88 05");
     if (!addr) return false;
     DWORD old_protect;
-    VirtualProtect(addr, 1, PAGE_EXECUTE_READWRITE, &old_protect);
+    /* Protect the byte actually written (addr + 36), not addr: they can land
+     * on different pages. */
+    VirtualProtect(addr + 36, 1, PAGE_EXECUTE_READWRITE, &old_protect);
     *(addr + 36) = 0x30;
-    VirtualProtect(addr, 1, old_protect, &old_protect);
+    VirtualProtect(addr + 36, 1, old_protect, &old_protect);
     return true;
 }
 

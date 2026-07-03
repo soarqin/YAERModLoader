@@ -17,3 +17,13 @@ foreach(smoke_name no_dup_loot filecache param)
         add_test(NAME smoke_${smoke_name} COMMAND smoke_${smoke_name})
     endif()
 endforeach()
+
+# Multithreaded stress test compiling the real filecache.c — guards against
+# khash data races in the game hook paths (find/add from multiple threads).
+set(mt_src "${CMAKE_CURRENT_SOURCE_DIR}/smoke_filecache_mt.c")
+if(EXISTS "${mt_src}")
+    add_executable(smoke_filecache_mt "${mt_src}" "${CMAKE_SOURCE_DIR}/src/modloader/filecache.c")
+    target_link_libraries(smoke_filecache_mt PRIVATE klib shlwapi)
+    target_include_directories(smoke_filecache_mt PRIVATE ${TEST_INCLUDES} ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/modloader)
+    add_test(NAME smoke_filecache_mt COMMAND smoke_filecache_mt)
+endif()
