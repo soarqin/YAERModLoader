@@ -36,3 +36,8 @@
 
 # CLion build folders
 /cmake-build-*/
+
+# Agent folders
+/.opencode/
+/.codegraph/
+/.pi/
