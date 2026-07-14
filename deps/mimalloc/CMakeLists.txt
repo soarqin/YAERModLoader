@@ -27,7 +27,6 @@ option(MI_TRACK_ETW         "Compile with Windows event tracing (ETW) support (a
 option(MI_BUILD_SHARED      "Build shared library" ON)
 option(MI_BUILD_STATIC      "Build static library" ON)
 option(MI_BUILD_OBJECT      "Build object library" ON)
-option(MI_BUILD_TESTS       "Build test executables" ON)
 
 option(MI_OSX_INTERPOSE     "Use interpose to override standard malloc on macOS" ON)
 option(MI_OSX_ZONE          "Use malloc zone to override standard malloc on macOS" ON)
@@ -576,7 +575,7 @@ endif()
 # set language for source files now
 if(MI_USE_CXX)
   set_source_files_properties(${mi_sources} PROPERTIES LANGUAGE CXX )
-  set_source_files_properties(src/static.c test/test-api.c test/test-api-fill test/test-stress PROPERTIES LANGUAGE CXX )
+  set_source_files_properties(src/static.c PROPERTIES LANGUAGE CXX )
 endif()
 
 
@@ -625,9 +624,6 @@ if(MI_BUILD_STATIC)
 endif()
 if(MI_BUILD_OBJECT)
   list(APPEND mi_build_targets "object")
-endif()
-if(MI_BUILD_TESTS)
-  list(APPEND mi_build_targets "tests")
 endif()
 
 message(STATUS "")
@@ -776,52 +772,6 @@ configure_file(mimalloc.pc.in mimalloc.pc @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/mimalloc.pc"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
-
-
-# -----------------------------------------------------------------------------
-# API surface testing
-# -----------------------------------------------------------------------------
-
-if (MI_BUILD_TESTS)
-  enable_testing()
-
-  # static link tests
-  foreach(TEST_NAME api api-fill stress)
-    add_executable(mimalloc-test-${TEST_NAME} test/test-${TEST_NAME}.c)
-    target_compile_definitions(mimalloc-test-${TEST_NAME} PRIVATE ${mi_defines})
-    target_compile_options(mimalloc-test-${TEST_NAME} PRIVATE ${mi_cflags})
-    target_include_directories(mimalloc-test-${TEST_NAME} PRIVATE include)
-    if(MI_BUILD_STATIC AND NOT MI_DEBUG_TSAN)
-      target_link_libraries(mimalloc-test-${TEST_NAME} PRIVATE mimalloc-static ${mi_libraries})
-    elseif(MI_BUILD_SHARED)
-      target_link_libraries(mimalloc-test-${TEST_NAME} PRIVATE mimalloc ${mi_libraries})
-    else()
-      message(STATUS "cannot build TSAN tests without MI_BUILD_SHARED being enabled")
-    endif()
-    add_test(NAME test-${TEST_NAME} COMMAND mimalloc-test-${TEST_NAME})
-  endforeach()
-
-  # dynamic override test
-  if(MI_BUILD_SHARED AND NOT (MI_TRACK_ASAN OR MI_DEBUG_TSAN OR MI_DEBUG_UBSAN))
-    add_executable(mimalloc-test-stress-dynamic test/test-stress.c)
-    target_compile_definitions(mimalloc-test-stress-dynamic PRIVATE ${mi_defines} "USE_STD_MALLOC=1")
-    target_compile_options(mimalloc-test-stress-dynamic PRIVATE ${mi_cflags})
-    target_include_directories(mimalloc-test-stress-dynamic PRIVATE include)
-    if(WIN32)
-      target_compile_definitions(mimalloc-test-stress-dynamic PRIVATE "MI_LINK_VERSION=1")  # link mi_version
-      target_link_libraries(mimalloc-test-stress-dynamic PRIVATE mimalloc ${mi_libraries})  # link mi_version
-      add_test(NAME test-stress-dynamic COMMAND ${CMAKE_COMMAND} -E env MIMALLOC_VERBOSE=1 $<TARGET_FILE:mimalloc-test-stress-dynamic>)
-    else()
-      target_link_libraries(mimalloc-test-stress-dynamic PRIVATE ${mi_libraries}) # pthreads, issue 1158
-      if(APPLE)
-        set(LD_PRELOAD "DYLD_INSERT_LIBRARIES")
-      else()
-        set(LD_PRELOAD "LD_PRELOAD")
-      endif()
-      add_test(NAME test-stress-dynamic COMMAND ${CMAKE_COMMAND} -E env MIMALLOC_VERBOSE=1 ${LD_PRELOAD}=$<TARGET_FILE:mimalloc> $<TARGET_FILE:mimalloc-test-stress-dynamic>)
-    endif()
-  endif()
-endif()
 
 # -----------------------------------------------------------------------------
 # Set override properties
