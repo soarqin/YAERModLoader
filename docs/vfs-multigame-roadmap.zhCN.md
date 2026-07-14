@@ -1,0 +1,761 @@
+# VFS 与多游戏支持规划
+
+## 1. 文档目的
+
+本文定义 YAERModLoader 从「Elden Ring 专用加载器」演进为支持 Elden Ring、Sekiro: Shadows Die Twice 与 Dark Souls III 的 FromSoftware 模组加载器的实施计划。
+
+当前品牌、二进制名称、配置文件名称与兼容别名暂不修改。项目重命名只在 VFS、三游戏适配与发布验证稳定后单独进行。
+
+本文以当前 me3 源码提交 `f395e94ccc55d6c70ef90c6dd3ed222c82b2218c` 为行为参考，重点借鉴其实际实现，而不是 README、历史博客或尚未兑现的配置字段。
+
+## 2. 已确认的目标与边界
+
+### 2.1 支持游戏
+
+| 游戏 | Steam App ID | 可执行文件 | 首期支持等级 |
+| --- | ---: | --- | --- |
+| Elden Ring | `1245620` | `Game\\eldenring.exe` | 稳定支持，现有行为必须回归 |
+| Sekiro: Shadows Die Twice | `814380` | `sekiro.exe` | 稳定支持 |
+| Dark Souls III | `374320` | `Game\\DarkSoulsIII.exe` | 实验性支持，直到 dearxan 等效方案完成 |
+
+Dark Souls III 在没有 dearxan 或等效 C 实现时，仍需完成除 Arxan 中和外的 me3 host 功能，但不得宣称为稳定支持。需要长期运行、回到标题、切图和调试器附加验证后，才能提升支持等级。
+
+### 2.2 VFS 的完成标准
+
+「完整 VFS」指达到当前 me3 的实际资源覆盖能力，不指实现任意来源、任意写入语义的通用用户态文件系统。
+
+完成后必须覆盖以下读取入口：
+
+- 启动时递归扫描多个 package，并建立冻结的路径索引。
+- Windows `CreateFileA`、`CreateFileW` 与 `CreateFile2`。
+- Dantelion disk device 的 `open_file`。
+- `DlFileOperator::SetPath` 的三个入口。
+- `DLEncryptedBinderLightUtility::MakeEblObject`。
+- 已挂载 BND4 device 的直接 `open_file`。
+- `MountEbl` 后新出现的 BND4 device。
+- Wwise 音频打开入口，包括 `.bnk` 与 `.wem`。
+- 独立存档的 `.sl2` 与 `.bak`。
+
+第一版不以实现虚拟 HANDLE、目录枚举合并、非磁盘 provider、热重载或自定义流为门槛。这些能力在 me3 当前实现中也不是完整 VFS 的必要组成部分。
+
+### 2.3 覆盖优先级
+
+多个 package 对同一虚拟路径提供文件时，**后声明的 package 覆盖先声明的 package**。这取代当前 `src/modloader/mod.c` 的 first-wins 行为。
+
+优先级必须在 INI、ModEngine2 TOML 兼容输入和未来配置模型中保持一致。迁移时需在发行说明中明确该行为变化。
+
+### 2.4 写入策略
+
+模组资源层默认只读，但不能以「禁止所有写入」替代正确的路由规则。
+
+| 请求对象 | 读取 | 写入、创建、删除 |
+| --- | --- | --- |
+| package 中的普通资源覆盖 | 重定向到 package 文件 | 不重定向，交给原始游戏路径 |
+| 已直接指向 package 物理路径的文件 | 不干预 | 不干预 |
+| 显式注册的设置文件映射 | 重定向 | 重定向 |
+| 独立存档映射 | 重定向 | 重定向 |
+
+设置文件不能通过扩展名或目录名称猜测。适配器或扩展必须精确注册可写虚拟路径，避免将 `regulation.bin`、BND、贴图、Wwise 资源等误判为可写文件。
+
+`CreateDirectoryA/W/ExW` 与 `DeleteFileA/W` 仅服务于显式可写映射。普通 package 资源不允许被这些 Hook 重定向后修改或删除。
+
+### 2.5 不纳入本计划的内容
+
+- Proton、Linux 和 macOS 支持。
+- dearxan、Arxan 反制或其他代码保护中和实现。
+- Sentry、联网遥测、自动更新器、安装器与网站基础设施。
+- me3 的 Rust closure Hook 框架和 rkyv 共享内存 RPC。
+- me3 `.me3` Profile 格式兼容。
+- me3 schema 中声明但当前没有执行路径的 `finalizer`。
+- 通用虚拟 HANDLE、目录枚举合并、非磁盘 provider 与热重载。
+- 原生 minidump；当前 me3 也没有可靠的游戏原生崩溃转储实现。
+
+## 3. 当前状态与差距
+
+当前项目包含可复用的 Windows 注入、proxy DLL、PE 扫描、RTTI、FD4 step、Steam 安装目录查找、INI/TOML 解析、MinHook、外部 DLL 加载与线程安全文件缓存。
+
+但产品结构仍是 Elden Ring 专用：
+
+- `src/launcher/launcher.c` 固定 Elden Ring App ID、`eldenring.exe` 和默认查找规则。
+- `src/modloader/gamehook.c` 无条件安装 `common_install()` 与 `eldenring_install()`。
+- `src/modloader/config.h` 和 `src/modloader/config.c` 将通用配置与 Elden Ring 配置混在一起。
+- `src/modloader/mod.c` 每次查询都遍历目录并调用 `PathFileExistsW`，只支持 first-wins 文件覆盖。
+- 当前文件覆盖分散在 `mod.c`、`filecache.c`、Elden Ring archive resolver、`CreateFileW` 与 Wwise Hook 中。
+- `src/modloader/extdll_api.h` 没有主 API 版本、游戏 ID、生命周期阶段或 VFS 服务。
+- `src/extdlls/er_param` 与现有扩展均为 Elden Ring 专用，非 ER 游戏不能默认加载。
+
+## 4. 强制前置兼容性修正
+
+在引入 Game Registry、VFS 或 Sekiro/DS3 适配器之前，先修复现有移植不完整造成的 ABI 和 Wwise 不一致。以下项目必须与 me3 基准提交完全一致，不能保留兼容旧声明的分支。
+
+### 4.1 FD4 step ABI
+
+me3 的 FD4 step 函数类型是：
+
+```c
+typedef struct fd4_time_s {
+    uintptr_t vtable;
+    float time;
+} fd4_time_t;
+
+typedef void (__cdecl *fd4_step_fn_t)(
+    void *this_ptr,
+    fd4_time_t *time);
+```
+
+当前 `src/modloader/patches/eldenring.c` 将 `CSRegulationStep::STEP_Idle` 声明为单参数函数。该声明必须删除并统一使用 `src/process/fd4_step.h` 定义的双参数类型。
+
+`regulation_step_idle_hooked()` 及未来所有 `CSFileStep::STEP_Init`、`SprjFileStep::STEP_Init` Hook 必须原样转发 `this_ptr` 和 `time`：
+
+```c
+static void __cdecl regulation_step_idle_hooked(
+    void *this_ptr,
+    fd4_time_t *time)
+{
+    old_regulation_step_idle(this_ptr, time);
+    /* 原有 raw regulation 清理逻辑 */
+}
+```
+
+验收要求：
+
+- `fd4_time_t` 的字段偏移与大小具有静态断言。
+- trampoline 测试证明两个参数均被原样转发。
+- Elden Ring regulation guard 回归测试通过。
+
+### 4.2 Dantelion allocator ABI
+
+`src/modloader/dl_allocator.h` 的 `dl_allocator_vtable_t` 必须与 me3 的 `DlAllocatorVtable` 布局完全一致。
+
+重点变化：
+
+- `dl_heap_direction_t` 只作为 `capability()` 的第三个参数保留。
+- `allocate_aligned(self, size, alignment)` 删除 `direction` 参数。
+- `reallocate_aligned(self, ptr, size, alignment)` 删除 `direction` 参数。
+- `back_allocate_aligned(self, size, alignment)` 删除 `direction` 参数。
+- `back_reallocate_aligned(self, ptr, size, alignment)` 删除 `direction` 参数。
+- `block_size()`、`is_valid_block()` 与 `block_of()` 的指针参数类型按 me3 定义统一。
+- `mimalloc_allocator.c` 的 front/back 分配函数、vtable 槽位顺序和对齐策略必须同步为 me3 实现。
+
+验收要求：
+
+- 对 vtable 槽位、结构大小和关键字段偏移增加静态断言。
+- `tests/smoke_mimalloc_allocator.c` 使用新函数签名。
+- 分配、对齐分配、重分配、back 分配、释放和 `block_size(NULL)` 通过测试。
+- Elden Ring `patch_mem` 回归验证通过后，才能继续多游戏 allocator 工作。
+
+### 4.3 Wwise `AkOpenMode` 与路径规则
+
+`READ_EBL` 必须从当前的 `9` 修正为 me3 使用的 `10`：
+
+```c
+typedef enum ak_open_mode_e {
+    AK_OPEN_MODE_READ = 0,
+    AK_OPEN_MODE_WRITE = 1,
+    AK_OPEN_MODE_WRITE_OVERWRITE = 2,
+    AK_OPEN_MODE_READ_WRITE = 3,
+    AK_OPEN_MODE_READ_EBL = 10,
+} ak_open_mode_t;
+```
+
+Wwise 查询行为同步为：
+
+1. 重复移除 `sd:/` 和 `sd_dlc02:/` 前缀。
+2. 非 `.wem` 输入依次查询 `sd/`、`sd/enus/`、`sd/ja/`。
+3. `.wem` 输入先查询 `wem/<ID>.wem`，再查询 `wem/<ID 前两位>/<ID>.wem`。
+4. 命中覆盖文件后，调用原函数时强制使用普通 `READ`，不使用 `READ_EBL`。
+
+验收要求：
+
+- 对所有枚举值增加静态断言。
+- 为前缀剥离、语言目录、DLC 前缀与两种 WEM 目录写纯函数测试。
+- Elden Ring `.bnk`、普通 `.wem`、两位目录 `.wem` 与 DLC 音频回归通过。
+
+## 5. 目标架构
+
+### 5.1 目录结构
+
+建议将核心按「通用基础设施、FromSoftware 运行时、VFS、游戏适配器」拆分。目录名称可在实施中按现有 CMake 风格微调，但依赖方向必须保持单向。
+
+```text
+src/
+  common/
+  process/
+  steam/
+  launcher/
+  modloader/
+    core/
+    game/
+      game.h
+      registry.c
+      context.c
+      eldenring/
+      sekiro/
+      darksouls3/
+    from/
+      abi_msvc2012.*
+      abi_msvc2015.*
+      dl_allocator.*
+      dl_device.*
+      dlrf.*
+      wwise.*
+    vfs/
+      mapping.*
+      path.*
+      cache.*
+      win32_hooks.*
+      save_mapping.*
+      writable_mapping.*
+      from_device_hooks.*
+      boot_boost.*
+```
+
+`process/` 继续提供 PE、signature scan、RTTI、singleton、FD4 step 与反修饰名称等分析能力。游戏 adapter 只能消费这些服务，不能把游戏特有签名回写到通用模块。
+
+### 5.2 游戏描述符与上下文
+
+不要使用 `game < sekiro` 一类按枚举排序的特性判断。每种差异都由显式 traits 表示。
+
+```c
+typedef enum ml_game_id_e {
+    ML_GAME_UNKNOWN = 0,
+    ML_GAME_ELDEN_RING,
+    ML_GAME_SEKIRO,
+    ML_GAME_DARK_SOULS_3,
+} ml_game_id_t;
+
+typedef enum ml_stl_abi_e {
+    ML_STL_ABI_MSVC2012,
+    ML_STL_ABI_MSVC2015,
+} ml_stl_abi_t;
+
+typedef enum ml_support_level_e {
+    ML_SUPPORT_STABLE,
+    ML_SUPPORT_EXPERIMENTAL,
+} ml_support_level_t;
+
+typedef struct ml_game_descriptor_s {
+    ml_game_id_t id;
+    const char *key;
+    const wchar_t *title;
+    uint32_t steam_app_id;
+    const wchar_t *const *exe_relpaths;
+    size_t exe_relpath_count;
+    const wchar_t *save_root_name;
+    const wchar_t *ini_section;
+    const wchar_t *modengine_config_name;
+    ml_stl_abi_t stl_abi;
+    ml_support_level_t support_level;
+    const wchar_t *file_step_name;
+    const char *control_api_class;
+    size_t ebl_bhd_holder_offset;
+} ml_game_descriptor_t;
+```
+
+每个进程只能存在一个 `ml_game_context_t`。launcher 选择的游戏只作为预期值；注入 DLL 必须根据当前 EXE 名称、PE version resource 和必要签名再次校验。launcher、核心和 ext DLL 必须获得同一个经验证的 `game_id`。
+
+### 5.3 生命周期
+
+统一使用四个阶段：
+
+| 阶段 | 目的 | 典型功能 |
+| --- | --- | --- |
+| `PRE_ENTRY_SAFE` | 进程入口前的安全初始化 | proxy、配置、VFS index、Win32 Hook、黑屏闪烁修复 |
+| `BEFORE_MAIN` | 游戏必要初始化或 Arxan 调度后 | system allocator、early native |
+| `AFTER_RUNTIME_INIT` | 游戏运行时静态对象可分析后 | RTTI、FD4、DLRF、普通 native、allocator、资产 Hook |
+| `AFTER_PROPERTIES_READY` | 游戏属性表可写后 | 离线属性和用户 property override |
+
+现有 Elden Ring 使用 `SteamAPI_Init` 作为 `AFTER_RUNTIME_INIT` 触发点。该机制可保留，但不是唯一合法触发方式。每个 adapter 必须声明可靠触发点及其 fallback；未触发时日志必须明确报告，不得静默等待。
+
+功能安装结果统一记录为：
+
+- `APPLIED`
+- `SKIPPED_DISABLED`
+- `UNSUPPORTED`
+- `SIGNATURE_NOT_FOUND`
+- `HOOK_FAILED`
+- `DEFERRED_NOT_REACHED`
+
+零个 Hook 被安装时不得记录为 `APPLIED`。
+
+### 5.4 分析服务
+
+后续多游戏功能将使用三个独立、按需初始化的分析服务：
+
+- RTTI class/vtable map。
+- initialized FD4 step table。
+- DLRF RuntimeClass registry。
+
+RTTI 服务需要支持同名类的多个 vtable，不能只保留最小对象偏移的 vtable。DLRF 服务用于 `SprjAutoControlAPI` 或 `CSAutoControlAPI` 的 `SetGameProperty` 查找。
+
+分析服务失败只禁用依赖它的功能。例如 DLRF 失败不能阻止 Win32 VFS、package 扫描或不依赖 DLRF 的 native DLL 加载。
+
+## 6. VFS 设计
+
+### 6.1 路径命名空间与规范化
+
+VFS core 使用 UTF-16 动态字符串，不使用 `MAX_PATH` 固定数组。所有目录扫描和查询必须经过同一套规范化逻辑：
+
+- 统一分隔符。
+- 折叠 `.`。
+- 拒绝从 package 根目录逃逸的 `..`。
+- 使用不区分大小写的比较键。
+- 处理尾部 NUL，使 NUL 终止和非终止输入命中同一缓存键。
+- 区分游戏虚拟路径、游戏根目录物理路径、package 物理路径与 fake UID。
+- 扫描目录时检测 symlink/junction 环，避免无限递归。
+
+适配器负责把游戏特有格式转换为 core 虚拟路径，例如 `data0:/...`、`sd:/...` 或根目录物理路径。VFS core 不应包含 Elden Ring、Sekiro 或 DS3 的路径字面量。
+
+### 6.2 扫描、索引与优先级
+
+启动时递归扫描 `[mods]`、TOML mods 或未来 package 列表中的目录。每个文件生成标准虚拟路径键和物理路径条目。
+
+索引规则：
+
+1. 按配置声明顺序扫描 package。
+2. 同一键再次出现时，由后声明 package 的条目替换已有条目。
+3. 扫描完成后冻结条目存储；缓存只保存稳定条目的指针或索引。
+4. 记录覆盖来源，便于日志和未来冲突诊断。
+
+需要保留现有相对路径语义：相对路径以配置文件目录为根；以 `\\` 开头的路径按配置所在盘根解释。迁移期间旧 `mods_file_search()` 与 `mods_file_search_prefixed()` 先实现为 VFS wrapper，待 Elden Ring parity 测试通过后再删除旧目录遍历。
+
+### 6.3 分域缓存与 generation
+
+不能将不同查询语义共享同一个缓存。至少拆分：
+
+- 宽字符磁盘或 fake UID 路径到物理路径。
+- ANSI 磁盘或 fake UID 路径到物理路径。
+- 虚拟资源路径到物理路径。
+- 虚拟资源路径到 fake UID。
+- Wwise 输入路径到物理路径。
+
+每个域同时缓存命中和未命中。缓存开启与失效遵循：
+
+1. FileStep 初始化完成前，缓存禁用，查询实时计算。
+2. FileStep 初始化完成后启用缓存。
+3. FileStep 再次初始化时递增 generation 并清空所有缓存。
+4. 插入缓存前重新检查 generation，防止跨 reset 的查询把旧设备状态写入新 generation。
+
+所有缓存使用 `SRWLOCK` 或等价同步机制。返回的路径必须在 VFS 生命周期内稳定，不能在 shared lock 释放后失效。
+
+### 6.4 Fake UID
+
+Dantelion 内部对象不应长期直接持有任意 package 的绝对路径。对需要引擎内部重写的路径，VFS 使用稳定 fake UID：
+
+```text
+\\<loader-root>?<generation>?<entry-index>
+```
+
+UID 必须可解析回冻结的映射条目；解析时校验 generation 与条目 generation，过期 UID 视为未命中。具体根名称和编码不要求复制 me3 的 `\\me3` 字面量，但行为必须等价。
+
+### 6.5 Win32 Hook
+
+第一版安装：
+
+- `CreateFileA`
+- `CreateFileW`
+- `CreateFile2`
+- `CreateDirectoryA`
+- `CreateDirectoryW`
+- `CreateDirectoryExW`
+- `DeleteFileA`
+- `DeleteFileW`
+
+这些 Hook 只调用 VFS 路由器；不得在每个 Hook 内重复实现路径搜索、缓存和读写策略。
+
+路由时需要检查：
+
+- 目标是否已是 package 的物理路径；若是，直接调用原 API。
+- 请求是否是读取、写入、创建或删除。
+- 命中条目是否标记为可写映射。
+- 是否处于 VFS 后端访问的 TLS recursion guard 中。
+
+普通资源包只在读取时重定向。对于写入请求，若没有显式可写映射，则调用原始 Windows API 并保持原路径。
+
+### 6.6 存档与设置映射
+
+独立存档是可写映射的首个实现：
+
+- 按游戏存档根目录识别 `.sl2`。
+- 同步映射 `.bak`。
+- 指定替代存档不存在时，复制当前基础存档。
+- 映射创建或复制失败时不得回退到主存档。
+
+设置映射通过显式 API 注册精确虚拟路径。注册项包含读写权限和替代物理路径，不与普通 package asset index 混淆。
+
+### 6.7 Dantelion device、BND 与 EBL
+
+在对应 FileStep 初始化中执行：
+
+1. 定位并验证 `DlDeviceManager`。
+2. 读取并展开 virtual roots。
+3. Hook disk device 的 `open_file`。
+4. Hook `DlFileOperator::SetPath`、`SetPath2` 与 `SetPath3`。
+5. Hook `MakeEblObject`；有 loose override 时使游戏回退到 disk device。
+6. Hook 已挂载 BND4 devices 的唯一 `open_file` 实现。
+7. Hook `MountEbl`；每次成功挂载后继续 Hook 新出现的 BND4 device。
+
+hook 必须避免重复安装。`DlDeviceManager` 的结构和 critical section 使用必须按游戏 ABI 验证，不能仅依赖固定地址或没有布局检查的 singleton。
+
+### 6.8 Wwise
+
+Wwise locator 优先通过 RTTI 类 `DLMOW::IOHookBlocking` 获取 `open_by_name`，找不到时使用版本化 signature fallback。Wwise Hook 调用 VFS 的专用 Wwise 查询域，避免重复多前缀尝试和重复分配。
+
+### 6.9 BootBoost
+
+BootBoost 作为独立、可关闭的性能功能实现：
+
+1. Hook `MountEbl`。
+2. 从游戏 RSA public key 获得 block 大小。
+3. 用临时 BHD stub 让游戏创建 device，读取解密后 BHD 长度。
+4. 使用原始加密 BHD 的稳定 hash 作为缓存键。
+5. 命中缓存时校验保存长度、raw-deflate 解压结果与完整消费。
+6. 使用游戏 allocator 分配 BHD 内容，并写回 EBL device holder。
+7. 未命中时让游戏正常解密，之后用临时文件加原子替换写入压缩缓存。
+8. 缓存损坏时删除缓存并回退到游戏正常解密。
+
+DS3 的 BHD holder 偏移为 `0xC0`；Sekiro 与 Elden Ring 为 `0xB0`。该差异必须由游戏 traits 提供。
+
+## 7. 多游戏 Host 功能
+
+### 7.1 启动与注入
+
+launcher 必须：
+
+- 支持 `--launch-target eldenring`、`sekiro`、`darksouls3` 及合理别名。
+- 保留 `--modengine-dll` 作为 `--modloader-dll` 别名。
+- 从显式 EXE、游戏目录、当前目录和 Steam library manifest 按固定优先级定位游戏。
+- 使用游戏描述符的 App ID、工作目录和 EXE 相对路径。
+- 设置 `SteamAppId`、`SteamGameId` 与 `SteamOverlayGameId`。
+- 保持现有 Detours 注入路径，并为未来初始化握手保留 process/thread handle。
+
+DLL 进程内校验失败时，必须停止游戏专用 Hook，不能继续把错误 adapter 应用于目标进程。
+
+### 7.2 Native DLL、扩展与 ABI
+
+现有 `modloader_ext_init` V1 ABI 必须字节级保持不变。不能在 `modloader_ext_api_t` 头部插入字段。
+
+新增独立入口：
+
+```c
+modloader_ext_init_v2(const modloader_host_api_v2_t *api);
+```
+
+V2 API 至少提供：
+
+- `abi_version` 与 `struct_size`。
+- `game_id`、游戏版本、EXE 路径和 support level。
+- 当前生命周期阶段和阶段回调注册。
+- VFS 查询与显式可写映射注册。
+- 可靠返回错误的 Hook API。
+- extension 支持游戏掩码。
+
+加载顺序：
+
+1. 优先调用 V2。
+2. 否则调用现有 V1。
+3. 否则继续 `modengine_ext_init` fallback。
+
+Elden Ring 下 V1 与 ModEngine extension 的加载、attach 和逆序 detach 行为必须不变。现有 `er_param` 和所有 ER 专用 extension 在非 ER 游戏默认跳过。
+
+### 7.3 离线属性与 debug properties
+
+通过 DLRF 找到：
+
+- DS3、Sekiro：`SprjAutoControlAPI.SetGameProperty`。
+- Elden Ring：`CSAutoControlAPI.SetGameProperty`。
+
+默认设置 `Menu.IsEnableOnlineMode=false`。用户显式 property override 后应用，保证用户配置覆盖内部默认值。DLRF 或 property-init Hook 失败时，日志必须显示离线保护没有真正应用。
+
+### 7.4 跳 Logo 与白闪修复
+
+- DS3、Sekiro 使用 SPRJ title step 策略。
+- Elden Ring 使用 FD4 `TitleStep::STEP_BeginLogo` 策略。
+- 三游戏都 Hook `RegisterClassExW`，将窗口类背景刷改为黑色，避免启动白闪。
+
+### 7.5 Mimalloc allocator patch
+
+三游戏均实现：
+
+1. 在 `BEFORE_MAIN` 替换 system allocator getter。
+2. 在 `AFTER_RUNTIME_INIT` 查找 `CSMemoryImp` 或 `NS_SPRJ::CSMemoryImp`。
+3. 按游戏签名找到 allocator table 首尾，并全部替换为 mimalloc allocator。
+4. Hook `CSMemoryImp::init/deinit` 为 no-op。
+5. 应用游戏特定补丁。
+
+差异：
+
+| 游戏 | 特定逻辑 |
+| --- | --- |
+| DS3 | debug allocator getter；allocator table 尾部 `0x78` 策略 |
+| Sekiro | 统计调用目标选取 debug allocator getter；allocator table 尾部 `0x70` 策略 |
+| Elden Ring | `CSGraphicsImp` 首槽 no-op；Elden Ring table 尾部策略 |
+
+任何 system allocator Hook 失败都必须阻止 heap allocator table 修改，避免混合 allocator 释放。
+
+### 7.6 Regulation 保护
+
+- Elden Ring：Hook `CSRegulationStep::STEP_Idle`，调用原函数后取走并用游戏 allocator 释放 raw regulation buffer。
+- DS3、Sekiro：实现并验证旧式「阻止写 regulation 到存档」Hook。
+
+旧式 DS3/Sekiro 实现不得复制 me3 当前疑似错误的 `(s?-u)` 正则。必须使用正确模式、检查至少安装一个 Hook，并在零匹配时报告失败。
+
+### 7.7 DS3 loose param
+
+仅 Dark Souls III：若检测到下列任一 loose parambnd 覆盖，则应用 `Game.Debug.EnableRegulationFile=false`：
+
+```text
+data1:/param/gameparam/gameparam.parambnd.dcx
+data1:/param/gameparam/gameparam_dlc1.parambnd.dcx
+data1:/param/gameparam/gameparam_dlc2.parambnd.dcx
+```
+
+## 8. 分阶段实施计划
+
+### 阶段 0：测试基线与行为冻结
+
+目标：在移动现有代码前，为 Elden Ring 现有对外行为建立可回归基线。
+
+工作项：
+
+- 为配置默认值、INI 相对路径、TOML fallback、mods/dlls 顺序写 golden tests。
+- 为存档名称替换、archive 路径转换、Wwise 候选路径写纯函数测试。
+- 为 ext DLL 的 LoadLibrary、init、uninit、ModEngine attach/detach 顺序写 fixture DLL 测试。
+- 记录当前 Elden Ring 功能安装日志和游戏版本信息。
+
+完成条件：现有 Elden Ring 行为可由自动测试和人工回归共同描述；后续重构不允许无意改变未列出的行为。
+
+### 阶段 1：ABI 与 Wwise 前置修正
+
+目标：完成第 4 节的 FD4、allocator 与 Wwise 修正。
+
+完成条件：
+
+- 所有新增静态断言和 smoke test 通过。
+- Elden Ring regulation、patch_mem、Wwise 资产覆盖均完成现场回归。
+- 代码不再保留旧 ABI 或 `READ_EBL = 9` 兼容分支。
+
+### 阶段 2：Game Registry 与 Elden Ring adapter 包装
+
+目标：先分离架构，不改变 Elden Ring hook 逻辑。
+
+工作项：
+
+- 引入 `ml_game_descriptor_t`、registry 与 process 内 game context。
+- launcher 将 App ID、EXE 路径与 Steam 环境变量改为 descriptor 驱动。
+- injected DLL 通过 descriptor 探测当前进程。
+- 将现有 `eldenring_install/uninstall` 机械包装为 Elden Ring adapter。
+- 将真正通用的 IME 留在 core；Wwise、FD4、Dantelion 移到 adapter capability。
+
+完成条件：不传 `--launch-target` 时仍默认 Elden Ring；旧 `eldenring.exe`、Steam 查找与配置文件的运行结果不变。
+
+### 阶段 3：分析服务与生命周期
+
+目标：为三游戏 host 功能提供可验证的共同基础。
+
+工作项：
+
+- RTTI 支持多个 vtable。
+- 增加 DLRF RuntimeClass 扫描。
+- 明确并实现 MSVC 2012/2015 string/vector ABI。
+- 将 Hook 注册封装为可返回状态、可阶段回滚的服务。
+- 将 `SteamAPI_Init` 后置初始化改为 adapter 可配置的 runtime-ready trigger，并记录 fallback 状态。
+- 记录 signature 匹配数量、选择规则、地址与失败原因。
+
+完成条件：RTTI、FD4、DLRF 任一失败只降级相关功能；不阻断 VFS index、Win32 文件重定向或独立 native DLL 加载。
+
+### 阶段 4：冻结式 VFS index
+
+目标：替代逐查询目录遍历，完成统一路径、last-wins、分域缓存和 generation。
+
+工作项：
+
+- 创建 VFS path、mapping、entry storage、cache 模块。
+- 递归扫描 package，处理 Unicode、长路径和循环链接。
+- 将当前 `mod.c + filecache.c` 改为 legacy wrapper。
+- 完成读写路由和 TLS recursion guard。
+- 加入 fake UID 编解码。
+
+完成条件：在不安装新的 Dantelion Hook 前，Elden Ring 的现有 `mods_file_search*` 调用通过 VFS 返回与预期一致的结果；相同路径的最后 package 生效。
+
+### 阶段 5：Win32、archive 与 Wwise 迁移
+
+目标：让所有当前 Elden Ring 路径入口访问统一 VFS。
+
+迁移顺序：
+
+1. `CreateFile*`。
+2. Elden Ring archive resolver。
+3. Wwise resolver。
+4. 独立存档和显式可写设置映射。
+5. `CreateDirectory*` 与 `DeleteFile*`。
+
+每一步保留旧实现的对照模式，在测试或诊断构建中记录新旧解析结果差异。确认 parity 后删除旧路径专用查找。
+
+完成条件：普通资源只读、存档可写、设置映射可写的路由测试通过；Elden Ring 无 package 时不安装不必要的高频资源 Hook。
+
+### 阶段 6：Dantelion device、BND/EBL 与 BootBoost
+
+目标：完成 me3 级别的 archive 覆盖。
+
+工作项：
+
+- 实现 `DlDeviceManager` 布局验证和锁。
+- 实现 virtual root 展开。
+- Hook disk device、SetPath、MakeEblObject、BND4 direct open 与动态 MountEbl。
+- 实现 BHD holder 的游戏特定布局。
+- 实现 BootBoost 缓存、校验、损坏回退和原子写入。
+
+完成条件：Elden Ring 基础 BND、DLC EBL、Wwise、重复 FileStep 初始化和 BootBoost 缓存命中全部通过现场验证。
+
+### 阶段 7：Host 功能泛化与 Ext API V2
+
+目标：将 Logo、离线属性、allocator、regulation、native 生命周期和 ext API 从 ER 专用逻辑中分离。
+
+完成条件：Elden Ring V1 ext DLL、ModEngine extension、`er_param` 与内置 ER extension 行为不退化；V2 fixture DLL 能读取 game context 并注册受约束的 VFS 映射。
+
+### 阶段 8：Sekiro 稳定支持
+
+目标：完成第一个非 Elden Ring 的稳定 adapter。
+
+工作项：
+
+- 新增 launcher discovery、存档根、SPRJ FileStep、SPRJ control API、Logo 和 allocator 策略。
+- 使用 MSVC 2015 ABI 与 `0xB0` EBL holder。
+- 完成 VFS、Wwise、BootBoost、独立存档、离线属性、Logo、白闪、mimalloc 与 regulation 保护。
+
+完成条件：连续启动、进入标题、读档、返回标题和退出至少 10 次，无重复 Hook、缓存污染、存档误写或退出崩溃。
+
+### 阶段 9：Dark Souls III 实验性支持
+
+目标：完成除 dearxan 外的所有 me3 host 功能。
+
+工作项：
+
+- 新增 MSVC 2012 string/vector ABI。
+- 使用 `0xC0` EBL holder。
+- 实现 DS3 allocator getter、`0x78` table 策略、SPRJ FileStep 和 control API。
+- 实现 loose param property override。
+- 完成 VFS、Wwise、BootBoost、独立存档、离线属性、Logo、白闪、mimalloc 和旧式 regulation 保护。
+
+完成条件：所有功能都有明确状态日志，且至少一次实际 Hook 被验证安装。发布内容标注「实验性」和「不包含 Arxan 中和」。
+
+### 阶段 10：稳定化、文档与重命名
+
+目标：完成发布准备，再讨论项目改名。
+
+工作项：
+
+- 整理每游戏功能矩阵、配置说明、已知限制和支持等级。
+- 更新 dist 打包规则，避免 DS3/Sekiro 默认携带并加载 ER 专用 extension。
+- 检查 launcher、DLL、extension 的游戏元数据一致性。
+- 确定新项目名、二进制名、配置文件名与旧名称兼容期。
+
+## 9. 测试计划
+
+### 9.1 不运行游戏即可完成
+
+| 范围 | 用例 |
+| --- | --- |
+| Launcher/Game Registry | 三游戏 alias、App ID、EXE、工作目录、Steam 环境变量、显式路径和 Steam fallback |
+| Config | 默认值、game section 隔离、INI/TOML 顺序、UTF-8、相对路径、错误输入 |
+| VFS path | 分隔符、大小写、`.`、`..`、尾部 NUL、Unicode、长路径、symlink/junction 环 |
+| VFS mapping | last-wins、命中/未命中缓存、generation、fake UID、可写映射、recursion guard |
+| Win32 Hook 宿主 | CreateFile、CreateFile2、目录创建、删除、读写路由和直接 package 路径绕过 |
+| Binary analysis | synthetic PE 上的 section、scanner、RTTI、多 vtable、FD4 与 DLRF |
+| ABI | FD4 双参数 trampoline、Dantelion vtable 布局、mimalloc 分配和对齐 |
+| Wwise | `sd:/`、`sd_dlc02:/`、语言目录、WEM 两种目录、枚举值 |
+| Ext API | V1 field offset、V2 协商、支持游戏掩码、加载/卸载顺序、ModEngine fallback |
+| Hook lifecycle | 第 N 个 Hook 失败的回滚、卸载幂等、禁止 NULL unhook |
+
+测试用例不得提交游戏二进制。可提供本地只读 EXE 验证目标：开发者指定合法安装路径后，仅检查版本、signature 命中数量和结构识别结果。
+
+### 9.2 每游戏现场验收
+
+每款游戏的每个受支持版本至少测试：
+
+- 标准 Steam 路径与显式 `--game-path`。
+- launcher 注入和 proxy DLL 启动方式。
+- loose 文件、param、EMEVD、模型、贴图、`regulation.bin`。
+- BND/EBL 内文件与 DLC archive。
+- Wwise `.bnk` 和 `.wem`。
+- BootBoost 首次生成、再次命中、缓存损坏回退。
+- 独立 `.sl2`/`.bak` 与原始主存档 hash 不变。
+- 默认离线属性实际调用成功。
+- 显示/跳过 Logo 与白闪修复。
+- early/normal native DLL 生命周期。
+- mimalloc 压力测试。
+- 连续 10 次启动、进标题、读档、退出。
+
+Dark Souls III 额外测试：
+
+- MSVC 2012 容器布局。
+- loose parambnd property override。
+- 不使用 dearxan 时，确认哪些 Hook 被保护、失效或恢复，并在日志和文档中明确列出。
+
+## 10. 发布门槛与风险控制
+
+### 10.1 发布门槛
+
+每个发布支持的游戏版本必须满足：
+
+- launcher、DLL 和 ext DLL 的 `game_id` 一致。
+- 关键 signature 记录匹配数量和地址。
+- 零个 Hook 不得报告成功。
+- 默认不写入主存档。
+- 默认不进入官方在线模式，且日志能确认 property override 已执行。
+- VFS 读取不会把写请求误导向普通 package 资源。
+- FileStep 重跑不会使用旧 generation 缓存。
+- 任何分析服务失败只影响其依赖功能。
+- DS3 未完成 dearxan 长时验证前始终标记为实验性。
+
+### 10.2 主要风险
+
+| 风险 | 控制措施 |
+| --- | --- |
+| 游戏更新使 signature 或布局失效 | 记录版本、匹配数量与 feature status；不匹配时禁用相关功能 |
+| 迁移改变 ER 模组优先级 | 将 last-wins 作为明确行为变更；使用冲突 fixture 和发布说明验证 |
+| VFS 误重定向写入 | 资源层默认只读；仅精确注册存档和设置可写映射；真实 Win32 Hook 宿主测试 |
+| 缓存与初始化竞态 | 缓存分域、generation、冻结条目和锁；FileStep 前不缓存 |
+| allocator 混用或 ABI 偏差 | 先完成第 4 节强制 ABI 修正；system allocator 失败时禁止 heap patch |
+| Dantelion 内部布局随游戏变化 | 每游戏显式 traits、布局验证、版本化 signature 与现场测试 |
+| DS3 Arxan 恢复或阻止 Hook | 仅实验性支持；dearxan 作为独立研究项目，不用不完整方案伪装稳定支持 |
+| 从 me3 复用源码的许可 | me3 提供 MIT/Apache-2.0 双许可；选择 MIT 路径时保留原版权和许可声明 |
+
+## 11. 参考实现与关键文件
+
+本计划的主要本地参考：
+
+- me3 VFS mapping：`E:\\Projects\\me3\\crates\\mod-host-assets\\src\\mapping.rs`
+- me3 Win32 文件 Hook：`E:\\Projects\\me3\\crates\\mod-host\\src\\filesystem.rs`
+- me3 Dantelion/EBL/BootBoost Hook：`E:\\Projects\\me3\\crates\\mod-host\\src\\asset_hooks.rs`
+- me3 device manager：`E:\\Projects\\me3\\crates\\mod-host-assets\\src\\dl_device.rs`
+- me3 EBL 布局：`E:\\Projects\\me3\\crates\\mod-host-assets\\src\\ebl.rs`
+- me3 Wwise：`E:\\Projects\\me3\\crates\\mod-host-assets\\src\\wwise.rs`
+- me3 游戏元数据：`E:\\Projects\\me3\\crates\\mod-protocol\\src\\game.rs`
+- me3 host 生命周期：`E:\\Projects\\me3\\crates\\mod-host\\src\\lib.rs`
+- me3 allocator：`E:\\Projects\\me3\\crates\\mod-host-types\\src\\alloc.rs`
+- 当前 mod 搜索：`src/modloader/mod.c`
+- 当前 filecache：`src/modloader/filecache.c`
+- 当前 Elden Ring Hook：`src/modloader/patches/eldenring.c`
+- 当前 Wwise Hook：`src/modloader/patches/common.c`
+- 当前 FD4 step：`src/process/fd4_step.c`
+- 当前 allocator：`src/modloader/dl_allocator.h`
+
+## 12. 后续工作顺序
+
+开始代码实现时，严格按以下顺序推进：
+
+1. 阶段 0 的行为冻结测试。
+2. 阶段 1 的 FD4、allocator、Wwise 完全一致修正。
+3. Elden Ring 回归。
+4. Game Registry 与 Elden Ring adapter 包装。
+5. 分析服务与生命周期。
+6. VFS index、Win32 路由和 Elden Ring 迁移。
+7. Dantelion device、BND/EBL 与 BootBoost。
+8. Host 功能泛化与 Ext API V2。
+9. Sekiro 稳定支持。
+10. Dark Souls III 实验性支持。
+11. 文档、发布包与项目重命名。
+
+任何阶段完成前，不提前在下一个阶段复制游戏特定 signature 或 patch。每阶段必须先满足对应自动测试与 Elden Ring/Sekiro/DS3 的适用验收条件，再进入下一阶段。
