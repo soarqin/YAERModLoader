@@ -32,12 +32,15 @@ typedef struct vfs_writable_entry_s {
 } vfs_writable_entry_t;
 
 KHASH_INIT(vfs_index, const wchar_t *, size_t, 1, kh_wstr_hash_func, kh_wstr_hash_equal)
+KHASH_INIT(vfs_lookup_cache, const wchar_t *, const wchar_t *, 1, kh_wstr_hash_func, kh_wstr_hash_equal)
 
 static khash_t(vfs_index) *index;
+static khash_t(vfs_lookup_cache) *lookup_cache;
 static vfs_entry_t *entries;
 static size_t entry_count;
 static size_t entry_capacity;
-static bool frozen;
+static volatile LONG frozen;
+static SRWLOCK lookup_cache_lock = SRWLOCK_INIT;
 static __declspec(thread) unsigned int vfs_recursion_depth;
 static vfs_writable_entry_t *writable_entries;
 static size_t writable_count;
@@ -189,10 +192,11 @@ static bool vfs_scan(const wchar_t *root, const wchar_t *relative) {
 
 void vfs_init(void) {
     index = kh_init(vfs_index);
+    lookup_cache = kh_init(vfs_lookup_cache);
     entries = NULL;
     entry_count = 0;
     entry_capacity = 0;
-    frozen = false;
+    InterlockedExchange(&frozen, FALSE);
     writable_entries = NULL;
     writable_count = 0;
     writable_capacity = 0;
@@ -206,6 +210,12 @@ void vfs_uninit(void) {
         }
         LocalFree(entries);
     }
+    if (lookup_cache != NULL) {
+        for (khiter_t slot = kh_begin(lookup_cache); slot != kh_end(lookup_cache); slot++) {
+            if (kh_exist(lookup_cache, slot)) LocalFree((void *)kh_key(lookup_cache, slot));
+        }
+        kh_destroy(vfs_lookup_cache, lookup_cache);
+    }
     if (index != NULL) kh_destroy(vfs_index, index);
     for (size_t i = 0; i < writable_count; i++) {
         LocalFree(writable_entries[i].key);
@@ -213,17 +223,18 @@ void vfs_uninit(void) {
     }
     LocalFree(writable_entries);
     index = NULL;
+    lookup_cache = NULL;
     entries = NULL;
     entry_count = 0;
     entry_capacity = 0;
-    frozen = false;
+    InterlockedExchange(&frozen, FALSE);
     writable_entries = NULL;
     writable_count = 0;
     writable_capacity = 0;
 }
 
 bool vfs_add_package(const wchar_t *path) {
-    if (index == NULL || frozen || path == NULL || !PathIsDirectoryW(path)) return false;
+    if (index == NULL || InterlockedCompareExchange(&frozen, FALSE, FALSE) || path == NULL || !PathIsDirectoryW(path)) return false;
     return vfs_scan(path, L"");
 }
 
@@ -268,11 +279,47 @@ bool vfs_has_writable_paths(void) {
 const wchar_t *vfs_lookup(const wchar_t *path) {
     wchar_t *key;
     khiter_t slot;
-    if (index == NULL || !vfs_normalize_path(path, &key)) return NULL;
-    frozen = true;
+    const wchar_t *result;
+    if (index == NULL || path == NULL) return NULL;
+
+    if (InterlockedCompareExchange(&frozen, FALSE, FALSE)) {
+        AcquireSRWLockShared(&lookup_cache_lock);
+        slot = kh_get(vfs_lookup_cache, lookup_cache, path);
+        if (slot != kh_end(lookup_cache)) {
+            result = kh_value(lookup_cache, slot);
+            ReleaseSRWLockShared(&lookup_cache_lock);
+            return result;
+        }
+        ReleaseSRWLockShared(&lookup_cache_lock);
+    } else {
+        /* Once a lookup is served the package map becomes immutable, making cached
+         * path results valid for the remaining lifetime of the loader. */
+        InterlockedExchange(&frozen, TRUE);
+    }
+
+    if (!vfs_normalize_path(path, &key)) return NULL;
     slot = kh_get(vfs_index, index, key);
     LocalFree(key);
-    return slot == kh_end(index) ? NULL : entries[kh_value(index, slot)].path;
+    result = slot == kh_end(index) ? NULL : entries[kh_value(index, slot)].path;
+
+    wchar_t *cache_key = StrDupW(path);
+    if (cache_key == NULL) return result;
+    AcquireSRWLockExclusive(&lookup_cache_lock);
+    slot = kh_get(vfs_lookup_cache, lookup_cache, cache_key);
+    if (slot != kh_end(lookup_cache)) {
+        result = kh_value(lookup_cache, slot);
+        LocalFree(cache_key);
+    } else {
+        int ret;
+        slot = kh_put(vfs_lookup_cache, lookup_cache, cache_key, &ret);
+        if (ret < 0) {
+            LocalFree(cache_key);
+        } else {
+            kh_value(lookup_cache, slot) = result;
+        }
+    }
+    ReleaseSRWLockExclusive(&lookup_cache_lock);
+    return result;
 }
 
 const wchar_t *vfs_lookup_prefixed(const wchar_t *path, const wchar_t *game_root) {
