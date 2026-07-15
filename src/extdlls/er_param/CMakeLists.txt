@@ -3,6 +3,7 @@ file(GLOB PARAM_DEF_SRC include/er_param/defs/*.h)
 file(GLOB FROM_HEADERS include/er_param/from/*.h)
 
 add_project(extdll_er_param SHARED
+    ${CMAKE_SOURCE_DIR}/src/common/allocator.c
     src/provider.c
     src/param.c src/param_internal.h
     src/pointers.c src/pointers.h
@@ -14,6 +15,11 @@ add_project(extdll_er_param SHARED
 
 target_include_directories(${PROJECT_NAME} PRIVATE src include ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/common)
 target_link_libraries(${PROJECT_NAME} PRIVATE process klib inih shlwapi)
+if (MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE "/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h")
+else ()
+    target_compile_options(${PROJECT_NAME} PRIVATE -include ${CMAKE_SOURCE_DIR}/src/common/allocator.h)
+endif ()
 
 add_library(er_param_headers INTERFACE)
 target_include_directories(er_param_headers INTERFACE include)

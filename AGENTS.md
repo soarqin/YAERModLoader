@@ -78,7 +78,7 @@ tests/
 
 **Language:** C11 only. No C++. Headers use `#ifdef __cplusplus extern "C"` guards for potential C++ consumers.
 
-**Memory:** Production code uses `LocalAlloc`/`LocalFree` (not `malloc`/`free`). Tests use standard `calloc`/`malloc` via the `kcalloc`/`kmalloc` macros redefined at the top of each test file. When writing new production code, follow the `LocalAlloc` pattern; when writing tests, redefine the macros to use standard allocators.
+**Memory:** The main loader DLL uses mimalloc. The launcher and extension DLLs use the C runtime allocator. Shared source keeps the existing `LocalAlloc`/`LocalFree` call sites; `src/common/allocator.h`, force-included by each target, maps them to the target allocator. Tests use standard `calloc`/`malloc` via the `kcalloc`/`kmalloc` macros redefined at the top of each test file.
 
 **Hash tables:** `khash.h` (klib) is the only hash table. Two instantiation patterns in use:
 - `KHASH_INIT(wstr, ...)` with `kh_wstr_hash_func`/`kh_wstr_hash_equal` — wide-string keys, defined in `src/common/khash_wstr.h`
@@ -125,7 +125,7 @@ The workflow will fail fast if the version in `src/CMakeLists.txt` or `CHANGELOG
 ## What to avoid
 
 - Do not add C++ source files; the project is intentionally C11-only.
-- Do not use `malloc`/`free` in production (non-test) code; use `LocalAlloc`/`LocalFree`.
+- Do not introduce direct `LocalAlloc`/`LocalFree` calls in new production code. Use `mi_*` in the main loader DLL and `malloc`/`free` in the launcher or extension DLLs; shared code continues to use the target-specific mappings in `src/common/allocator.h`.
 - Do not edit `src/extdlls/er_param/include/er_param/defs/*.h` or `src/extdlls/er_param/include/er_param/param_defs.h` by hand; they are generated.
 - Do not add new dependencies without a corresponding `deps/` subdirectory and CMakeLists entry.
 - The `tools/` subdirectory is commented out in the root CMakeLists (`# add_subdirectory(tools)`); do not uncomment without understanding why.

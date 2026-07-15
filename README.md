@@ -46,6 +46,7 @@ Check [CHANGELOG.md](CHANGELOG.md) for details.
 - [inih](https://github.com/benhoyt/inih): The library used to parse ini files.
 - [toml-c](https://github.com/arp242/toml-c): The library used to parse toml files, for ModEngine config file compatibility.
 - [wingetopt](https://github.com/alex85k/wingetopt): The library used to parse command line arguments.
+- [mimalloc](https://github.com/microsoft/mimalloc): The allocator used by the main loader DLL.
 - [libofdf](https://github.com/Jan200101/libofdf): The library used to parse Valve's VDF files, for locating game folder.
 - [LZMA SDK](https://7-zip.org/sdk.html): The library used to embed dll as compressed data, the SDK is in public domain.
 - [Glorious Merchant Mod](https://github.com/ThomasJClark/elden-ring-glorious-merchant): the almighty_kale extdll is a 1:1 C port of its functionality.

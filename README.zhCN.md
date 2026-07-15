@@ -41,6 +41,7 @@
 - [inih](https://github.com/benhoyt/inih): 用于解析ini文件的库。
 - [toml-c](https://github.com/arp242/toml-c): 用于解析toml文件的库，以兼容ModEngine的配置文件。
 - [wingetopt](https://github.com/alex85k/wingetopt): 用于解析命令行参数的库。
+- [mimalloc](https://github.com/microsoft/mimalloc): 主加载器 DLL 使用的内存分配器。
 - [libofdf](https://github.com/Jan200101/libofdf): 用于解析Valve的VDF文件的库，用于定位游戏所在文件夹。
 - [LZMA SDK](https://7-zip.org/sdk.html): 用于将dll嵌入为压缩数据的库，该SDK在公共领域中。
 - exe LOGO来自[logowik](https://logowik.com/elden-ring-logo-vector-svg-pdf-ai-eps-cdr-free-download-12207.html)

@@ -15,6 +15,7 @@ generate_version_info(dll_res_files
 
 add_project(modloader_dll SHARED
     modloader.c
+    ${CMAKE_SOURCE_DIR}/src/common/allocator.c
     config.c config.h
     extdll.c extdll.h extdll_api.h
     gamehook.c gamehook.h
@@ -42,6 +43,12 @@ add_project(modloader_dll SHARED
 
 target_include_directories(modloader_dll PRIVATE ..)
 target_include_directories(modloader_dll PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
+target_compile_definitions(modloader_dll PRIVATE YAERMODLOADER_USE_MIMALLOC)
+if (MSVC)
+    target_compile_options(modloader_dll PRIVATE "/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h")
+else ()
+    target_compile_options(modloader_dll PRIVATE -include ${CMAKE_SOURCE_DIR}/src/common/allocator.h)
+endif ()
 if (STRIP_MODENGINE_CONFIG_SUPPORT)
     target_compile_definitions(modloader_dll PRIVATE STRIP_MODENGINE_CONFIG_SUPPORT)
 else ()
