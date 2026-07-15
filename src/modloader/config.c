@@ -19,18 +19,19 @@
 #include <shlwapi.h>
 
 config_t config = {
-    0,
-    false,
-    false,
-    true,
-    false,
-    false,
-    false,
-    true,
-    true,
-    true,
-    L"",
-    L"",
+    .cpu_affinity_strategy = 0,
+    .reset_achievements_on_new_game = false,
+    .enable_ime = false,
+    .skip_intro = true,
+    .remove_chromatic_aberration = false,
+    .remove_vignette = false,
+    .disable_mouse_camera_control = false,
+    .prevent_regulation_save_write = true,
+    .patch_mem = true,
+    .patch_mem_hook_cs_graphics = true,
+    .boot_boost = true,
+    .replaced_save_filename = L"",
+    .replaced_seamless_coop_save_filename = L"",
 };
 
 static wchar_t modloader_module_path[MAX_PATH];
@@ -78,6 +79,8 @@ static int ini_read_cb(void *user, const char *section,
             config.patch_mem = value_to_bool(value);
         } else if (lstrcmpA(name, "patch_mem_hook_cs_graphics") == 0) {
             config.patch_mem_hook_cs_graphics = value_to_bool(value);
+        } else if (lstrcmpA(name, "boot_boost") == 0) {
+            config.boot_boost = value_to_bool(value);
         } else if (lstrcmpA(name, "replace_save_filename") == 0) {
             /* MultiByteToWideChar does not null-terminate on overflow; force it. */
             MultiByteToWideChar(CP_UTF8, 0, value, -1, config.replaced_save_filename, 64);

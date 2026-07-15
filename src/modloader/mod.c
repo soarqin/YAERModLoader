@@ -8,7 +8,7 @@
 
 #include "mod.h"
 
-#include "filecache.h"
+#include "vfs.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -20,14 +20,7 @@
 static wchar_t game_folder[MAX_PATH];
 static int game_folder_length;
 
-typedef struct mod_t {
-    char *name;
-    wchar_t *base_path;
-} mod_t;
-
-mod_t *mods = NULL;
 int mod_count = 0;
-int mod_capacity = 0;
 
 void mods_init() {
     GetModuleFileNameW(NULL, game_folder, MAX_PATH);
@@ -35,31 +28,15 @@ void mods_init() {
     PathRemoveBackslashW(game_folder);
     game_folder_length = lstrlenW(game_folder);
 
-    filecache_init();
-    mods = NULL;
+    vfs_init();
 }
 
 void mods_uninit() {
-    for (int i = 0; i < mod_count; i++) {
-        LocalFree(mods[i].name);
-        LocalFree(mods[i].base_path);
-    }
-    LocalFree(mods);
-    mods = NULL;
     mod_count = 0;
-    mod_capacity = 0;
-    filecache_uninit();
+    vfs_uninit();
 }
 
 void mods_add(const char *name, const wchar_t *path) {
-    if (mod_count >= mod_capacity) {
-        mod_capacity = mod_capacity == 0 ? 8 : mod_capacity * 2;
-        mod_t *new_mods = mods == NULL ? LocalAlloc(LMEM_ZEROINIT, mod_capacity * sizeof(mod_t)) : LocalReAlloc(mods, mod_capacity * sizeof(mod_t), LMEM_MOVEABLE | LMEM_ZEROINIT);
-        if (new_mods == NULL) {
-            return;
-        }
-        mods = new_mods;
-    }
     wchar_t base_path[MAX_PATH];
     if (path[0] == L'\\') {
         config_full_path(base_path, NULL);
@@ -74,9 +51,11 @@ void mods_add(const char *name, const wchar_t *path) {
         fwprintf(stderr, L"Cannot find mod %hs from directory `%ls`\n", name, base_path);
         return;
     }
-    mod_t *mod = &mods[mod_count++];
-    mod->name = StrDupA(name);
-    mod->base_path = StrDupW(base_path);
+    if (!vfs_add_package(base_path)) {
+        fwprintf(stderr, L"Cannot scan mod %hs from directory `%ls`\n", name, base_path);
+        return;
+    }
+    mod_count++;
     fwprintf(stdout, L"Added mod %hs from `%ls`\n", name, base_path);
 }
 
@@ -85,49 +64,32 @@ int mods_count() {
 }
 
 const wchar_t *mods_file_search(const wchar_t *path) {
-    if (mod_count <= 0) return NULL;
-    const wchar_t *res = filecache_find(path);
-    if (res != NULL) {
-        return res[0] == 0 ? NULL : res;
-    }
-    wchar_t cpath[MAX_PATH];
-    if (path[0] == '\\' || path[0] == '/')
-        lstrcpynW(cpath, path, MAX_PATH);
-    else {
-        _snwprintf(cpath, MAX_PATH, L"\\%ls", path);
-        cpath[MAX_PATH - 1] = L'\0';
-    }
-    for (int n = (int)lstrlenW(cpath) - 1; n >= 0; n--) {
-        if (cpath[n] == L'/') cpath[n] = L'\\';
-    }
-    for (int i = 0; i < mod_count; i++) {
-        wchar_t full_path[MAX_PATH];
-        _snwprintf(full_path, MAX_PATH, L"%ls%ls", mods[i].base_path, cpath);
-        full_path[MAX_PATH - 1] = L'\0';
-        if (PathFileExistsW(full_path) && !PathIsDirectoryW(full_path)) {
-            return filecache_add(path, full_path);
-        }
-    }
-    filecache_add(path, L"");
-    return NULL;
+    return mod_count <= 0 ? NULL : vfs_lookup(path);
 }
 
 const wchar_t *mods_file_search_prefixed(const wchar_t *path) {
-    if (mod_count <= 0) return NULL;
-    if (StrCmpNIW(path, game_folder, game_folder_length) != 0) return NULL;
-    const wchar_t *res = filecache_find(path);
-    if (res != NULL) {
-        return res[0] == 0 ? NULL : res;
+    return mod_count <= 0 ? NULL : vfs_lookup_prefixed(path, game_folder);
+}
+
+const wchar_t *mods_file_route_read(const wchar_t *path, DWORD desired_access, DWORD creation_disposition) {
+    if (mod_count <= 0 || path == NULL || StrCmpNIW(path, game_folder, game_folder_length) != 0) return NULL;
+    return vfs_route_read_path(path + game_folder_length, desired_access, creation_disposition);
+}
+
+const wchar_t *mods_file_route_read_a(const char *path, DWORD desired_access, DWORD creation_disposition) {
+    int length;
+    wchar_t *wide;
+    const wchar_t *result;
+    if (path == NULL) return NULL;
+    length = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
+    if (length <= 0) return NULL;
+    wide = LocalAlloc(0, (size_t)length * sizeof(*wide));
+    if (wide == NULL) return NULL;
+    if (MultiByteToWideChar(CP_ACP, 0, path, -1, wide, length) == 0) {
+        LocalFree(wide);
+        return NULL;
     }
-    const wchar_t *cpath = path + game_folder_length;
-    for (int i = 0; i < mod_count; i++) {
-        wchar_t full_path[MAX_PATH];
-        _snwprintf(full_path, MAX_PATH, L"%ls%ls", mods[i].base_path, cpath);
-        full_path[MAX_PATH - 1] = L'\0';
-        if (PathFileExistsW(full_path) && !PathIsDirectoryW(full_path)) {
-            return filecache_add(path, full_path);
-        }
-    }
-    filecache_add(path, L"");
-    return NULL;
+    result = mods_file_route_read(wide, desired_access, creation_disposition);
+    LocalFree(wide);
+    return result;
 }

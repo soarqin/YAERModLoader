@@ -29,6 +29,7 @@ typedef struct {
     bool prevent_regulation_save_write;
     bool patch_mem;
     bool patch_mem_hook_cs_graphics;
+    bool boot_boost;
     wchar_t replaced_save_filename[64];
     wchar_t replaced_seamless_coop_save_filename[64];
 } config_t;

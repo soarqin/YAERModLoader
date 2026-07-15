@@ -12,19 +12,33 @@
 #include "patches/common.h"
 #include "patches/eldenring.h"
 
+#include "game/game.h"
+
 #include <MinHook.h>
 
 #include <stdio.h>
 
 bool gamehook_install() {
+    if (!ml_game_context_init()) {
+        fwprintf(stderr, L"WARNING: unsupported or mismatched game process; game hooks are disabled\n");
+        return false;
+    }
+    const ml_game_descriptor_t *game = ml_game_context_get();
+    if (game->id != ML_GAME_ELDEN_RING) {
+        fwprintf(stderr, L"WARNING: %ls adapter is not implemented; game hooks are disabled\n", game->title);
+        return false;
+    }
     steamapi_init();
     bool result = common_install() && eldenring_install();
     return result;
 }
 
 void gamehook_uninstall() {
-    eldenring_uninstall();
-    common_uninstall();
+    const ml_game_descriptor_t *game = ml_game_context_get();
+    if (game != NULL && game->id == ML_GAME_ELDEN_RING) {
+        eldenring_uninstall();
+        common_uninstall();
+    }
 
     MH_Uninitialize();
     steamapi_uninit();

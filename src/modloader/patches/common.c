@@ -7,9 +7,12 @@
  */
 
 #include "common.h"
+#include "modloader/hook.h"
+#include "wwise_path.h"
 
 #include "modloader/config.h"
 #include "modloader/mod.h"
+#include "modloader/vfs.h"
 
 #include "process/rtti.h"
 
@@ -35,17 +38,23 @@ static bool patch_ime_disable() {
     return true;
 }
 
-typedef enum {
+typedef enum ak_open_mode_e {
     READ            = 0,
     WRITE           = 1,
     WRITE_OVERWRITE = 2,
     READ_WRITE      = 3,
 
     // Custom mode specific to From Software's implementation
-    READ_EBL = 9,
-} AKOpenMode;
+    READ_EBL = 10,
+} ak_open_mode_t;
 
-typedef void *(__cdecl *ak_file_location_resolver_open_t)(uint64_t p1, wchar_t *path, AKOpenMode openMode, uint64_t p4, uint64_t p5, uint64_t p6);
+_Static_assert(READ == 0, "AkOpenMode READ value");
+_Static_assert(WRITE == 1, "AkOpenMode WRITE value");
+_Static_assert(WRITE_OVERWRITE == 2, "AkOpenMode WRITE_OVERWRITE value");
+_Static_assert(READ_WRITE == 3, "AkOpenMode READ_WRITE value");
+_Static_assert(READ_EBL == 10, "AkOpenMode READ_EBL value");
+
+typedef void *(__cdecl *ak_file_location_resolver_open_t)(uint64_t p1, wchar_t *path, ak_open_mode_t openMode, uint64_t p4, uint64_t p5, uint64_t p6);
 static ak_file_location_resolver_open_t old_ak_file_location_resolver_open = NULL;
 
 typedef struct dlmow_io_hook_blocking_vtable_s {
@@ -54,35 +63,37 @@ typedef struct dlmow_io_hook_blocking_vtable_s {
     ak_file_location_resolver_open_t open_by_name;
 } dlmow_io_hook_blocking_vtable_t;
 
-void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, const AKOpenMode openMode, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
+void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, const ak_open_mode_t openMode, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
     static const wchar_t *prefixes[3] = {
         L"sd/",
         L"sd/enus/",
         L"sd/ja/",
     };
-    if (path == NULL || StrCmpNW(path, L"sd:/", 4) != 0)
+    const wchar_t *replace = wwise_strip_prefixes(path);
+    if (replace == NULL)
         return old_ak_file_location_resolver_open(p1, path, openMode, p4, p5, p6);
-    const wchar_t *replace = path + 4;
     const wchar_t *ext = PathFindExtensionW(replace);
     if (ext != NULL && StrCmpIW(ext, L".wem") == 0) {
-        wchar_t new_path[MAX_PATH];
-        _snwprintf(new_path, MAX_PATH, L"wem/%lc%lc/%ls", replace[0], replace[1], replace);
-        new_path[MAX_PATH - 1] = L'\0';
-        const wchar_t *new_replace = mods_file_search(new_path);
-        if (new_replace != NULL) {
+        wchar_t direct_path[MAX_PATH];
+        wchar_t nested_path[MAX_PATH];
+        if (wwise_wem_candidates(replace, direct_path, MAX_PATH, nested_path, MAX_PATH)) {
+            const wchar_t *new_replace = vfs_lookup(direct_path);
+            if (new_replace == NULL) new_replace = vfs_lookup(nested_path);
+            if (new_replace != NULL) {
             /* FromSoftware's READ_EBL (9) mode yields an EBLFileOperator that
              * only reads from BDT archives. An override file lives on disk, so
              * we must switch back to READ (0) to get a FileOperator that reads
              * the absolute disk path we pass in. See ModEngine2's
              * wwise_file_overrides.cpp for the same rationale. */
-            return old_ak_file_location_resolver_open(p1, (wchar_t*)new_replace, READ, p4, p5, p6);
+                return old_ak_file_location_resolver_open(p1, (wchar_t*)new_replace, READ, p4, p5, p6);
+            }
         }
     }
     for (int i = 0; i < 3; i++) {
         wchar_t new_path[MAX_PATH];
         _snwprintf(new_path, MAX_PATH, L"%ls%ls", prefixes[i], replace);
         new_path[MAX_PATH - 1] = L'\0';
-        const wchar_t *new_replace = mods_file_search(new_path);
+        const wchar_t *new_replace = vfs_lookup(new_path);
         if (new_replace != NULL) {
             return old_ak_file_location_resolver_open(p1, (wchar_t*)new_replace, READ, p4, p5, p6);
         }
@@ -99,14 +110,9 @@ static bool hook_wwise_archive_position_resolver() {
     if (open_by_name == NULL) {
         return false;
     }
-    MH_STATUS status = MH_CreateHook((void *)open_by_name, (void*)&ak_file_location_resolver_open, (void**)&old_ak_file_location_resolver_open);
-    if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to create Wwise archive resolver hook: %d\n", status);
-        return false;
-    }
-    status = MH_EnableHook((void *)open_by_name);
-    if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to enable Wwise archive resolver hook: %d\n", status);
+    ml_hook_result_t result = ml_hook_install((void *)open_by_name, (void *)&ak_file_location_resolver_open, (void **)&old_ak_file_location_resolver_open);
+    if (result != ML_HOOK_APPLIED) {
+        fwprintf(stderr, L"WARNING: Wwise archive resolver hook %hs\n", ml_hook_result_name(result));
         return false;
     }
     return true;

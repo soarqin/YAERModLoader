@@ -18,12 +18,17 @@ add_project(modloader_dll SHARED
     config.c config.h
     extdll.c extdll.h extdll_api.h
     gamehook.c gamehook.h
+    hook.c hook.h
     dl_allocator.c dl_allocator.h
     mimalloc_allocator.c mimalloc_allocator.h
     mod.c mod.h
+    vfs.c vfs.h
     filecache.c filecache.h
     detours_subset.h
     patches/common.c patches/common.h
+    patches/wwise_path.c patches/wwise_path.h
+    patches/dl_device.c patches/dl_device.h
+    patches/eldenring_assets.c patches/eldenring_assets.h
     patches/eldenring.c patches/eldenring.h
 
     proxy/winhttp.c proxy/winhttp.h proxy/winhttp.def
@@ -42,7 +47,7 @@ if (STRIP_MODENGINE_CONFIG_SUPPORT)
 else ()
     target_link_libraries(modloader_dll toml-c)
 endif ()
-target_link_libraries(modloader_dll process steam minhook inih klib mimalloc-static shlwapi version)
+target_link_libraries(modloader_dll game_registry process steam minhook inih klib mimalloc-static miniz shlwapi version)
 if (NOT MSVC)
     target_link_options(modloader_dll PRIVATE -municode)
 endif ()

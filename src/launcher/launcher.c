@@ -7,6 +7,7 @@
  */
 
 #include "steam/app.h"
+#include "game/game.h"
 
 #include "detours_subset.h"
 
@@ -18,12 +19,11 @@
 #include <shlwapi.h>
 #include <stdbool.h>
 
-#define ER_APP_ID 1245620
-
 static wchar_t full_game_path[MAX_PATH] = L"";
 static wchar_t full_config_path[MAX_PATH] = L"";
 static wchar_t full_modengine_dll[MAX_PATH] = L"";
 static bool suspend = false;
+static const ml_game_descriptor_t *launch_game = NULL;
 
 bool parse_args(const int argc, wchar_t *argv[]) {
     const struct option options[] = {
@@ -39,7 +39,11 @@ bool parse_args(const int argc, wchar_t *argv[]) {
     while ((opt = getopt_long(argc, argv, L":t:p:c:d:s", options, NULL)) != -1) {
         switch (opt) {
             case 't':
-                /* we only support ER now, ignore this */
+                launch_game = ml_game_by_key(optarg);
+                if (launch_game == NULL) {
+                    fwprintf(stderr, L"unsupported launch target: %ls\n", optarg);
+                    return false;
+                }
                 break;
             case 'p':
                 lstrcpynW(full_game_path, optarg, MAX_PATH);
@@ -66,8 +70,9 @@ bool parse_args(const int argc, wchar_t *argv[]) {
     return true;
 }
 
-static bool fix_and_locate_game_path(wchar_t *game_path) {
+static bool locate_game_executable(wchar_t *game_path) {
     wchar_t temp[MAX_PATH];
+    if (launch_game == NULL) return false;
     if (PathFileExistsW(game_path) && !PathIsDirectoryW(game_path)) return true;
     if (StrChrW(game_path, L':') == NULL && game_path[0] != L'\\' && game_path[0] != L'/') {
         GetModuleFileNameW(NULL, temp, MAX_PATH);
@@ -78,18 +83,13 @@ static bool fix_and_locate_game_path(wchar_t *game_path) {
             return true;
         }
     }
-    lstrcpyW(temp, game_path);
-    PathAppendW(temp, L"eldenring.exe");
-    if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
-        lstrcpyW(game_path, temp);
-        return true;
-    }
-    lstrcpyW(temp, game_path);
-    PathAppendW(temp, L"Game");
-    PathAppendW(temp, L"eldenring.exe");
-    if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
-        lstrcpyW(game_path, temp);
-        return true;
+    for (size_t i = 0; i < launch_game->exe_relpath_count; i++) {
+        lstrcpyW(temp, game_path);
+        PathAppendW(temp, launch_game->exe_relpaths[i]);
+        if (PathFileExistsW(temp) && !PathIsDirectoryW(temp)) {
+            lstrcpyW(game_path, temp);
+            return true;
+        }
     }
     return false;
 }
@@ -97,7 +97,7 @@ static bool fix_and_locate_game_path(wchar_t *game_path) {
 static bool check_current_folder_for_game_path(wchar_t *game_path) {
     GetModuleFileNameW(NULL, game_path, MAX_PATH);
     PathRemoveFileSpecW(game_path);
-    return fix_and_locate_game_path(game_path);
+    return locate_game_executable(game_path);
 }
 
 /*
@@ -185,7 +185,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
     char filepath[MAX_PATH];
     wchar_t game_folder[MAX_PATH];
 
-    parse_args(__argc, __wargv);
+    launch_game = ml_game_by_id(ML_GAME_ELDEN_RING);
+    if (!parse_args(__argc, __wargv)) return -1;
     if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
         /*if (decompress_embedded_dll_to(filepath)) {
             if (full_config_path[0] == L'\0') {
@@ -211,22 +212,34 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
     const HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
     FARPROC create_process_addr = GetProcAddress(kernel32, "CreateProcessW");
 
-    if ((full_game_path[0] == L'\0' && !check_current_folder_for_game_path(full_game_path)) || (full_game_path[0] != L'\0' && !fix_and_locate_game_path(full_game_path))) {
-        app_find_game_path(ER_APP_ID, game_folder);
-        PathAppendW(game_folder, L"Game");
+    if ((full_game_path[0] == L'\0' && !check_current_folder_for_game_path(full_game_path)) || (full_game_path[0] != L'\0' && !locate_game_executable(full_game_path))) {
+        if (!app_find_game_path(launch_game->steam_app_id, game_folder)) {
+            fwprintf(stderr, L"could not find %ls through Steam\n", launch_game->title);
+            return -1;
+        }
         lstrcpyW(full_game_path, game_folder);
-        PathAppendW(full_game_path, L"eldenring.exe");
-    } else {
-        lstrcpyW(game_folder, full_game_path);
-        PathRemoveFileSpecW(game_folder);
+        if (!locate_game_executable(full_game_path)) {
+            fwprintf(stderr, L"could not find %ls executable in `%ls`\n", launch_game->title, game_folder);
+            return -1;
+        }
     }
+    lstrcpyW(game_folder, full_game_path);
+    PathRemoveFileSpecW(game_folder);
     if (full_config_path[0] != L'\0') SetEnvironmentVariableW(L"MODLOADER_CONFIG", full_config_path);
     {
         /* set SteamAppId here, to make sure the game can be launched w/o EAC */
         wchar_t app_id_str[16];
-        _snwprintf(app_id_str, 16, L"%d", ER_APP_ID);
+        _snwprintf(app_id_str, 16, L"%u", launch_game->steam_app_id);
         app_id_str[15] = L'\0';
         SetEnvironmentVariableW(L"SteamAppId", app_id_str);
+        SetEnvironmentVariableW(L"SteamGameId", app_id_str);
+        SetEnvironmentVariableW(L"SteamOverlayGameId", app_id_str);
+    }
+    {
+        wchar_t game_key[32];
+        MultiByteToWideChar(CP_ACP, 0, launch_game->key, -1, game_key, 32);
+        game_key[31] = L'\0';
+        SetEnvironmentVariableW(L"MODLOADER_GAME", game_key);
     }
 
     const BOOL success = DetourCreateProcessWithDllW(

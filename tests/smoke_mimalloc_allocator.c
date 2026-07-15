@@ -16,17 +16,22 @@ int main(void) {
     EXPECT_TRUE(allocator->vtable->block_size(allocator, ptr) >= 7);
     allocator->vtable->free(allocator, ptr);
 
-    ptr = allocator->vtable->allocate_aligned(allocator, 33, 64, DL_HEAP_FRONT);
+    ptr = allocator->vtable->allocate_aligned(allocator, 33, 64);
     EXPECT_NOT_NULL(ptr);
     EXPECT_EQ((uintptr_t)ptr % 64, 0);
     memset(ptr, 0x5a, 33);
 
-    void *grown = allocator->vtable->reallocate_aligned(allocator, ptr, 96, 64, DL_HEAP_FRONT);
+    void *grown = allocator->vtable->reallocate_aligned(allocator, ptr, 96, 64);
     EXPECT_NOT_NULL(grown);
     EXPECT_EQ((uintptr_t)grown % 64, 0);
     EXPECT_EQ(((unsigned char *)grown)[0], 0x5a);
     EXPECT_EQ(((unsigned char *)grown)[32], 0x5a);
     allocator->vtable->free(allocator, grown);
+
+    ptr = allocator->vtable->back_allocate_aligned(allocator, 33, 32);
+    EXPECT_NOT_NULL(ptr);
+    EXPECT_EQ((uintptr_t)ptr % 32, 0);
+    allocator->vtable->back_free(allocator, ptr);
 
     EXPECT_EQ(allocator->vtable->block_size(allocator, NULL), 0);
 

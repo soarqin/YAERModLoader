@@ -7,11 +7,15 @@
  */
 
 #include "eldenring.h"
+#include "eldenring_assets.h"
 
 #include "modloader/config.h"
 #include "modloader/dl_allocator.h"
 #include "modloader/mimalloc_allocator.h"
 #include "modloader/mod.h"
+#include "modloader/vfs.h"
+
+#include "game/game.h"
 
 #include "process/fd4_step.h"
 #include "process/image.h"
@@ -118,16 +122,37 @@ typedef HANDLE (WINAPI *CreateFileW_t)(LPCWSTR lpFileName,
                                        LPSECURITY_ATTRIBUTES lpSecurityAttributes,
                                        DWORD dwCreationDisposition,
                                        DWORD dwFlagsAndAttributes,
-                                       HANDLE hTemplateFile);
+                                        HANDLE hTemplateFile);
+typedef HANDLE (WINAPI *CreateFileA_t)(LPCSTR lpFileName,
+                                        DWORD dwDesiredAccess,
+                                        DWORD dwShareMode,
+                                        LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                                        DWORD dwCreationDisposition,
+                                        DWORD dwFlagsAndAttributes,
+                                        HANDLE hTemplateFile);
+typedef HANDLE (WINAPI *CreateFile2_t)(LPCWSTR lpFileName, DWORD dwDesiredAccess,
+                                        DWORD dwShareMode, DWORD dwCreationDisposition,
+                                        LPCREATEFILE2_EXTENDED_PARAMETERS pCreateExParams);
 typedef BOOL (WINAPI *CopyFileW_t)(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, BOOL bFailIfExists);
+typedef BOOL (WINAPI *DeleteFileW_t)(LPCWSTR lpFileName);
+typedef BOOL (WINAPI *DeleteFileA_t)(LPCSTR lpFileName);
+typedef BOOL (WINAPI *CreateDirectoryW_t)(LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
+typedef BOOL (WINAPI *CreateDirectoryA_t)(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
+typedef BOOL (WINAPI *CreateDirectoryExW_t)(LPCWSTR lpTemplateDirectory, LPCWSTR lpNewDirectory, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
 
 static map_archive_path_t old_map_archive_path = NULL;
 static CreateFileW_t old_CreateFileW = NULL;
+static CreateFileA_t old_CreateFileA = NULL;
+static CreateFile2_t old_CreateFile2 = NULL;
 static CopyFileW_t old_CopyFileW = NULL;
+static DeleteFileW_t old_DeleteFileW = NULL;
+static DeleteFileA_t old_DeleteFileA = NULL;
+static CreateDirectoryW_t old_CreateDirectoryW = NULL;
+static CreateDirectoryA_t old_CreateDirectoryA = NULL;
+static CreateDirectoryExW_t old_CreateDirectoryExW = NULL;
 
 typedef dl_allocator_t *(__cdecl *get_system_allocator_override_t)(void);
 typedef bool (__cdecl *SteamAPI_Init_t)(void);
-typedef void (__cdecl *fd4_step_fn_t)(void *this_ptr);
 typedef void (__cdecl *game_noop_fn_t)(void *this_ptr);
 
 static get_system_allocator_override_t old_get_system_allocator_override = NULL;
@@ -247,6 +272,7 @@ wchar_t *check_replace_file(const wchar_t *lpFileName) {
     lstrcpyW(full_path, lpFileName);
     PathRemoveFileSpecW(full_path);
     PathAppendW(full_path, replace);
+    vfs_register_writable_path(lpFileName, full_path);
     return full_path;
 }
 
@@ -261,7 +287,8 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
     if (lpFileName == NULL || lpFileName[0] == L'\\') {
         return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     }
-    const wchar_t *replace = mods_file_search_prefixed(lpFileName);
+    const wchar_t *replace = vfs_route_writable_path(lpFileName);
+    if (replace == NULL) replace = mods_file_route_read(lpFileName, dwDesiredAccess, dwCreationDisposition);
     if (replace != NULL) {
         return old_CreateFileW(replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     }
@@ -272,6 +299,30 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
     HANDLE h = old_CreateFileW(full_path, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     LocalFree(full_path);
     return h;
+}
+
+HANDLE WINAPI CreateFileA_hooked(const LPCSTR lpFileName,
+                                 const DWORD dwDesiredAccess,
+                                 const DWORD dwShareMode,
+                                 LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                                 const DWORD dwCreationDisposition,
+                                 const DWORD dwFlagsAndAttributes,
+                                 HANDLE hTemplateFile) {
+    const wchar_t *replace = mods_file_route_read_a(lpFileName, dwDesiredAccess, dwCreationDisposition);
+    if (replace == NULL) {
+        return old_CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                               dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    }
+    return old_CreateFileW(replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                           dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+}
+
+HANDLE WINAPI CreateFile2_hooked(const LPCWSTR lpFileName, const DWORD dwDesiredAccess,
+                                 const DWORD dwShareMode, const DWORD dwCreationDisposition,
+                                 LPCREATEFILE2_EXTENDED_PARAMETERS pCreateExParams) {
+    const wchar_t *replace = mods_file_route_read(lpFileName, dwDesiredAccess, dwCreationDisposition);
+    return old_CreateFile2(replace != NULL ? replace : lpFileName, dwDesiredAccess, dwShareMode,
+                           dwCreationDisposition, pCreateExParams);
 }
 
 BOOL WINAPI CopyFile_hooked(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, BOOL bFailIfExists) {
@@ -424,6 +475,38 @@ static void hook_eldenring_create_file() {
     if (status != MH_OK) {
         fwprintf(stderr, L"WARNING: failed to enable CreateFileW hook: %d\n", status);
     }
+    status = MH_CreateHook(CreateFileA, (void *)&CreateFileA_hooked, (void **)&old_CreateFileA);
+    if (status == MH_OK) status = MH_EnableHook(CreateFileA);
+    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateFileA hook: %d\n", status);
+    status = MH_CreateHook(CreateFile2, (void *)&CreateFile2_hooked, (void **)&old_CreateFile2);
+    if (status == MH_OK) status = MH_EnableHook(CreateFile2);
+    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateFile2 hook: %d\n", status);
+}
+
+BOOL WINAPI DeleteFileW_hooked(LPCWSTR lpFileName) {
+    const wchar_t *replace = vfs_route_writable_path(lpFileName);
+    wchar_t *allocated = replace == NULL ? check_replace_file(lpFileName) : NULL;
+    BOOL result = old_DeleteFileW(replace != NULL ? replace : (allocated != NULL ? allocated : lpFileName));
+    LocalFree(allocated);
+    return result;
+}
+
+BOOL WINAPI DeleteFileA_hooked(LPCSTR lpFileName) {
+    return old_DeleteFileA(lpFileName);
+}
+
+BOOL WINAPI CreateDirectoryW_hooked(LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES attributes) {
+    const wchar_t *replace = vfs_route_writable_path(lpPathName);
+    return old_CreateDirectoryW(replace != NULL ? replace : lpPathName, attributes);
+}
+
+BOOL WINAPI CreateDirectoryA_hooked(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES attributes) {
+    return old_CreateDirectoryA(lpPathName, attributes);
+}
+
+BOOL WINAPI CreateDirectoryExW_hooked(LPCWSTR template_path, LPCWSTR new_path, LPSECURITY_ATTRIBUTES attributes) {
+    const wchar_t *replace = vfs_route_writable_path(new_path);
+    return old_CreateDirectoryExW(template_path, replace != NULL ? replace : new_path, attributes);
 }
 
 static void hook_eldenring_copy_file() {
@@ -438,11 +521,30 @@ static void hook_eldenring_copy_file() {
     }
 }
 
-static void __cdecl regulation_step_idle_hooked(void *this_ptr) {
+static void hook_eldenring_writable_file_apis() {
+    MH_STATUS status = MH_CreateHook(DeleteFileW, (void *)&DeleteFileW_hooked, (void **)&old_DeleteFileW);
+    if (status == MH_OK) status = MH_EnableHook(DeleteFileW);
+    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install DeleteFileW hook: %d\n", status);
+    status = MH_CreateHook(DeleteFileA, (void *)&DeleteFileA_hooked, (void **)&old_DeleteFileA);
+    if (status == MH_OK) status = MH_EnableHook(DeleteFileA);
+    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install DeleteFileA hook: %d\n", status);
+    status = MH_CreateHook(CreateDirectoryW, (void *)&CreateDirectoryW_hooked, (void **)&old_CreateDirectoryW);
+    if (status == MH_OK) status = MH_EnableHook(CreateDirectoryW);
+    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateDirectoryW hook: %d\n", status);
+    status = MH_CreateHook(CreateDirectoryA, (void *)&CreateDirectoryA_hooked, (void **)&old_CreateDirectoryA);
+    if (status == MH_OK) status = MH_EnableHook(CreateDirectoryA);
+    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateDirectoryA hook: %d\n", status);
+    status = MH_CreateHook(CreateDirectoryExW, (void *)&CreateDirectoryExW_hooked, (void **)&old_CreateDirectoryExW);
+    if (status == MH_OK) status = MH_EnableHook(CreateDirectoryExW);
+    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateDirectoryExW hook: %d\n", status);
+}
+
+static void __cdecl regulation_step_idle_hooked(void *this_ptr, fd4_time_t *time) {
     static bool warned_manager = false;
     static bool warned_allocator = false;
 
-    old_regulation_step_idle(this_ptr);
+    old_regulation_step_idle(this_ptr, time);
+
 
     cs_regulation_manager_t *mgr = singleton_find("CSRegulationManager");
     if (mgr == NULL) {
@@ -612,6 +714,9 @@ static BOOL CALLBACK eldenring_after_main_install_once(PINIT_ONCE init_once, PVO
     } else {
         er_log(L"patch_mem disabled by config");
     }
+    if (mods_count() > 0) {
+        eldenring_assets_install(image_base, image_size);
+    }
     er_log(L"after-main install end");
     return TRUE;
 }
@@ -686,10 +791,11 @@ bool eldenring_install() {
         er_log(L"patch_mem disabled by config before main");
     }
 
-    if (config.prevent_regulation_save_write || config.patch_mem) {
+    if ((config.prevent_regulation_save_write || config.patch_mem) &&
+        ml_game_context_get()->runtime_ready_trigger == ML_RUNTIME_READY_STEAM_API_INIT) {
         install_steamapi_deferred_hook();
     } else {
-        er_log(L"deferred SteamAPI_Init hook not needed");
+        er_log(L"runtime-ready trigger is unavailable or not needed");
     }
 
     async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
@@ -715,6 +821,7 @@ bool eldenring_install() {
 
     if (replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
         hook_eldenring_copy_file();
+        hook_eldenring_writable_file_apis();
     }
 
     int modcount = mods_count();

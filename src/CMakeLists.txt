@@ -3,6 +3,7 @@ include(GenerateVersionInfo)
 set(YAERMODLOADER_VERSION "0.6.1")
 
 add_subdirectory(process)
+add_subdirectory(game)
 add_subdirectory(steam)
 add_subdirectory(modloader)
 add_subdirectory(launcher)

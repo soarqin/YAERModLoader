@@ -44,7 +44,7 @@ static uint32_t __cdecl mimalloc_allocator_id(dl_allocator_t *self) {
     return 0xffffffffu;
 }
 
-static void *__cdecl mimalloc_capability(dl_allocator_t *self, uint32_t *out, uint32_t heap) {
+static void *__cdecl mimalloc_capability(dl_allocator_t *self, uint32_t *out, dl_heap_direction_t heap) {
     (void)self;
     (void)heap;
     if (out != NULL) *out = 0x7b;
@@ -61,14 +61,13 @@ static size_t __cdecl mimalloc_zero(dl_allocator_t *self) {
     return 0;
 }
 
-static size_t __cdecl mimalloc_block_size(dl_allocator_t *self, const void *ptr) {
+static size_t __cdecl mimalloc_block_size(dl_allocator_t *self, void *ptr) {
     (void)self;
     return ptr ? mi_usable_size(ptr) : 0;
 }
 
-static void *__cdecl mimalloc_allocate_aligned(dl_allocator_t *self, size_t size, size_t alignment, dl_heap_direction_t direction) {
+static void *__cdecl mimalloc_allocate_aligned(dl_allocator_t *self, size_t size, size_t alignment) {
     (void)self;
-    (void)direction;
     bool ok = false;
     alignment = normalized_alignment(alignment);
     size = round_up_size(size, alignment, &ok);
@@ -76,12 +75,11 @@ static void *__cdecl mimalloc_allocate_aligned(dl_allocator_t *self, size_t size
 }
 
 static void *__cdecl mimalloc_allocate(dl_allocator_t *self, size_t size) {
-    return mimalloc_allocate_aligned(self, size, 16, DL_HEAP_FRONT);
+    return mimalloc_allocate_aligned(self, size, 16);
 }
 
-static void *__cdecl mimalloc_reallocate_aligned(dl_allocator_t *self, void *ptr, size_t size, size_t alignment, dl_heap_direction_t direction) {
+static void *__cdecl mimalloc_reallocate_aligned(dl_allocator_t *self, void *ptr, size_t size, size_t alignment) {
     (void)self;
-    (void)direction;
     bool ok = false;
     alignment = normalized_alignment(alignment);
     size = round_up_size(size, alignment, &ok);
@@ -89,7 +87,7 @@ static void *__cdecl mimalloc_reallocate_aligned(dl_allocator_t *self, void *ptr
 }
 
 static void *__cdecl mimalloc_reallocate(dl_allocator_t *self, void *ptr, size_t size) {
-    return mimalloc_reallocate_aligned(self, ptr, size, 16, DL_HEAP_FRONT);
+    return mimalloc_reallocate_aligned(self, ptr, size, 16);
 }
 
 static void __cdecl mimalloc_free(dl_allocator_t *self, void *ptr) {
@@ -102,13 +100,13 @@ static bool __cdecl mimalloc_self_diagnose(dl_allocator_t *self) {
     return false;
 }
 
-static bool __cdecl mimalloc_is_valid_block(dl_allocator_t *self, const void *ptr) {
+static bool __cdecl mimalloc_is_valid_block(dl_allocator_t *self, void *ptr) {
     (void)self;
     (void)ptr;
     return true;
 }
 
-static void * __cdecl mimalloc_block_of(dl_allocator_t *self, const void *ptr) {
+static void * __cdecl mimalloc_block_of(dl_allocator_t *self, void *ptr) {
     (void)self;
     (void)ptr;
     return NULL;
