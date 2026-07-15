@@ -45,6 +45,8 @@ int main(void) {
     EXPECT_NULL(vfs_route_read_path(L"parts/test.bin", GENERIC_WRITE, OPEN_EXISTING));
     EXPECT_NULL(vfs_route_read_path(L"parts/test.bin", GENERIC_READ, CREATE_ALWAYS));
     EXPECT_TRUE(vfs_register_writable_path(L"settings/test.ini", L"C:\\profile\\test.ini"));
+    EXPECT_TRUE(!vfs_register_writable_path(L"", L"C:\\profile\\test.ini"));
+    EXPECT_TRUE(!vfs_register_writable_path(L"settings/empty.ini", L""));
     EXPECT_TRUE(vfs_has_writable_paths());
     EXPECT_STREQ_W(vfs_route_writable_path(L"settings/test.ini"), L"C:\\profile\\test.ini");
     EXPECT_STREQ_W(vfs_route_read_path(L"settings/test.ini", GENERIC_WRITE, CREATE_ALWAYS), L"C:\\profile\\test.ini");

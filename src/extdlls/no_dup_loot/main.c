@@ -6,7 +6,7 @@
  * https://opensource.org/licenses/MIT.
  */
 
-#include <modloader/extdll_api.h>
+#include "ext_shared.h"
 
 #include <windows.h>
 #include <shlwapi.h>
@@ -20,8 +20,6 @@
 #define kfree(P)       LocalFree(P)
 #include "khash.h"
 KHASH_MAP_INIT_INT(item_count, int32_t)
-
-static modloader_ext_api_t* the_api;
 
 #pragma pack(push, 1)
 
@@ -196,29 +194,30 @@ static int item_spawn_hook(void *map_item_man, spawn_request_t *request, uint32_
 }
 
 static void init() {
+    if (!ml_ext_hook_init()) return;
     size_t size;
-    void* base = the_api->get_module_image_base(NULL, &size);
+    void* base = ml_ext_get_module_image_base(NULL, &size);
     if (base == NULL) {
         return;
     }
     item_count_map = kh_init(item_count);
-    item_spawn = the_api->sig_scan(base, size, "40 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 C7 45 ?? ?? ?? ?? ?? 48 89 9C 24 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 44 89 4C 24");
+    item_spawn = ml_ext_sig_scan(base, size, "40 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 C7 45 ?? ?? ?? ?? ?? 48 89 9C 24 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 44 89 4C 24");
     if (item_spawn == NULL) {
         return;
     }
-    game_data_man = the_api->sig_scan(base, size, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 05 48 8B 40 58 C3 C3");
+    game_data_man = ml_ext_sig_scan(base, size, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 05 48 8B 40 58 C3 C3");
     if (game_data_man == NULL) {
         item_spawn = NULL;
         return;
     }
     game_data_man += *(int32_t*)(game_data_man + 3) + 7;
-    the_api->hook(item_spawn, item_spawn_hook, (void**)&item_spawn_return);
+    ml_ext_hook(item_spawn, item_spawn_hook, (void**)&item_spawn_return);
 }
 
-void on_uninit(void* userp) {
+static void on_uninit(void* userp) {
     (void)userp;
     if (item_spawn != NULL) {
-        the_api->unhook(item_spawn);
+        ml_ext_unhook(item_spawn);
     }
     if (item_count_map != NULL) {
         kh_destroy(item_count, item_count_map);
@@ -226,25 +225,15 @@ void on_uninit(void* userp) {
     }
 }
 
-modloader_ext_def_t def = {
-    "no_dup_loot",
-    NULL,
-    on_uninit,
-};
-
-__declspec(dllexport)
-modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
-    the_api = api;
-    init();
-    return &def;
-}
-
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);
+            init();
             break;
         case DLL_PROCESS_DETACH:
+            on_uninit(NULL);
+            ml_ext_hook_uninit();
             break;
     }
     return TRUE;

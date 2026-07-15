@@ -6,7 +6,6 @@
  * https://opensource.org/licenses/MIT.
  */
 
-#include <modloader/extdll_api.h>
 #include <er_param/param.h>
 #include <er_param/defs/itemlot_param.h>
 #include <er_param/er_param_api.h>
@@ -19,7 +18,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-static modloader_ext_api_t* the_api;
 static const er_param_api_t* param_api = NULL;
 
 typedef struct config_s {
@@ -201,7 +199,7 @@ void process_param_count(er_itemlot_param_t* param, int type) {
     }
 }
 
-void on_param_loaded(void* userp) {
+static void on_param_loaded(void* userp) {
     (void)userp;
     if (param_api == NULL) return;
     const er_param_table_t* table = param_api->find_table(L"ItemLotParam_map");
@@ -219,15 +217,7 @@ void on_param_loaded(void* userp) {
     }
 }
 
-modloader_ext_def_t def = {
-    "item_lot_rate",
-    NULL,
-    NULL,
-};
-
-__declspec(dllexport)
-modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
-    the_api = api;
+static void init(void) {
     HMODULE er_param_mod = GetModuleHandleW(L"er_param.dll");
     if (er_param_mod != NULL) {
         er_param_api_get_t get_api = (er_param_api_get_t)GetProcAddress(er_param_mod, "er_param_api_get");
@@ -238,7 +228,6 @@ modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
     if (param_api != NULL) {
         param_api->on_param_loaded(on_param_loaded, NULL);
     }
-    return &def;
 }
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
@@ -246,6 +235,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);
             load_config(module);
+            init();
             break;
         case DLL_PROCESS_DETACH:
             if (param_api != NULL && GetModuleHandleW(L"er_param.dll") != NULL) {

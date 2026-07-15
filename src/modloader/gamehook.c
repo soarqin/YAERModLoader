@@ -11,6 +11,7 @@
 #include "steam/api.h"
 #include "patches/common.h"
 #include "patches/eldenring.h"
+#include "lifecycle.h"
 
 #include "game/game.h"
 
@@ -24,6 +25,7 @@ bool gamehook_install() {
         return false;
     }
     const ml_game_descriptor_t *game = ml_game_context_get();
+    ml_lifecycle_advance(ML_LIFECYCLE_PHASE_BEFORE_MAIN);
     if (game->id != ML_GAME_ELDEN_RING) {
         fwprintf(stderr, L"WARNING: %ls adapter is not implemented; game hooks are disabled\n", game->title);
         return false;

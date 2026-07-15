@@ -10,6 +10,7 @@
 #include "gamehook.h"
 #include "mod.h"
 #include "extdll.h"
+#include "lifecycle.h"
 #include "detours_subset.h"
 
 #include "proxy/winhttp.h"
@@ -29,6 +30,8 @@ int WINAPI new_entrypoint(void) {
     load_winhttp_proxy();
     load_dxgi_proxy();
     load_dinput8_proxy();
+    ml_lifecycle_init();
+    ml_lifecycle_advance(ML_LIFECYCLE_PHASE_PRE_ENTRY_SAFE);
     config_init(module_instance);
     mods_init();
     config_load();
@@ -58,6 +61,7 @@ BOOL APIENTRY DllMain(const HMODULE module, const DWORD ul_reason_for_call, LPVO
             extdlls_unload_all();
             gamehook_uninstall();
             mods_uninit();
+            ml_lifecycle_uninit();
             break;
         default:
             break;

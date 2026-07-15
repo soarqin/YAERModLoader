@@ -16,14 +16,13 @@
 #include <er_param/from/ezstate.h>
 #include <er_param/from/talk_commands.h>
 
-#include <modloader/extdll_api.h>
+#include "ext_shared.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <string.h>
 #include <stddef.h>
 
-extern modloader_ext_api_t *ak_the_api;
 extern const er_param_api_t *ak_param_api;
 
 static const unsigned char AK_GET_TALK_LIST_ENTRY_RESULT_FUNCTION = 23;
@@ -133,12 +132,12 @@ static void ak_ezstate_enter_state_detour(er_ezstate_state_t *state, er_ezstate_
 void ak_setup_talkscript(void) {
     ak_talkscript_utils_init();
     void *p = ak_param_api->get_ezstate_enter_state();
-    if (p) ak_the_api->hook(p, (void *)ak_ezstate_enter_state_detour, (void **)&ak_orig_ezstate_enter_state);
+    if (p) ml_ext_hook(p, (void *)ak_ezstate_enter_state_detour, (void **)&ak_orig_ezstate_enter_state);
 }
 
 void ak_unhook_talkscript(void) {
     void *p = ak_param_api->get_ezstate_enter_state();
-    if (p) ak_the_api->unhook(p);
+    if (p) ml_ext_unhook(p);
     ak_orig_ezstate_enter_state = NULL;
     ak_talkscript_utils_uninit();
 }

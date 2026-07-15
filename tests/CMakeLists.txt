@@ -11,6 +11,7 @@ set(TEST_INCLUDES
 )
 
 file(GLOB smoke_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/smoke_*.c")
+
 foreach(smoke_src ${smoke_sources})
     get_filename_component(smoke_target "${smoke_src}" NAME_WE)
     add_executable(${smoke_target} "${smoke_src}" ${CMAKE_SOURCE_DIR}/src/common/allocator.c)
@@ -29,6 +30,9 @@ foreach(smoke_src ${smoke_sources})
     if(smoke_target STREQUAL "smoke_hook")
         target_sources(${smoke_target} PRIVATE ${CMAKE_SOURCE_DIR}/src/modloader/hook.c)
         target_link_libraries(${smoke_target} PRIVATE minhook)
+    endif()
+    if(smoke_target STREQUAL "smoke_lifecycle")
+        target_sources(${smoke_target} PRIVATE ${CMAKE_SOURCE_DIR}/src/modloader/lifecycle.c)
     endif()
     if(smoke_target STREQUAL "smoke_dlrf")
         target_sources(${smoke_target} PRIVATE ${CMAKE_SOURCE_DIR}/src/process/dlrf.c)

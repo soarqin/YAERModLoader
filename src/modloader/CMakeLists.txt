@@ -17,9 +17,10 @@ add_project(modloader_dll SHARED
     modloader.c
     ${CMAKE_SOURCE_DIR}/src/common/allocator.c
     config.c config.h
-    extdll.c extdll.h extdll_api.h
+    extdll.c extdll.h
     gamehook.c gamehook.h
     hook.c hook.h
+    lifecycle.c lifecycle.h
     dl_allocator.c dl_allocator.h
     mimalloc_allocator.c mimalloc_allocator.h
     mod.c mod.h

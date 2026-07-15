@@ -18,14 +18,13 @@
 #include <er_param/defs/shop_lineup_param.h>
 #include <er_param/param.h>
 
-#include <modloader/extdll_api.h>
+#include "ext_shared.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <math.h>
 #include <stdint.h>
 
-extern modloader_ext_api_t *ak_the_api;
 extern const er_param_api_t *ak_param_api;
 
 typedef ak_find_shop_menu_result_t *(*ak_lookup_shop_menu_t)(ak_find_shop_menu_result_t *, unsigned char, int, int);
@@ -137,31 +136,31 @@ static unsigned int ak_get_event_flag_detour(void *self, unsigned int flag_id) {
 void ak_setup_shop_hooks(void) {
     void *p;
     p = ak_param_api->get_lookup_shop_menu();
-    if (p) ak_the_api->hook(p, (void *)ak_lookup_shop_menu_detour, (void **)&ak_orig_lookup_shop_menu);
+    if (p) ml_ext_hook(p, (void *)ak_lookup_shop_menu_detour, (void **)&ak_orig_lookup_shop_menu);
     p = ak_param_api->get_lookup_shop_lineup();
-    if (p) ak_the_api->hook(p, (void *)ak_lookup_shop_lineup_detour, (void **)&ak_orig_lookup_shop_lineup);
+    if (p) ml_ext_hook(p, (void *)ak_lookup_shop_lineup_detour, (void **)&ak_orig_lookup_shop_lineup);
     p = ak_param_api->get_open_regular_shop();
-    if (p) ak_the_api->hook(p, (void *)ak_open_regular_shop_detour, (void **)&ak_orig_open_regular_shop);
+    if (p) ml_ext_hook(p, (void *)ak_open_regular_shop_detour, (void **)&ak_orig_open_regular_shop);
     p = ak_param_api->get_get_sell_value();
-    if (p) ak_the_api->hook(p, (void *)ak_get_sell_value_detour, (void **)&ak_orig_get_sell_value);
+    if (p) ml_ext_hook(p, (void *)ak_get_sell_value_detour, (void **)&ak_orig_get_sell_value);
     p = ak_param_api->get_get_max_repository_num();
-    if (p) ak_the_api->hook(p, (void *)ak_get_max_repository_num_detour, (void **)&ak_orig_get_max_repository_num);
+    if (p) ml_ext_hook(p, (void *)ak_get_max_repository_num_detour, (void **)&ak_orig_get_max_repository_num);
     p = ak_param_api->get_get_event_flag();
-    if (p) ak_the_api->hook(p, (void *)ak_get_event_flag_detour, (void **)&ak_orig_get_event_flag);
+    if (p) ml_ext_hook(p, (void *)ak_get_event_flag_detour, (void **)&ak_orig_get_event_flag);
 }
 
 void ak_unhook_shop_hooks(void) {
     void *p;
     p = ak_param_api->get_lookup_shop_menu();
-    if (p) ak_the_api->unhook(p);
+    if (p) ml_ext_unhook(p);
     p = ak_param_api->get_lookup_shop_lineup();
-    if (p) ak_the_api->unhook(p);
+    if (p) ml_ext_unhook(p);
     p = ak_param_api->get_open_regular_shop();
-    if (p) ak_the_api->unhook(p);
+    if (p) ml_ext_unhook(p);
     p = ak_param_api->get_get_sell_value();
-    if (p) ak_the_api->unhook(p);
+    if (p) ml_ext_unhook(p);
     p = ak_param_api->get_get_max_repository_num();
-    if (p) ak_the_api->unhook(p);
+    if (p) ml_ext_unhook(p);
     p = ak_param_api->get_get_event_flag();
-    if (p) ak_the_api->unhook(p);
+    if (p) ml_ext_unhook(p);
 }

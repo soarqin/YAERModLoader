@@ -21,7 +21,6 @@
 #include <er_param/defs/reinforce_param_weapon.h>
 #include <er_param/defs/shop_lineup_param.h>
 
-#include <modloader/extdll_api.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

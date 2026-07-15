@@ -10,11 +10,7 @@
 
 #include "config.h"
 
-#include "extdll_api.h"
-#include "process/image.h"
-#include "process/scanner.h"
-
-#include <MinHook.h>
+#include "game/game.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -28,32 +24,19 @@ typedef struct extdll_t {
     HMODULE dll_module;
     void *extension_object;
 
-    void *userp;
-    void (*on_uninit)(void*);
 } extdll_t;
 
 extdll_t *extdlls = NULL;
 int extdll_count = 0;
 int extdll_capacity = 0;
 
-/* Parenthesized name to prevent macro expansion conflicts with MinHook */
-static void (hook)(void *target, void *detour, void **original) {
-    MH_CreateHook(target, detour, original);
-    MH_EnableHook(target);
+static bool is_elden_ring_extension(const char *name) {
+    return lstrcmpA(name, "er_param") == 0 ||
+           lstrcmpA(name, "almighty_kale") == 0 ||
+           lstrcmpA(name, "itemlot_rate") == 0 ||
+           lstrcmpA(name, "no_dup_loot") == 0 ||
+           lstrcmpA(name, "autoloot") == 0;
 }
-
-static void (unhook)(void *target) {
-    MH_DisableHook(target);
-    MH_RemoveHook(target);
-}
-
-static modloader_ext_api_t ext_api = {
-    .get_module_image_base = get_module_image_base,
-    .sig_scan = sig_scan,
-
-    .hook = hook,
-    .unhook = unhook,
-};
 
 void extdlls_add(const char *name, const wchar_t *path) {
     if (extdll_count >= extdll_capacity) {
@@ -74,9 +57,18 @@ int extdlls_count() {
 }
 
 void extdlls_load_all() {
+    const ml_game_descriptor_t *game = ml_game_context_get();
+    if (game == NULL) {
+        fwprintf(stderr, L"WARNING: external DLLs are disabled because the game context is unavailable\n");
+        return;
+    }
     for (int i = 0; i < extdll_count; i++) {
         HMODULE dll;
         const wchar_t *path = extdlls[i].base_path;
+        if (game->id != ML_GAME_ELDEN_RING && is_elden_ring_extension(extdlls[i].name)) {
+            fwprintf(stdout, L"Skipped external dll %hs outside Elden Ring\n", extdlls[i].name);
+            continue;
+        }
         if (StrChrW(path, L':') == NULL && path[0] != L'\\' && path[0] != L'/') {
             wchar_t full_path[MAX_PATH];
             config_full_path(full_path, path);
@@ -96,16 +88,6 @@ void extdlls_load_all() {
         extdll_t *extdll = &extdlls[i];
         HMODULE dll = extdll->dll_module;
         if (!dll) continue;
-        modloader_ext_init_t ml_ext_init = (modloader_ext_init_t)GetProcAddress(dll, "modloader_ext_init");
-        if (ml_ext_init) {
-            modloader_ext_def_t *def = ml_ext_init(&ext_api);
-            if (def) {
-                extdll->userp = def->userp;
-                extdll->on_uninit = def->on_uninit;
-                fwprintf(stdout, L"Initialized external dll %hs (using extdll API)\n", extdll->name);
-            }
-            continue;
-        }
         FARPROC me_ext_init = GetProcAddress(dll, "modengine_ext_init");
         if (!me_ext_init) continue;
         extdll->extension_object = NULL;
@@ -125,24 +107,23 @@ void extdlls_load_all() {
 void extdlls_unload_all() {
     for (int i = extdll_count - 1; i >= 0; i--) {
         extdll_t *extdll = &extdlls[i];
-        if (!extdll->dll_module) continue;
-        fwprintf(stdout, L"Uninitializing external dll %hs\n", extdll->name);
-        fflush(stdout);
-        if (extdll->on_uninit) {
-            extdll->on_uninit(extdll->userp);
-        } else if (extdll->extension_object) {
-            void **vtable = *(void***)extdll->extension_object;
-            if (vtable) {
-                // Call ModEngineExtension::on_detach()
-                ((void(*)(void*))vtable[2])(extdll->extension_object);
+        if (extdll->dll_module) {
+            fwprintf(stdout, L"Uninitializing external dll %hs\n", extdll->name);
+            fflush(stdout);
+            if (extdll->extension_object) {
+                void **vtable = *(void***)extdll->extension_object;
+                if (vtable) {
+                    // Call ModEngineExtension::on_detach()
+                    ((void(*)(void*))vtable[2])(extdll->extension_object);
+                }
+                extdll->extension_object = NULL;
             }
-            extdll->extension_object = NULL;
+
+            FreeLibrary(extdll->dll_module);
+            extdll->dll_module = NULL;
+
+            fwprintf(stdout, L"Uninitialized external dll %hs\n", extdll->name);
         }
-
-        FreeLibrary(extdll->dll_module);
-        extdll->dll_module = NULL;
-
-        fwprintf(stdout, L"Uninitialized external dll %hs\n", extdll->name);
         if (extdll->name) {
             LocalFree(extdll->name);
             extdll->name = NULL;
@@ -151,7 +132,9 @@ void extdlls_unload_all() {
             LocalFree(extdll->base_path);
             extdll->base_path = NULL;
         }
-        extdll->userp = NULL;
-        extdll->on_uninit = NULL;
     }
+    LocalFree(extdlls);
+    extdlls = NULL;
+    extdll_count = 0;
+    extdll_capacity = 0;
 }

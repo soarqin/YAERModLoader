@@ -13,9 +13,9 @@
 #include "shop_hooks.h"
 #include "talkscript.h"
 
-#include <modloader/extdll_api.h>
 #include <er_param/er_param_api.h>
 #include <steam/api.h>
+#include "ext_shared.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -31,7 +31,6 @@
 /* Forward decls for shop count log */
 extern ak_shop_t *ak_mod_shops_array(void);
 
-modloader_ext_api_t *ak_the_api = NULL;
 const er_param_api_t *ak_param_api = NULL;
 
 static HMODULE g_module = NULL;
@@ -56,22 +55,18 @@ static void ak_on_param_loaded(void *userp) {
     AK_LOG("ak_on_param_loaded: all done");
 }
 
-static void ak_on_uninit(void *userp) {
-    (void)userp;
+static void ak_on_uninit(void) {
+    if (ak_param_api == NULL) return;
+    if (GetModuleHandleW(L"er_param.dll") != NULL) {
+        ak_param_api->off_param_loaded(ak_on_param_loaded, NULL);
+    }
     ak_unhook_talkscript();
     ak_unhook_shop_hooks();
     ak_free_shop_data();
 }
 
-static modloader_ext_def_t ak_def = {
-    "almighty_kale",
-    NULL,
-    ak_on_uninit,
-};
-
-__declspec(dllexport)
-modloader_ext_def_t *modloader_ext_init(modloader_ext_api_t *api) {
-    ak_the_api = api;
+static void ak_init(void) {
+    if (!ml_ext_hook_init()) return;
     ak_load_config(g_module);
     HMODULE er_param_mod = GetModuleHandleW(L"er_param.dll");
     if (er_param_mod != NULL) {
@@ -83,7 +78,6 @@ modloader_ext_def_t *modloader_ext_init(modloader_ext_api_t *api) {
     if (ak_param_api != NULL) {
         ak_param_api->on_param_loaded(ak_on_param_loaded, NULL);
     }
-    return &ak_def;
 }
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
@@ -92,8 +86,11 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);
             g_module = module;
+            ak_init();
             break;
         case DLL_PROCESS_DETACH:
+            ak_on_uninit();
+            ml_ext_hook_uninit();
             break;
     }
     return TRUE;

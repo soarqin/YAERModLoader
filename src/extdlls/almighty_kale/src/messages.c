@@ -11,7 +11,7 @@
 
 #include <steam/api.h>
 #include <er_param/er_param_api.h>
-#include <modloader/extdll_api.h>
+#include "ext_shared.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -24,7 +24,6 @@
     OutputDebugStringA(_ak_buf); \
 } while (0)
 
-extern modloader_ext_api_t *ak_the_api;
 extern const er_param_api_t *ak_param_api;
 
 static const ak_msg_entry_t *ak_mod_event_text = NULL;
@@ -83,7 +82,7 @@ void ak_setup_messages(void) {
         if (ak_msg_repository != NULL) break;
         Sleep(100);
     }
-    ak_the_api->hook(lookup_entry, (void *)ak_lookup_entry_detour, (void **)&ak_lookup_entry_original);
+    ml_ext_hook(lookup_entry, (void *)ak_lookup_entry_detour, (void **)&ak_lookup_entry_original);
     AK_MSG_LOG("ak_setup_messages: hook installed, original=%p", (void*)ak_lookup_entry_original);
 }
 

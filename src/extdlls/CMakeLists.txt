@@ -15,9 +15,9 @@ foreach (dir ${dirs})
     endif ()
 endforeach ()
 
-# Second pass: build regular extdlls (no CMakeLists.txt) via add_project and link
-# er_param::headers (param provider public headers) to each. Self-contained subdirs
-# are fully owned by their own CMakeLists and are skipped here.
+# Second pass: build regular extdlls (no CMakeLists.txt) via add_project. These
+# DLLs initialize from DllMain and share the direct process/MinHook helpers;
+# they do not implement a modloader-specific extension ABI.
 foreach (dir ${dirs})
     if (NOT IS_DIRECTORY ${dir})
         continue()
@@ -30,9 +30,12 @@ foreach (dir ${dirs})
     if (NOT files)
         continue()
     endif ()
-    add_project(extdll_${subdir} SHARED ${files} ${CMAKE_SOURCE_DIR}/src/common/allocator.c LANGUAGES C FOLDER extdlls OUTPUT_SUBDIR dll NO_PREFIX OUTPUT_NAME ${subdir})
-    target_include_directories(extdll_${subdir} PRIVATE ..)
-    target_link_libraries(extdll_${subdir} PRIVATE inih klib shlwapi er_param::headers)
+    add_project(extdll_${subdir} SHARED ${files}
+        ${CMAKE_SOURCE_DIR}/src/common/allocator.c
+        ${CMAKE_SOURCE_DIR}/src/common/ext_shared.c
+        LANGUAGES C FOLDER extdlls OUTPUT_SUBDIR dll NO_PREFIX OUTPUT_NAME ${subdir})
+    target_include_directories(extdll_${subdir} PRIVATE .. ${CMAKE_SOURCE_DIR}/src/common)
+    target_link_libraries(extdll_${subdir} PRIVATE inih klib shlwapi process minhook er_param::headers)
     if (MSVC)
         target_compile_options(extdll_${subdir} PRIVATE "$<$<COMPILE_LANGUAGE:C>:/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h>")
     else ()

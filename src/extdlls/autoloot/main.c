@@ -1,10 +1,8 @@
-#include <modloader/extdll_api.h>
 #include <er_param/er_param_api.h>
+#include "ext_shared.h"
 
 #include <windows.h>
-#include <stddef.h>
 
-static modloader_ext_api_t* the_api;
 static const er_param_api_t* param_api = NULL;
 
 void* exec_action_button_param_proxy = NULL;
@@ -12,40 +10,31 @@ uintptr_t execute_action_button_param_proxy_return = 0;
 
 extern int exec_action_button_param_proxy_hook();
 
-void on_param_loaded(void* userp);
+static void on_param_loaded(void* userp);
 
-void on_uninit(void* userp) {
-    (void)userp;
+static void on_uninit(void) {
     if (param_api != NULL && GetModuleHandleW(L"er_param.dll") != NULL) {
         param_api->off_param_loaded(on_param_loaded, NULL);
     }
-    the_api->unhook(exec_action_button_param_proxy);
+    ml_ext_unhook(exec_action_button_param_proxy);
+    exec_action_button_param_proxy = NULL;
 }
 
-#include <stdio.h>
-
-void on_param_loaded(void* userp) {
+static void on_param_loaded(void* userp) {
     size_t size;
-    void* base = the_api->get_module_image_base(NULL, &size);
+    void* base = ml_ext_get_module_image_base(NULL, &size);
     if (base == NULL) {
         return;
     }
-    exec_action_button_param_proxy = (void*)the_api->sig_scan(base, size, "48 89 5C 24 08 57 48 81 EC 90 00 00 00 48 8B 84 24 E0 00 00 00 41 0F B6 D9 48 8B 0D ?? ?? ?? ?? 8B FA 0F 29 B4 24 80 00 00 00");
+    exec_action_button_param_proxy = (void*)ml_ext_sig_scan(base, size, "48 89 5C 24 08 57 48 81 EC 90 00 00 00 48 8B 84 24 E0 00 00 00 41 0F B6 D9 48 8B 0D ?? ?? ?? ?? 8B FA 0F 29 B4 24 80 00 00 00");
     if (exec_action_button_param_proxy == NULL) {
         return;
     }
-    the_api->hook(exec_action_button_param_proxy, exec_action_button_param_proxy_hook, (void**)&execute_action_button_param_proxy_return);
+    ml_ext_hook(exec_action_button_param_proxy, exec_action_button_param_proxy_hook, (void**)&execute_action_button_param_proxy_return);
 }
 
-modloader_ext_def_t def = {
-    "autoloot",
-    NULL,
-    on_uninit,
-};
-
-__declspec(dllexport)
-modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
-    the_api = api;
+static void init(void) {
+    if (!ml_ext_hook_init()) return;
     HMODULE er_param_mod = GetModuleHandleW(L"er_param.dll");
     if (er_param_mod != NULL) {
         er_param_api_get_t get_api = (er_param_api_get_t)GetProcAddress(er_param_mod, "er_param_api_get");
@@ -56,7 +45,6 @@ modloader_ext_def_t* modloader_ext_init(modloader_ext_api_t* api) {
     if (param_api != NULL) {
         param_api->on_param_loaded(on_param_loaded, NULL);
     }
-    return &def;
 }
 
 extern int check_exec_action_button_param_filters(uintptr_t action_button_region_system_imp, int entry_id) {
@@ -98,8 +86,11 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);
+            init();
             break;
         case DLL_PROCESS_DETACH:
+            on_uninit();
+            ml_ext_hook_uninit();
             break;
     }
     return TRUE;

@@ -6,7 +6,6 @@
  * https://opensource.org/licenses/MIT.
  */
 
-#include <modloader/extdll_api.h>
 #include <er_param/er_param_api.h>
 #include <er_param/param.h>
 #include <er_param/wstring.h>
@@ -29,8 +28,6 @@ typedef struct observer_s {
     void (*cb)(void *userp);
     void *userp;
 } observer_t;
-
-static modloader_ext_api_t *the_api = NULL;
 
 static CRITICAL_SECTION observers_lock;
 static bool observers_inited = false;
@@ -206,14 +203,7 @@ static DWORD WINAPI param_thread(LPVOID arg) {
 
 static HMODULE g_module = NULL;
 
-modloader_ext_def_t def = {
-    "er_param",
-    NULL,
-    NULL,
-};
-
-static void on_uninit(void *userp) {
-    (void)userp;
+static void on_uninit(void) {
     if (param_thread_handle && WaitForSingleObject(param_thread_handle, 5000) == WAIT_TIMEOUT)
         TerminateThread(param_thread_handle, 0);
     if (param_thread_handle) {
@@ -227,23 +217,21 @@ static void on_uninit(void *userp) {
         observers_count = 0;
         observers_capacity = 0;
     }
-    DeleteCriticalSection(&observers_lock);
-    observers_inited = false;
+    if (observers_inited) {
+        DeleteCriticalSection(&observers_lock);
+        observers_inited = false;
+    }
 }
 
-__declspec(dllexport)
-modloader_ext_def_t *modloader_ext_init(modloader_ext_api_t *api) {
-    the_api = api;
+static void init(void) {
     if (!observers_inited) {
         InitializeCriticalSection(&observers_lock);
         observers_inited = true;
     }
     load_config(g_module);
-    def.on_uninit = on_uninit;
     if (param_thread_handle == NULL) {
         param_thread_handle = CreateThread(NULL, 0, param_thread, NULL, 0, NULL);
     }
-    return &def;
 }
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
@@ -252,8 +240,10 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved)
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);
             g_module = module;
+            init();
             break;
         case DLL_PROCESS_DETACH:
+            on_uninit();
             break;
     }
     return TRUE;

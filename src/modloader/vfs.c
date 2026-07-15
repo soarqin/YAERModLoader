@@ -241,7 +241,11 @@ bool vfs_add_package(const wchar_t *path) {
 bool vfs_register_writable_path(const wchar_t *virtual_path, const wchar_t *physical_path) {
     wchar_t *key;
     wchar_t *path;
-    if (virtual_path == NULL || physical_path == NULL || !vfs_normalize_path(virtual_path, &key)) return false;
+    if (virtual_path == NULL || physical_path == NULL || physical_path[0] == L'\0' || !vfs_normalize_path(virtual_path, &key)) return false;
+    if (key[0] == L'\0') {
+        LocalFree(key);
+        return false;
+    }
     path = StrDupW(physical_path);
     if (path == NULL) {
         LocalFree(key);

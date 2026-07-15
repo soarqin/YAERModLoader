@@ -7,6 +7,7 @@
  */
 
 #include "eldenring.h"
+#include "../lifecycle.h"
 #include "eldenring_assets.h"
 
 #include "modloader/config.h"
@@ -726,6 +727,7 @@ static bool __cdecl SteamAPI_Init_hooked(void) {
     er_log(L"SteamAPI_Init returned %d", result ? 1 : 0);
     if (result) {
         InitOnceExecuteOnce(&after_main_once, eldenring_after_main_install_once, NULL, NULL);
+        ml_lifecycle_advance(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT);
     }
     return result;
 }
