@@ -9,8 +9,10 @@
 #include "gamehook.h"
 
 #include "steam/api.h"
+#include "config.h"
 #include "patches/common.h"
 #include "patches/eldenring.h"
+#include "patches/logo.h"
 #include "lifecycle.h"
 
 #include "game/game.h"
@@ -18,6 +20,11 @@
 #include <MinHook.h>
 
 #include <stdio.h>
+
+static void install_logo_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
+    (void)phase;
+    ml_logo_skip_install((const ml_game_descriptor_t *)userp);
+}
 
 bool gamehook_install() {
     if (!ml_game_context_init()) {
@@ -29,6 +36,10 @@ bool gamehook_install() {
     if (game->id != ML_GAME_ELDEN_RING) {
         fwprintf(stderr, L"WARNING: %ls adapter is not implemented; game hooks are disabled\n", game->title);
         return false;
+    }
+    if (config.skip_intro &&
+        !ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_logo_after_runtime, (void *)game)) {
+        fwprintf(stderr, L"WARNING: [logo] could not schedule Logo redirect\n");
     }
     steamapi_init();
     bool result = common_install() && eldenring_install();

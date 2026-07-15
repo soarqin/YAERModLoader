@@ -28,6 +28,8 @@ add_project(modloader_dll SHARED
     filecache.c filecache.h
     detours_subset.h
     patches/common.c patches/common.h
+    patches/logo.c patches/logo.h
+    patches/window_flash.c patches/window_flash.h
     patches/wwise_path.c patches/wwise_path.h
     patches/dl_device.c patches/dl_device.h
     patches/eldenring_assets.c patches/eldenring_assets.h
@@ -55,7 +57,7 @@ if (STRIP_MODENGINE_CONFIG_SUPPORT)
 else ()
     target_link_libraries(modloader_dll toml-c)
 endif ()
-target_link_libraries(modloader_dll game_registry process steam minhook inih klib mimalloc-static miniz shlwapi version)
+target_link_libraries(modloader_dll game_registry process steam minhook inih klib mimalloc-static miniz gdi32 shlwapi version)
 if (NOT MSVC)
     target_link_options(modloader_dll PRIVATE -municode)
 endif ()

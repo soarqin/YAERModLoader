@@ -27,6 +27,9 @@ _Static_assert(offsetof(fd4_time_t, vtable) == 0, "fd4_time_t vtable offset");
 _Static_assert(offsetof(fd4_time_t, time) == sizeof(uintptr_t), "fd4_time_t time offset");
 _Static_assert(sizeof(fd4_time_t) == 16, "fd4_time_t size");
 
+/* Returns the initialized FD4 step function slot for step_name, or NULL. */
+extern void **fd4_step_find_slot(const wchar_t *step_name);
+
 /* Returns the initialized FD4 step function pointer for step_name, or NULL. */
 extern void *fd4_step_find(const wchar_t *step_name);
 

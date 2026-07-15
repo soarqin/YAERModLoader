@@ -369,17 +369,6 @@ DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
     return 0;
 }
 
-static bool patch_eldenring_skip_intro() {
-    static const uint8_t new_bytes[] = { 0x90, 0x90 };
-    uint8_t *addr = sig_scan(image_base, image_size, "74 53 48 8B 05 ?? ?? ?? ?? 48 85 C0 75 2E 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 4C 8B C8");
-    if (!addr) return false;
-    DWORD old_protect;
-    VirtualProtect(addr, 2, PAGE_EXECUTE_READWRITE, &old_protect);
-    memcpy(addr, new_bytes, 2);
-    VirtualProtect(addr, 2, old_protect, &old_protect);
-    return true;
-}
-
 static bool patch_eldenring_remove_chromatic_aberration() {
     static const uint8_t new_bytes[] = { 0x66, 0x0f, 0xef, 0xc9 };
     uint8_t *addr = sig_scan(image_base, image_size, "0F 11 ?? 60 ?? 8D ?? 80 00 00 00 0F 10 ?? A0 00 00 00 0F 11 ?? F0 ?? 8D ?? B0 00 00 00 0F 10 ?? 0F 11 ?? 0F 10 ?? 10");
@@ -793,7 +782,7 @@ bool eldenring_install() {
         er_log(L"patch_mem disabled by config before main");
     }
 
-    if ((config.prevent_regulation_save_write || config.patch_mem) &&
+    if ((config.skip_intro || config.prevent_regulation_save_write || config.patch_mem) &&
         ml_game_context_get()->runtime_ready_trigger == ML_RUNTIME_READY_STEAM_API_INIT) {
         install_steamapi_deferred_hook();
     } else {
@@ -803,10 +792,6 @@ bool eldenring_install() {
     async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
     if (config.reset_achievements_on_new_game) {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
-    }
-
-    if (config.skip_intro) {
-        patch_eldenring_skip_intro();
     }
 
     if (config.remove_chromatic_aberration) {

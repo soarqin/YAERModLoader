@@ -13,6 +13,8 @@
 #include "lifecycle.h"
 #include "detours_subset.h"
 
+#include "patches/window_flash.h"
+
 #include "proxy/winhttp.h"
 #include "proxy/dxgi.h"
 #include "proxy/dinput8.h"
@@ -32,6 +34,7 @@ int WINAPI new_entrypoint(void) {
     load_dinput8_proxy();
     ml_lifecycle_init();
     ml_lifecycle_advance(ML_LIFECYCLE_PHASE_PRE_ENTRY_SAFE);
+    ml_window_flash_install();
     config_init(module_instance);
     mods_init();
     config_load();

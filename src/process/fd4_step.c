@@ -190,7 +190,7 @@ static void **fd4_step_lookup_unlocked(const wchar_t *step_name) {
     return (void **)kh_value(fd4_step_map, k);
 }
 
-static void **fd4_step_find_slot(const wchar_t *step_name) {
+void **fd4_step_find_slot(const wchar_t *step_name) {
     void **slot;
 
     if (step_name == NULL) {
