@@ -782,11 +782,10 @@ bool eldenring_install() {
         er_log(L"patch_mem disabled by config before main");
     }
 
-    if ((config.skip_intro || config.prevent_regulation_save_write || config.patch_mem) &&
-        ml_game_context_get()->runtime_ready_trigger == ML_RUNTIME_READY_STEAM_API_INIT) {
+    if (ml_game_context_get()->runtime_ready_trigger == ML_RUNTIME_READY_STEAM_API_INIT) {
         install_steamapi_deferred_hook();
     } else {
-        er_log(L"runtime-ready trigger is unavailable or not needed");
+        er_log(L"runtime-ready trigger is unavailable");
     }
 
     async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);

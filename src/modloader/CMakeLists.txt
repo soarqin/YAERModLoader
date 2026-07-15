@@ -1,4 +1,7 @@
-project(modloader LANGUAGES C VERSION "${YAERMODLOADER_VERSION}")
+enable_language(ASM_NASM)
+project(modloader LANGUAGES C ASM_NASM VERSION "${YAERMODLOADER_VERSION}")
+
+set(CMAKE_ASM_NASM_OBJECT_FORMAT win64)
 
 option(STRIP_MODENGINE_CONFIG_SUPPORT "Strip ModEngine config support" OFF)
 
@@ -29,6 +32,7 @@ add_project(modloader_dll SHARED
     detours_subset.h
     patches/common.c patches/common.h
     patches/logo.c patches/logo.h
+    patches/properties.c patches/properties.h patches/properties_hook.asm
     patches/window_flash.c patches/window_flash.h
     patches/wwise_path.c patches/wwise_path.h
     patches/dl_device.c patches/dl_device.h
@@ -41,6 +45,8 @@ add_project(modloader_dll SHARED
 
     ${dll_res_files}
 
+    LANGUAGES C ASM_NASM
+
     INLINE_TARGET OUTPUT_NAME "YAERModLoader" NO_PREFIX FOLDER app
 )
 
@@ -48,9 +54,9 @@ target_include_directories(modloader_dll PRIVATE ..)
 target_include_directories(modloader_dll PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
 target_compile_definitions(modloader_dll PRIVATE YAERMODLOADER_USE_MIMALLOC)
 if (MSVC)
-    target_compile_options(modloader_dll PRIVATE "/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h")
+    target_compile_options(modloader_dll PRIVATE "$<$<COMPILE_LANGUAGE:C>:/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h>")
 else ()
-    target_compile_options(modloader_dll PRIVATE -include ${CMAKE_SOURCE_DIR}/src/common/allocator.h)
+    target_compile_options(modloader_dll PRIVATE "$<$<COMPILE_LANGUAGE:C>:-include;${CMAKE_SOURCE_DIR}/src/common/allocator.h>")
 endif ()
 if (STRIP_MODENGINE_CONFIG_SUPPORT)
     target_compile_definitions(modloader_dll PRIVATE STRIP_MODENGINE_CONFIG_SUPPORT)

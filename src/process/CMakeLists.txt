@@ -3,6 +3,7 @@ add_project(process STATIC
     dlrf.c dlrf.h
     image.c image.h
     pe.c pe.h
+    rip_scan.c rip_scan.h
     rtti.c rtti.h
     scanner.c scanner.h
     singleton.c singleton.h

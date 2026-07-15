@@ -13,6 +13,7 @@
 #include "patches/common.h"
 #include "patches/eldenring.h"
 #include "patches/logo.h"
+#include "patches/properties.h"
 #include "lifecycle.h"
 
 #include "game/game.h"
@@ -24,6 +25,11 @@
 static void install_logo_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
     (void)phase;
     ml_logo_skip_install((const ml_game_descriptor_t *)userp);
+}
+
+static void install_properties_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
+    (void)phase;
+    ml_properties_install((const ml_game_descriptor_t *)userp);
 }
 
 bool gamehook_install() {
@@ -40,6 +46,9 @@ bool gamehook_install() {
     if (config.skip_intro &&
         !ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_logo_after_runtime, (void *)game)) {
         fwprintf(stderr, L"WARNING: [logo] could not schedule Logo redirect\n");
+    }
+    if (!ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_properties_after_runtime, (void *)game)) {
+        fwprintf(stderr, L"WARNING: [properties] could not schedule installation\n");
     }
     steamapi_init();
     bool result = common_install() && eldenring_install();
