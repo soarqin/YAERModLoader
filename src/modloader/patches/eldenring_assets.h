@@ -8,6 +8,9 @@
 
 #pragma once
 
+#include "game/game.h"
+
 #include <stdbool.h>
 
-bool eldenring_assets_install(void *image_base, size_t image_size);
+bool from_assets_install(const ml_game_descriptor_t *game, void *image_base, size_t image_size);
+bool from_assets_uninstall(void);

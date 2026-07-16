@@ -16,6 +16,7 @@
 #include "patches/logo.h"
 #include "patches/properties.h"
 #include "patches/regulation.h"
+#include "patches/sekiro.h"
 #include "mimalloc_allocator.h"
 #include "lifecycle.h"
 
@@ -58,7 +59,7 @@ bool gamehook_install() {
         ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_allocator_after_runtime, (void *)game);
     }
     ml_lifecycle_advance(ML_LIFECYCLE_PHASE_BEFORE_MAIN);
-    if (game->id != ML_GAME_ELDEN_RING) {
+    if (game->id != ML_GAME_ELDEN_RING && game->id != ML_GAME_SEKIRO) {
         fwprintf(stderr, L"WARNING: %ls adapter is not implemented; game hooks are disabled\n", game->title);
         return false;
     }
@@ -74,7 +75,9 @@ bool gamehook_install() {
         fwprintf(stderr, L"WARNING: [regulation] could not schedule installation\n");
     }
     steamapi_init();
-    bool result = common_install() && eldenring_install();
+    bool result = game->id == ML_GAME_ELDEN_RING
+        ? common_install() && eldenring_install()
+        : sekiro_install();
     return result;
 }
 
@@ -83,6 +86,8 @@ void gamehook_uninstall() {
     if (game != NULL && game->id == ML_GAME_ELDEN_RING) {
         eldenring_uninstall();
         common_uninstall();
+    } else if (game != NULL && game->id == ML_GAME_SEKIRO) {
+        sekiro_uninstall();
     }
 
     MH_Uninitialize();

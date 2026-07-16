@@ -22,7 +22,7 @@ typedef struct {
     bool reset_achievements_on_new_game;
     bool enable_ime;
 
-    /* ELDEN RING */
+    /* GAME */
     bool skip_intro;
     bool remove_chromatic_aberration;
     bool remove_vignette;
@@ -41,6 +41,7 @@ extern void config_load();
 
 extern const wchar_t *module_path();
 extern void config_full_path(wchar_t *path, const wchar_t *filename);
+extern wchar_t *config_full_path_alloc(const wchar_t *filename);
 
 extern config_t config;
 

@@ -71,6 +71,15 @@ const wchar_t *mods_file_search_prefixed(const wchar_t *path) {
     return mod_count <= 0 ? NULL : vfs_lookup_prefixed(path, game_folder);
 }
 
+const wchar_t *mods_file_search_prefixed_domain(const wchar_t *path, int domain) {
+    return mod_count <= 0 ? NULL : vfs_lookup_prefixed_domain(path, game_folder, (vfs_lookup_domain_t)domain);
+}
+
+bool mods_file_virtual_to_uid_prefixed(const wchar_t *path, wchar_t **uid) {
+    if (uid != NULL) *uid = NULL;
+    return mod_count > 0 && vfs_virtual_to_uid_prefixed(path, game_folder, uid);
+}
+
 const wchar_t *mods_file_route_read(const wchar_t *path, DWORD desired_access, DWORD creation_disposition) {
     if (mod_count <= 0 || path == NULL || StrCmpNIW(path, game_folder, game_folder_length) != 0) return NULL;
     return vfs_route_read_path(path + game_folder_length, desired_access, creation_disposition);

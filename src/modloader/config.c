@@ -18,6 +18,8 @@
 
 #include <shlwapi.h>
 
+#include "game/game.h"
+
 config_t config = {
     .cpu_affinity_strategy = 0,
     .reset_achievements_on_new_game = false,
@@ -50,6 +52,15 @@ static bool value_to_bool(const char *value) {
     return lstrcmpA(value, "true") == 0 || lstrcmpA(value, "yes") == 0 || lstrcmpA(value, "on") == 0 || lstrcmpA(value, "1") == 0;
 }
 
+static bool is_current_game_section(const char *section) {
+    const ml_game_descriptor_t *game = ml_game_detect_current_process();
+    wchar_t wide_section[64];
+    if (game == NULL || game->ini_section == NULL ||
+        MultiByteToWideChar(CP_UTF8, 0, section, -1, wide_section, 64) == 0) return false;
+    wide_section[63] = L'\0';
+    return lstrcmpiW(wide_section, game->ini_section) == 0;
+}
+
 static int ini_read_cb(void *user, const char *section,
                        const char *name, const char *value) {
     wchar_t path[MAX_PATH];
@@ -65,7 +76,7 @@ static int ini_read_cb(void *user, const char *section,
         } else if (lstrcmpA(name, "enable_ime") == 0) {
             config.enable_ime = value_to_bool(value);
         }
-    } else if (lstrcmpA(section, "elden_ring") == 0) {
+    } else if (is_current_game_section(section)) {
         if (lstrcmpA(name, "skip_intro") == 0) {
             config.skip_intro = value_to_bool(value);
         } else if (lstrcmpA(name, "remove_chromatic_aberration") == 0) {
@@ -184,13 +195,16 @@ void config_init(void *module) {
 void config_load() {
     wchar_t config_path[MAX_PATH] = L"";
     FILE *config_file = NULL;
+    const ml_game_descriptor_t *game = ml_game_detect_current_process();
+    const wchar_t *modengine_config_name = game != NULL
+        ? game->modengine_config_name : L"config_eldenring.toml";
     if (env_config_path[0] == L'\0') {
         lstrcpyW(config_path, modloader_module_path);
         PathAppendW(config_path, L"YAERModLoader.ini");
 #if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
         if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
             lstrcpyW(config_path, modloader_module_path);
-            PathAppendW(config_path, L"config_eldenring.toml");
+            PathAppendW(config_path, modengine_config_name);
         }
 #endif
     } else {
@@ -203,7 +217,7 @@ void config_load() {
 #if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
             if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
                 lstrcpyW(config_path, env_config_path);
-                PathAppendW(config_path, L"config_eldenring.toml");
+                PathAppendW(config_path, modengine_config_name);
             }
 #endif
         } else {
@@ -222,6 +236,28 @@ void config_load() {
 }
 
 const wchar_t *module_path() { return modloader_module_path; }
+
+wchar_t *config_full_path_alloc(const wchar_t *filename) {
+    const wchar_t *base = env_config_path[0] == L'\0' ? modloader_module_path : env_config_path;
+    size_t base_length = wcslen(base);
+    size_t filename_length = filename == NULL ? 0 : wcslen(filename);
+    bool separator = filename_length != 0 && base_length != 0 &&
+                     base[base_length - 1] != L'\\' && base[base_length - 1] != L'/';
+    wchar_t *result;
+    if (base_length > SIZE_MAX - filename_length - (separator ? 2 : 1)) return NULL;
+    result = LocalAlloc(0, (base_length + filename_length + (separator ? 2 : 1)) * sizeof(*result));
+    if (result == NULL) return NULL;
+    memcpy(result, base, (base_length + 1) * sizeof(*result));
+    if (env_config_path[0] != L'\0' && PathFileExistsW(result) && !PathIsDirectoryW(result)) {
+        PathRemoveFileSpecW(result);
+        base_length = wcslen(result);
+        separator = filename_length != 0 && base_length != 0 &&
+                    result[base_length - 1] != L'\\' && result[base_length - 1] != L'/';
+    }
+    if (separator) result[base_length++] = L'\\';
+    if (filename_length != 0) memcpy(result + base_length, filename, (filename_length + 1) * sizeof(*result));
+    return result;
+}
 
 void config_full_path(wchar_t *path, const wchar_t *filename) {
     if (env_config_path[0] == L'\0') {

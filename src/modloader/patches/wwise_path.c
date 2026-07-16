@@ -8,7 +8,10 @@
 
 #include "wwise_path.h"
 
-#include <stdio.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+#include <stdint.h>
 #include <wchar.h>
 
 const wchar_t *wwise_strip_prefixes(const wchar_t *path) {
@@ -25,19 +28,38 @@ const wchar_t *wwise_strip_prefixes(const wchar_t *path) {
     }
 }
 
-bool wwise_wem_candidates(const wchar_t *path, wchar_t *first, size_t first_count,
-                          wchar_t *second, size_t second_count) {
-    size_t length;
-    if (path == NULL || first == NULL || second == NULL || first_count == 0 || second_count == 0) return false;
+wchar_t *wwise_join_path(const wchar_t *prefix, const wchar_t *path) {
+    size_t prefix_length;
+    size_t path_length;
+    wchar_t *result;
+    if (prefix == NULL || path == NULL) return NULL;
+    prefix_length = wcslen(prefix);
+    path_length = wcslen(path);
+    if (prefix_length > SIZE_MAX - path_length - 1) return NULL;
+    result = LocalAlloc(0, (prefix_length + path_length + 1) * sizeof(*result));
+    if (result == NULL) return NULL;
+    memcpy(result, prefix, prefix_length * sizeof(*result));
+    memcpy(result + prefix_length, path, (path_length + 1) * sizeof(*result));
+    return result;
+}
 
-    length = wcslen(path);
-    if (length < 2 || _snwprintf(first, first_count, L"wem/%ls", path) < 0 ||
-        _snwprintf(second, second_count, L"wem/%.*ls/%ls", 2, path, path) < 0) {
-        first[first_count - 1] = L'\0';
-        second[second_count - 1] = L'\0';
+bool wwise_wem_candidates(const wchar_t *path, wchar_t **first, wchar_t **second) {
+    size_t path_length;
+    wchar_t prefix[] = L"wem/00/";
+    if (first == NULL || second == NULL) return false;
+    *first = NULL;
+    *second = NULL;
+    if (path == NULL || (path_length = wcslen(path)) < 2) return false;
+    prefix[4] = path[0];
+    prefix[5] = path[1];
+    *first = wwise_join_path(L"wem/", path);
+    *second = wwise_join_path(prefix, path);
+    if (*first == NULL || *second == NULL) {
+        LocalFree(*first);
+        LocalFree(*second);
+        *first = NULL;
+        *second = NULL;
         return false;
     }
-    first[first_count - 1] = L'\0';
-    second[second_count - 1] = L'\0';
     return true;
 }

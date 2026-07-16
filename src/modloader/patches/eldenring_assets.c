@@ -13,12 +13,16 @@
 #include "modloader/config.h"
 #include "modloader/dl_allocator.h"
 #include "modloader/hook.h"
+#include "modloader/hook_batch.h"
+#include "modloader/mod.h"
 #include "modloader/vfs.h"
 #include "game/game.h"
 #include "process/fd4_step.h"
 #include "process/pe.h"
 #include "process/rtti.h"
 #include "process/scanner.h"
+
+#include <MinHook.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -39,6 +43,9 @@ static mount_ebl_t old_mount_ebl;
 static bool pre_hooks_installed;
 static bool post_hooks_installed;
 static bool file_step_hook_installed;
+static void *file_step_hook_target;
+static void *mount_ebl_hook_target;
+static void *make_ebl_object_hook_target;
 
 typedef struct asset_hook_s {
     void *target;
@@ -94,8 +101,8 @@ static void *find_mount_ebl(void) {
 static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator, mount_ebl_t original,
                              const wchar_t *mount_name, const wchar_t *bdt_path,
                              const char *rsa_key, size_t key_len, bool *mounted) {
-    wchar_t cache_directory[MAX_PATH];
-    wchar_t cache_path[MAX_PATH];
+    wchar_t *cache_directory = NULL;
+    wchar_t *cache_path = NULL;
     wchar_t *expanded = NULL;
     HANDLE source;
     LARGE_INTEGER source_size = { 0 };
@@ -136,14 +143,28 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
         CloseHandle(source); LocalFree(encrypted); LocalFree(expanded); ml_dl_device_manager_unlock(&guard); return false;
     }
     CloseHandle(source);
-    config_full_path(cache_directory, L"cache");
+    cache_directory = config_full_path_alloc(L"cache");
+    cache_path = ml_boot_boost_cache_path(cache_directory, key);
+    if (cache_directory == NULL || cache_path == NULL) {
+        LocalFree(cache_directory);
+        LocalFree(cache_path);
+        LocalFree(encrypted);
+        LocalFree(expanded);
+        ml_dl_device_manager_unlock(&guard);
+        return false;
+    }
     CreateDirectoryW(cache_directory, NULL);
-    wsprintfW(cache_path, L"%s\\%016llx.bhd.zz", cache_directory, key);
     LocalFree(encrypted);
     /* The game must create the holder before cached contents can be substituted. */
     result = original(mount_name, bhd_path, bdt_path, allocator, rsa_key, key_len);
     *mounted = result;
-    if (!result) { LocalFree(expanded); return true; }
+    if (!result) {
+        LocalFree(cache_directory);
+        LocalFree(cache_path);
+        LocalFree(expanded);
+        ml_dl_device_manager_unlock(&guard);
+        return true;
+    }
     {
         size_t count = ml_dl_vector_count(&device_manager->bnd4_mounts, sizeof(ml_dl_virtual_mount_t));
         if (count != 0) {
@@ -178,25 +199,43 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
             }
         }
     }
+    LocalFree(cache_directory);
+    LocalFree(cache_path);
     LocalFree(expanded);
     ml_dl_device_manager_unlock(&guard);
     return true;
 }
 
-static bool replace_dl_path(ml_msvc2015_string_t *path) {
+static bool replace_dl_path_with_uid(ml_msvc2015_string_t *path) {
     ml_dl_device_manager_guard_t guard = { 0 };
     wchar_t *expanded = NULL;
-    const wchar_t *replacement;
     bool result = false;
     const wchar_t *raw = ml_dl_string_data(path);
     if (raw == NULL || device_manager == NULL || !ml_dl_device_manager_lock(device_manager, &guard)) return false;
-    if (ml_dl_device_expand_path(device_manager, raw, &expanded)) {
-        replacement = vfs_lookup(expanded);
-        if (replacement != NULL) result = ml_dl_string_replace_path(path, replacement);
+    if (vfs_uid_to_path(raw) == NULL && ml_dl_device_expand_path(device_manager, raw, &expanded)) {
+        wchar_t *uid = NULL;
+        if (mods_file_virtual_to_uid_prefixed(expanded, &uid) || vfs_virtual_to_uid(expanded, &uid)) {
+            result = ml_dl_string_replace_path(path, uid);
+            LocalFree(uid);
+        }
     }
     LocalFree(expanded);
     ml_dl_device_manager_unlock(&guard);
     return result;
+}
+
+static const wchar_t *resolve_disk_path(const ml_msvc2015_string_t *path, wchar_t **expanded) {
+    const wchar_t *raw = ml_dl_string_data(path);
+    const wchar_t *replacement;
+    *expanded = NULL;
+    if (raw == NULL) return NULL;
+    replacement = vfs_uid_to_path(raw);
+    if (replacement != NULL) return replacement;
+    if (device_manager != NULL && ml_dl_device_expand_path(device_manager, raw, expanded)) {
+        replacement = mods_file_search_prefixed_domain(*expanded, VFS_LOOKUP_DISK_WIDE);
+        return replacement != NULL ? replacement : vfs_lookup_domain(*expanded, VFS_LOOKUP_DISK_WIDE);
+    }
+    return NULL;
 }
 
 static void *asset_hook_original(asset_hook_t *hooks, size_t count, void **slot) {
@@ -232,18 +271,21 @@ static void hook_file_operator(ml_dl_file_operator_t *file_operator);
 static void *__cdecl disk_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_string_t *path,
                                             const wchar_t *path_cstr, void *container, void *allocator, bool temporary) {
     void *result;
-    bool overridden = replace_dl_path(path);
+    wchar_t *expanded = NULL;
+    const wchar_t *replacement = resolve_disk_path(path, &expanded);
+    bool overridden = replacement != NULL;
     if (InterlockedCompareExchange(&logged_disk_open, 1, 0) == 0) {
         fwprintf(stderr, L"NOTE: [eldenring-assets] disk open_file enter: device=%p path=%p path_cstr=%p container=%p allocator=%p temporary=%d\n",
                  device, path, path_cstr, container, allocator, temporary ? 1 : 0);
     }
+    if (overridden) path_cstr = replacement;
     if (overridden && InterlockedCompareExchange(&logged_disk_override, 1, 0) == 0) {
-        path_cstr = ml_dl_string_data(path);
         fwprintf(stderr, L"NOTE: [eldenring-assets] disk open_file VFS override: %s\n", path_cstr);
     }
     dl_open_file_t original = (dl_open_file_t)asset_hook_original(open_hooks, open_hook_count, &device->vtable->open_file);
-    if (original == NULL) return NULL;
+    if (original == NULL) { LocalFree(expanded); return NULL; }
     result = original(device, path, path_cstr, container, allocator, temporary);
+    LocalFree(expanded);
     if (InterlockedCompareExchange(&logged_disk_open_return, 1, 0) == 0) {
         fwprintf(stderr, L"NOTE: [eldenring-assets] disk open_file returned: operator=%p\n", result);
     }
@@ -258,7 +300,7 @@ static bool __cdecl set_path_hooked(ml_dl_file_operator_t *file_operator, ml_msv
         fwprintf(stderr, L"NOTE: [eldenring-assets] SetPath enter: this=%p path=%p p3=%d p4=%d trampoline=%p\n",
                  file_operator, path, p3 ? 1 : 0, p4 ? 1 : 0, original);
     }
-    if (replace_dl_path(path) && InterlockedCompareExchange(&logged_set_path_override, 1, 0) == 0) {
+    if (replace_dl_path_with_uid(path) && InterlockedCompareExchange(&logged_set_path_override, 1, 0) == 0) {
         fwprintf(stderr, L"NOTE: [eldenring-assets] DlFileOperator::SetPath VFS override: %s\n", ml_dl_string_data(path));
     }
     result = original != NULL && original(file_operator, path, p3, p4);
@@ -275,7 +317,7 @@ static bool __cdecl set_path2_hooked(ml_dl_file_operator_t *file_operator, ml_ms
         fwprintf(stderr, L"NOTE: [eldenring-assets] SetPath2 enter: this=%p path=%p p3=%d p4=%d trampoline=%p\n",
                  file_operator, path, p3 ? 1 : 0, p4 ? 1 : 0, original);
     }
-    if (replace_dl_path(path) && InterlockedCompareExchange(&logged_set_path_override, 1, 0) == 0) {
+    if (replace_dl_path_with_uid(path) && InterlockedCompareExchange(&logged_set_path_override, 1, 0) == 0) {
         fwprintf(stderr, L"NOTE: [eldenring-assets] DlFileOperator::SetPath2 VFS override: %s\n", ml_dl_string_data(path));
     }
     result = original != NULL && original(file_operator, path, p3, p4);
@@ -292,7 +334,7 @@ static bool __cdecl set_path3_hooked(ml_dl_file_operator_t *file_operator, ml_ms
         fwprintf(stderr, L"NOTE: [eldenring-assets] SetPath3 enter: this=%p path=%p p3=%d p4=%d trampoline=%p\n",
                  file_operator, path, p3 ? 1 : 0, p4 ? 1 : 0, original);
     }
-    if (replace_dl_path(path) && InterlockedCompareExchange(&logged_set_path_override, 1, 0) == 0) {
+    if (replace_dl_path_with_uid(path) && InterlockedCompareExchange(&logged_set_path_override, 1, 0) == 0) {
         fwprintf(stderr, L"NOTE: [eldenring-assets] DlFileOperator::SetPath3 VFS override: %s\n", ml_dl_string_data(path));
     }
     result = original != NULL && original(file_operator, path, p3, p4);
@@ -406,6 +448,7 @@ static void install_pre_hooks(void) {
     }
     mount = find_mount_ebl();
     if (mount != NULL && ml_hook_install(mount, mount_ebl_hooked, (void **)&old_mount_ebl) == ML_HOOK_APPLIED) {
+        mount_ebl_hook_target = mount;
         fwprintf(stderr, L"NOTE: [eldenring-assets] MountEbl hook applied\n");
         pre_hooks_installed = true;
     } else {
@@ -420,6 +463,7 @@ static void install_post_hooks(void) {
     vtable = rtti_find_vtable("DLEBL::DLEncryptedBinderLightUtility");
     if (vtable != NULL && pointer_in_text(vtable[1]) &&
         ml_hook_install(vtable[1], make_ebl_object_hooked, (void **)&old_make_ebl_object) == ML_HOOK_APPLIED) {
+        make_ebl_object_hook_target = vtable[1];
         fwprintf(stderr, L"NOTE: [eldenring-assets] MakeEblObject hook applied\n");
     } else {
         fwprintf(stderr, L"WARNING: [eldenring-assets] MakeEblObject RTTI/hook failed\n");
@@ -428,27 +472,88 @@ static void install_post_hooks(void) {
 }
 
 static void __cdecl file_step_init_hooked(void *this_ptr, fd4_time_t *time) {
+    vfs_begin_lookup_reset();
     install_pre_hooks();
     old_file_step_init(this_ptr, time);
+    fwprintf(stdout, L"NOTE: [from-assets] VFS cache generation %llu enabled\n",
+             (unsigned long long)vfs_reset_lookup_caches());
     install_post_hooks();
 }
 
-bool eldenring_assets_install(void *image_base, size_t image_size) {
+bool from_assets_install(const ml_game_descriptor_t *game, void *image_base, size_t image_size) {
     void *step;
-    if (image_base == NULL || image_size == 0 || vfs_entry_count() == 0) return true;
+    if (game == NULL || game->file_step_name == NULL || image_base == NULL || image_size == 0 ||
+        vfs_entry_count() == 0) return true;
     if (file_step_hook_installed) return true;
     game_image_base = image_base;
     game_image_size = image_size;
-    step = fd4_step_find(L"CSFileStep::STEP_Init");
+    step = fd4_step_find(game->file_step_name);
     if (step == NULL) {
-        fwprintf(stderr, L"WARNING: [eldenring-assets] CSFileStep::STEP_Init not found; Dantelion VFS disabled\n");
+        fwprintf(stderr, L"WARNING: [from-assets] %ls not found for %ls; Dantelion VFS disabled\n",
+                 game->file_step_name, game->title);
         return false;
     }
     if (ml_hook_install(step, file_step_init_hooked, (void **)&old_file_step_init) != ML_HOOK_APPLIED) {
-        fwprintf(stderr, L"WARNING: [eldenring-assets] CSFileStep::STEP_Init hook failed\n");
+        fwprintf(stderr, L"WARNING: [from-assets] %ls hook failed for %ls\n",
+                 game->file_step_name, game->title);
         return false;
     }
     file_step_hook_installed = true;
-    fwprintf(stderr, L"NOTE: [eldenring-assets] CSFileStep::STEP_Init hook applied\n");
+    file_step_hook_target = step;
+    fwprintf(stderr, L"NOTE: [from-assets] %ls hook applied for %ls\n",
+             game->file_step_name, game->title);
+    return true;
+}
+
+static bool remove_asset_hook(void *target) {
+    MH_STATUS status;
+    if (target == NULL) return true;
+    status = MH_RemoveHook(target);
+    if (status == MH_OK || status == MH_ERROR_NOT_CREATED) return true;
+    fwprintf(stderr, L"WARNING: [from-assets] failed to remove hook at %p: %d\n", target, status);
+    return false;
+}
+
+static bool remove_asset_hooks(asset_hook_t *hooks, size_t count) {
+    void *targets[64];
+    if (count > sizeof(targets) / sizeof(targets[0])) return false;
+    for (size_t i = 0; i < count; i++) targets[i] = hooks[i].target;
+    return ml_hook_targets_remove_unique(targets, count, remove_asset_hook);
+}
+
+bool from_assets_uninstall(void) {
+    bool result = true;
+    if (!remove_asset_hook(file_step_hook_target)) result = false;
+    if (!remove_asset_hook(make_ebl_object_hook_target)) result = false;
+    if (!remove_asset_hook(mount_ebl_hook_target)) result = false;
+    if (!remove_asset_hooks(set_path_hooks, set_path_hook_count)) result = false;
+    if (!remove_asset_hooks(open_hooks, open_hook_count)) result = false;
+    if (!result) return false;
+
+    memset(open_hooks, 0, sizeof(open_hooks));
+    memset(set_path_hooks, 0, sizeof(set_path_hooks));
+    open_hook_count = 0;
+    set_path_hook_count = 0;
+    game_image_base = NULL;
+    game_image_size = 0;
+    device_manager = NULL;
+    old_file_step_init = NULL;
+    old_make_ebl_object = NULL;
+    old_mount_ebl = NULL;
+    file_step_hook_target = NULL;
+    mount_ebl_hook_target = NULL;
+    make_ebl_object_hook_target = NULL;
+    pre_hooks_installed = false;
+    post_hooks_installed = false;
+    file_step_hook_installed = false;
+    logged_disk_override = 0;
+    logged_disk_open = 0;
+    logged_disk_open_return = 0;
+    logged_set_path_override = 0;
+    memset(logged_set_path_enter, 0, sizeof(logged_set_path_enter));
+    memset(logged_set_path_return, 0, sizeof(logged_set_path_return));
+    logged_ebl_fallback = 0;
+    logged_mount_ebl = 0;
+    file_operator_hook_attempted = 0;
     return true;
 }

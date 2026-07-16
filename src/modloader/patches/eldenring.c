@@ -154,6 +154,7 @@ static CreateDirectoryExW_t old_CreateDirectoryExW = NULL;
 typedef bool (__cdecl *SteamAPI_Init_t)(void);
 
 static SteamAPI_Init_t old_SteamAPI_Init = NULL;
+static void *steam_api_init_hook_target;
 
 static void warn_once_bool(bool *warned, const wchar_t *message) {
     if (!*warned) {
@@ -470,7 +471,7 @@ static BOOL CALLBACK eldenring_after_main_install_once(PINIT_ONCE init_once, PVO
     (void)context;
     er_log(L"after-main install start");
     if (mods_count() > 0) {
-        eldenring_assets_install(image_base, image_size);
+        from_assets_install(ml_game_context_get(), image_base, image_size);
     }
     er_log(L"after-main install end");
     return TRUE;
@@ -505,8 +506,10 @@ static bool install_steamapi_deferred_hook(void) {
     status = MH_EnableHook(steam_api_init);
     if (status != MH_OK) {
         fwprintf(stderr, L"WARNING: failed to enable SteamAPI_Init deferred hook: %d\n", status);
+        MH_RemoveHook(steam_api_init);
         return false;
     }
+    steam_api_init_hook_target = steam_api_init;
     er_log(L"deferred SteamAPI_Init hook enabled at %p", steam_api_init);
     return true;
 }
@@ -568,7 +571,6 @@ bool eldenring_install() {
         hook_eldenring_copy_file();
         hook_eldenring_writable_file_apis();
     }
-
     int modcount = mods_count();
     if (modcount > 0 || replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
         hook_eldenring_create_file();
@@ -581,8 +583,27 @@ bool eldenring_install() {
 }
 
 void eldenring_uninstall() {
+    bool runtime_hook_removed = true;
     er_log(L"uninstall start");
     game_running = false;
+
+    if (!from_assets_uninstall()) {
+        fwprintf(stderr, L"WARNING: [eldenring] one or more asset hooks could not be removed\n");
+    }
+
+    if (steam_api_init_hook_target != NULL) {
+        MH_STATUS status = MH_RemoveHook(steam_api_init_hook_target);
+        runtime_hook_removed = status == MH_OK || status == MH_ERROR_NOT_CREATED;
+        if (!runtime_hook_removed) {
+            fwprintf(stderr, L"WARNING: [eldenring] failed to remove runtime-ready hook at %p: %d\n",
+                     steam_api_init_hook_target, status);
+        }
+    }
+    if (runtime_hook_removed) {
+        steam_api_init_hook_target = NULL;
+        old_SteamAPI_Init = NULL;
+        InitOnceInitialize(&after_main_once);
+    }
 
     /* NOTE: TerminateThread is unsafe (leaks stack, CRT state, held locks).
        We use a longer timeout and accept the thread may still be running on process exit. */
@@ -590,4 +611,8 @@ void eldenring_uninstall() {
         TerminateThread(async_operations_thread_handle, 0);
     if (reset_achievements_on_new_game_thread_handle && WaitForSingleObject(reset_achievements_on_new_game_thread_handle, 5000) == WAIT_TIMEOUT)
         TerminateThread(reset_achievements_on_new_game_thread_handle, 0);
+    if (async_operations_thread_handle != NULL) CloseHandle(async_operations_thread_handle);
+    if (reset_achievements_on_new_game_thread_handle != NULL) CloseHandle(reset_achievements_on_new_game_thread_handle);
+    async_operations_thread_handle = NULL;
+    reset_achievements_on_new_game_thread_handle = NULL;
 }

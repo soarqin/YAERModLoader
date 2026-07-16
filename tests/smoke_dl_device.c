@@ -18,6 +18,7 @@ int main(void) {
     ml_dl_virtual_root_t roots[2] = { 0 };
     ml_dl_device_manager_t manager = { 0 };
     wchar_t *expanded = NULL;
+    wchar_t *cache_path;
 
     memcpy(header, "BHD5", 4);
     memcpy(header + 12, &file_size, sizeof(file_size));
@@ -27,6 +28,16 @@ int main(void) {
     EXPECT_TRUE(ml_boot_boost_cache_key(header, sizeof(header), &first));
     EXPECT_TRUE(ml_boot_boost_cache_key(header, sizeof(header), &second));
     EXPECT_EQ(first, second);
+    {
+        wchar_t directory[600];
+        for (size_t i = 0; i < 599; i++) directory[i] = L'a';
+        directory[599] = L'\0';
+        cache_path = ml_boot_boost_cache_path(directory, UINT64_C(0x1234));
+        EXPECT_NOT_NULL(cache_path);
+        EXPECT_EQ(wcslen(cache_path), 599 + 1 + 16 + 7);
+        EXPECT_TRUE(wcsstr(cache_path, L"1234.bhd.zz") != NULL);
+        LocalFree(cache_path);
+    }
     EXPECT_TRUE(GetTempPathW(MAX_PATH, temporary) != 0);
     EXPECT_TRUE(GetTempFileNameW(temporary, L"bbd", 0, temporary) != 0);
     DeleteFileW(temporary);

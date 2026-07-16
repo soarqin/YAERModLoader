@@ -84,5 +84,6 @@ bool ml_dl_device_seen(void *target);
 bool ml_dl_device_mark_seen(void *target);
 bool ml_bhd5_header_valid(const void *data, size_t size);
 bool ml_boot_boost_cache_key(const void *data, size_t size, uint64_t *key);
+wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, uint64_t key);
 bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_size);
 bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t size);

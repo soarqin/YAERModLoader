@@ -34,12 +34,57 @@ int main(void) {
     EXPECT_STREQ_W(normalized, L"parts\\test.bin");
     LocalFree(normalized);
     EXPECT_TRUE(!vfs_normalize_path(L"..\\test.bin", &normalized));
+    {
+        wchar_t deep[1600];
+        size_t offset = 0;
+        for (size_t i = 0; i < 600; i++) {
+            deep[offset++] = L'a';
+            deep[offset++] = L'/';
+        }
+        deep[offset] = L'\0';
+        EXPECT_TRUE(vfs_normalize_path(deep, &normalized));
+        EXPECT_EQ(wcslen(normalized), 1199);
+        LocalFree(normalized);
+        deep[offset++] = L'.';
+        deep[offset++] = L'.';
+        deep[offset++] = L'/';
+        deep[offset++] = L'.';
+        deep[offset++] = L'.';
+        deep[offset] = L'\0';
+        EXPECT_TRUE(vfs_normalize_path(deep, &normalized));
+        EXPECT_EQ(wcslen(normalized), 1195);
+        LocalFree(normalized);
+    }
 
     vfs_init();
     EXPECT_TRUE(vfs_add_package(first));
     EXPECT_TRUE(vfs_add_package(second));
+    EXPECT_EQ(vfs_generation(), 0);
     EXPECT_NOT_NULL(vfs_lookup(L"parts/test.bin"));
+    EXPECT_EQ(vfs_generation(), 0);
+    EXPECT_EQ(vfs_reset_lookup_caches(), 1);
+    EXPECT_EQ(vfs_generation(), 1);
     EXPECT_TRUE(wcsncmp(vfs_lookup(L"parts/test.bin"), second, wcslen(second)) == 0);
+    {
+        wchar_t absolute[MAX_PATH];
+        wchar_t *prefixed_uid = NULL;
+        lstrcpyW(absolute, root); PathAppendW(absolute, L"parts/test.bin");
+        EXPECT_STREQ_W(vfs_lookup_prefixed_domain(absolute, root, VFS_LOOKUP_DISK_WIDE),
+                       vfs_lookup(L"parts/test.bin"));
+        EXPECT_TRUE(vfs_virtual_to_uid_prefixed(absolute, root, &prefixed_uid));
+        EXPECT_STREQ_W(vfs_uid_to_path(prefixed_uid), vfs_lookup(L"parts/test.bin"));
+        LocalFree(prefixed_uid);
+        lstrcpyW(absolute, root); lstrcatW(absolute, L"-outside\\parts\\test.bin");
+        EXPECT_NULL(vfs_lookup_prefixed_domain(absolute, root, VFS_LOOKUP_DISK_WIDE));
+        EXPECT_TRUE(!vfs_virtual_to_uid_prefixed(absolute, root, &prefixed_uid));
+    }
+    EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_VIRTUAL), vfs_lookup(L"parts/test.bin"));
+    EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_DISK_WIDE), vfs_lookup(L"parts/test.bin"));
+    EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_DISK_ANSI), vfs_lookup(L"parts/test.bin"));
+    EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_WWISE), vfs_lookup(L"parts/test.bin"));
+    EXPECT_NULL(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_DOMAIN_COUNT));
+    EXPECT_NULL(vfs_lookup_domain(L"parts/domain-missing.bin", VFS_LOOKUP_VIRTUAL));
+    EXPECT_NULL(vfs_lookup_domain(L"parts/domain-missing.bin", VFS_LOOKUP_WWISE));
     EXPECT_NOT_NULL(vfs_route_read_path(L"parts/test.bin", GENERIC_READ, OPEN_EXISTING));
     EXPECT_NOT_NULL(vfs_route_read_path_a("parts/test.bin", GENERIC_READ, OPEN_EXISTING));
     EXPECT_NULL(vfs_route_read_path(L"parts/test.bin", GENERIC_WRITE, OPEN_EXISTING));
@@ -49,11 +94,41 @@ int main(void) {
     EXPECT_TRUE(!vfs_register_writable_path(L"settings/empty.ini", L""));
     EXPECT_TRUE(vfs_has_writable_paths());
     EXPECT_STREQ_W(vfs_route_writable_path(L"settings/test.ini"), L"C:\\profile\\test.ini");
+    EXPECT_TRUE(vfs_register_writable_path(L"SETTINGS\\test.ini", L"C:\\profile\\test.ini"));
+    EXPECT_TRUE(!vfs_register_writable_path(L"settings/test.ini", L"C:\\other\\test.ini"));
     EXPECT_STREQ_W(vfs_route_read_path(L"settings/test.ini", GENERIC_WRITE, CREATE_ALWAYS), L"C:\\profile\\test.ini");
     vfs_recursion_guard_enter();
     EXPECT_NULL(vfs_route_read_path(L"parts/test.bin", GENERIC_READ, OPEN_EXISTING));
     vfs_recursion_guard_leave();
     EXPECT_NULL(vfs_lookup(L"parts/missing.bin"));
+    {
+        wchar_t *uid = NULL;
+        wchar_t *cached_uid = NULL;
+        EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &uid));
+        EXPECT_NOT_NULL(uid);
+        EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &cached_uid));
+        EXPECT_STREQ_W(cached_uid, uid);
+        EXPECT_TRUE(cached_uid != uid);
+        LocalFree(cached_uid);
+        EXPECT_TRUE(!vfs_virtual_to_uid(L"parts/uid-missing.bin", &cached_uid));
+        EXPECT_NULL(cached_uid);
+        EXPECT_TRUE(!vfs_virtual_to_uid(L"parts/uid-missing.bin", &cached_uid));
+        EXPECT_NULL(cached_uid);
+        EXPECT_STREQ_W(vfs_uid_to_path(uid), vfs_lookup(L"parts/test.bin"));
+        EXPECT_STREQ_W(vfs_lookup(uid), vfs_lookup(L"parts/test.bin"));
+        vfs_begin_lookup_reset();
+        EXPECT_EQ(vfs_generation(), 0);
+        EXPECT_NULL(vfs_uid_to_path(uid));
+        EXPECT_EQ(vfs_reset_lookup_caches(), 2);
+        EXPECT_EQ(vfs_generation(), 2);
+        EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &cached_uid));
+        EXPECT_TRUE(wcscmp(cached_uid, uid) != 0);
+        LocalFree(cached_uid);
+        EXPECT_NULL(vfs_uid_to_path(L"\\\\YAERModLoader?2?ffffffff"));
+        EXPECT_NULL(vfs_uid_to_path(L"\\\\YAERModLoader?-2?0"));
+        EXPECT_NULL(vfs_uid_to_path(L"\\\\YAERModLoader? 2?0"));
+        LocalFree(uid);
+    }
     vfs_uninit();
 
     DeleteFileW(path);

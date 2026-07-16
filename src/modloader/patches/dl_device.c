@@ -200,6 +200,26 @@ bool ml_boot_boost_cache_key(const void *data, size_t size, uint64_t *key) {
     return true;
 }
 
+wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, uint64_t key) {
+    int suffix_length;
+    size_t directory_length;
+    bool separator;
+    wchar_t *result;
+    if (directory == NULL) return NULL;
+    directory_length = wcslen(directory);
+    separator = directory_length != 0 && directory[directory_length - 1] != L'\\' &&
+                directory[directory_length - 1] != L'/';
+    suffix_length = _scwprintf(L"%016llx.bhd.zz", (unsigned long long)key);
+    if (suffix_length < 0 || directory_length > SIZE_MAX - (size_t)suffix_length - (separator ? 2 : 1)) return NULL;
+    result = LocalAlloc(0, (directory_length + (size_t)suffix_length + (separator ? 2 : 1)) * sizeof(*result));
+    if (result == NULL) return NULL;
+    memcpy(result, directory, directory_length * sizeof(*result));
+    if (separator) result[directory_length++] = L'\\';
+    _snwprintf(result + directory_length, (size_t)suffix_length + 1, L"%016llx.bhd.zz",
+               (unsigned long long)key);
+    return result;
+}
+
 bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_size) {
     HANDLE file = INVALID_HANDLE_VALUE;
     DWORD read;

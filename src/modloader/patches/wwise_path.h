@@ -13,5 +13,5 @@
 #include <wchar.h>
 
 const wchar_t *wwise_strip_prefixes(const wchar_t *path);
-bool wwise_wem_candidates(const wchar_t *path, wchar_t *first, size_t first_count,
-                          wchar_t *second, size_t second_count);
+wchar_t *wwise_join_path(const wchar_t *prefix, const wchar_t *path);
+bool wwise_wem_candidates(const wchar_t *path, wchar_t **first, wchar_t **second);

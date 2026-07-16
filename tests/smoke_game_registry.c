@@ -18,9 +18,16 @@ int main(void) {
 
     game = ml_game_by_key(L"sekiro");
     EXPECT_NOT_NULL(game);
+    EXPECT_EQ(game->id, ML_GAME_SEKIRO);
+    EXPECT_EQ(game->steam_app_id, 814380);
+    EXPECT_STREQ_W(game->exe_relpaths[0], L"sekiro.exe");
+    EXPECT_STREQ_W(game->save_root_name, L"Sekiro");
+    EXPECT_STREQ_W(game->ini_section, L"sekiro");
+    EXPECT_STREQ_W(game->modengine_config_name, L"config_sekiro.toml");
+    EXPECT_STREQ_W(game->file_step_name, L"SprjFileStep::STEP_Init");
     EXPECT_EQ(game->stl_abi, ML_STL_ABI_MSVC2015);
     EXPECT_EQ(game->ebl_bhd_holder_offset, 0xB0);
-    EXPECT_EQ(game->runtime_ready_trigger, ML_RUNTIME_READY_UNSUPPORTED);
+    EXPECT_EQ(game->runtime_ready_trigger, ML_RUNTIME_READY_STEAM_API_INIT);
     EXPECT_EQ(game->logo_strategy, ML_LOGO_STRATEGY_SPRJ);
     EXPECT_EQ(game->allocator_strategy, ML_ALLOCATOR_STRATEGY_SEKIRO);
     EXPECT_EQ(game->regulation_strategy, ML_REGULATION_STRATEGY_SPRJ);

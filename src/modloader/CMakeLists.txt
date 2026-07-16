@@ -23,10 +23,12 @@ add_project(modloader_dll SHARED
     extdll.c extdll.h
     gamehook.c gamehook.h
     hook.c hook.h
+    hook_batch.c hook_batch.h
     lifecycle.c lifecycle.h
     dl_allocator.c dl_allocator.h
     mimalloc_allocator.c mimalloc_allocator.h
     mod.c mod.h
+    path_convert.c path_convert.h
     vfs.c vfs.h
     filecache.c filecache.h
     detours_subset.h
@@ -35,11 +37,14 @@ add_project(modloader_dll SHARED
     patches/logo.c patches/logo.h
     patches/properties.c patches/properties.h patches/properties_hook.asm
     patches/regulation.c patches/regulation.h
+    patches/save_mapping.c patches/save_mapping.h
+    patches/win32_hooks.c patches/win32_hooks.h
     patches/window_flash.c patches/window_flash.h
     patches/wwise_path.c patches/wwise_path.h
     patches/dl_device.c patches/dl_device.h
     patches/eldenring_assets.c patches/eldenring_assets.h
     patches/eldenring.c patches/eldenring.h
+    patches/sekiro.c patches/sekiro.h
 
     proxy/winhttp.c proxy/winhttp.h proxy/winhttp.def
     proxy/dinput8.c proxy/dinput8.h proxy/dinput8.def

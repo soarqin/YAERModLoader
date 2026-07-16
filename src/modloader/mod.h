@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <wchar.h>
 #include <windows.h>
 
@@ -23,6 +24,8 @@ extern void mods_add(const char *name, const wchar_t *path);
 extern int mods_count();
 extern const wchar_t *mods_file_search(const wchar_t *path);
 extern const wchar_t *mods_file_search_prefixed(const wchar_t *path);
+extern const wchar_t *mods_file_search_prefixed_domain(const wchar_t *path, int domain);
+extern bool mods_file_virtual_to_uid_prefixed(const wchar_t *path, wchar_t **uid);
 extern const wchar_t *mods_file_route_read(const wchar_t *path, DWORD desired_access, DWORD creation_disposition);
 extern const wchar_t *mods_file_route_read_a(const char *path, DWORD desired_access, DWORD creation_disposition);
 
