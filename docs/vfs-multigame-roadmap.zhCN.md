@@ -609,7 +609,7 @@ data1:/param/gameparam/gameparam_dlc2.parambnd.dcx
 
 完成条件：`er_param`、内置 ER extension 和 ModEngine extension 行为不退化；不再导出或依赖项目自定义扩展 ABI，且跨游戏加载不会把 ER 专用扩展应用到其他游戏。
 
-当前进展：已移除项目自定义扩展 ABI、对应 fixture 和初始化分支；内置扩展改为通过共享基础代码直接调用扫描和 Hook 能力，ModEngine 加载顺序及非 ER 跳过 ER 专用扩展的行为保留。三游戏共用的白闪修复已从游戏 adapter 中独立，在 `PRE_ENTRY_SAFE` 阶段安装。Logo 策略已由 game trait 选择，Elden Ring 的 FD4 Logo 重定向已迁入内部 capability，并延迟到 `AFTER_RUNTIME_INIT` 阶段执行。DLRF 属性调用链和 `AFTER_PROPERTIES_READY` Hook 已接入内部 Host，但离线属性的实际调用约定、属性初始化位置和游戏稳定性仍待现场验证；SPRJ Logo、allocator、regulation 和 native capability 的跨游戏拆分，以及真实 Elden Ring 扩展和 ModEngine fixture 回归仍待完成。
+完成状态：已完成。项目自定义扩展 ABI、对应 fixture 和初始化分支已移除；内置扩展通过共享基础代码直接使用扫描和 Hook 能力，ModEngine extension 的加载、attach、逆序 detach 行为保持兼容，非 ER 游戏会跳过已知 ER 专用扩展。白闪、Logo、离线属性、allocator 和 regulation 已拆分为由 game trait 选择的内部 Host capability；FD4 与 SPRJ Logo、FD4 与旧式 SPRJ regulation 保护，以及三游戏 allocator 策略均具备独立安装路径。Elden Ring 内置扩展和 ModEngine extension 已完成人工回归，确认功能无退化。
 
 ### 阶段 8：Sekiro 稳定支持
 

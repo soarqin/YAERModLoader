@@ -31,8 +31,10 @@ add_project(modloader_dll SHARED
     filecache.c filecache.h
     detours_subset.h
     patches/common.c patches/common.h
+    patches/allocator.c patches/allocator.h
     patches/logo.c patches/logo.h
     patches/properties.c patches/properties.h patches/properties_hook.asm
+    patches/regulation.c patches/regulation.h
     patches/window_flash.c patches/window_flash.h
     patches/wwise_path.c patches/wwise_path.h
     patches/dl_device.c patches/dl_device.h

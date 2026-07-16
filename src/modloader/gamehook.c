@@ -11,9 +11,12 @@
 #include "steam/api.h"
 #include "config.h"
 #include "patches/common.h"
+#include "patches/allocator.h"
 #include "patches/eldenring.h"
 #include "patches/logo.h"
 #include "patches/properties.h"
+#include "patches/regulation.h"
+#include "mimalloc_allocator.h"
 #include "lifecycle.h"
 
 #include "game/game.h"
@@ -32,12 +35,28 @@ static void install_properties_after_runtime(ml_lifecycle_phase_t phase, void *u
     ml_properties_install((const ml_game_descriptor_t *)userp);
 }
 
+static void install_regulation_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
+    (void)phase;
+    ml_regulation_install((const ml_game_descriptor_t *)userp);
+}
+
+static void install_allocator_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
+    (void)phase;
+    ml_allocator_install_after_runtime((const ml_game_descriptor_t *)userp, config.patch_mem_hook_cs_graphics);
+}
+
 bool gamehook_install() {
     if (!ml_game_context_init()) {
         fwprintf(stderr, L"WARNING: unsupported or mismatched game process; game hooks are disabled\n");
         return false;
     }
     const ml_game_descriptor_t *game = ml_game_context_get();
+    if (config.patch_mem) {
+        size_t heap_size_mb = config.patch_mem_heap_size != 0
+            ? config.patch_mem_heap_size : MIMALLOC_DL_ALLOCATOR_DEFAULT_HEAP_SIZE_MB;
+        ml_allocator_install_before_main(game, heap_size_mb);
+        ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_allocator_after_runtime, (void *)game);
+    }
     ml_lifecycle_advance(ML_LIFECYCLE_PHASE_BEFORE_MAIN);
     if (game->id != ML_GAME_ELDEN_RING) {
         fwprintf(stderr, L"WARNING: %ls adapter is not implemented; game hooks are disabled\n", game->title);
@@ -49,6 +68,10 @@ bool gamehook_install() {
     }
     if (!ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_properties_after_runtime, (void *)game)) {
         fwprintf(stderr, L"WARNING: [properties] could not schedule installation\n");
+    }
+    if (config.prevent_regulation_save_write &&
+        !ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_regulation_after_runtime, (void *)game)) {
+        fwprintf(stderr, L"WARNING: [regulation] could not schedule installation\n");
     }
     steamapi_init();
     bool result = common_install() && eldenring_install();

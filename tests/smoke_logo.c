@@ -18,6 +18,11 @@ int main(void) {
 
     EXPECT_TRUE(!ml_logo_fd4_redirect(step_table, NULL));
     EXPECT_EQ(step_table[0], title_step);
+
+    step_table[0] = logo_step;
+    EXPECT_TRUE(ml_logo_sprj_redirect(step_table));
+    EXPECT_EQ(step_table[0], title_step);
+    EXPECT_TRUE(!ml_logo_sprj_redirect(NULL));
     printf("smoke_logo: all tests passed\n");
     return 0;
 }

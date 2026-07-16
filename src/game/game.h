@@ -40,6 +40,19 @@ typedef enum ml_logo_strategy_e {
     ML_LOGO_STRATEGY_SPRJ,
 } ml_logo_strategy_t;
 
+typedef enum ml_allocator_strategy_e {
+    ML_ALLOCATOR_STRATEGY_UNSUPPORTED,
+    ML_ALLOCATOR_STRATEGY_ELDEN_RING,
+    ML_ALLOCATOR_STRATEGY_SEKIRO,
+    ML_ALLOCATOR_STRATEGY_DARK_SOULS_3,
+} ml_allocator_strategy_t;
+
+typedef enum ml_regulation_strategy_e {
+    ML_REGULATION_STRATEGY_UNSUPPORTED,
+    ML_REGULATION_STRATEGY_FD4,
+    ML_REGULATION_STRATEGY_SPRJ,
+} ml_regulation_strategy_t;
+
 typedef struct ml_game_descriptor_s {
     ml_game_id_t id;
     const char *key;
@@ -57,6 +70,8 @@ typedef struct ml_game_descriptor_s {
     size_t ebl_bhd_holder_offset;
     ml_runtime_ready_trigger_t runtime_ready_trigger;
     ml_logo_strategy_t logo_strategy;
+    ml_allocator_strategy_t allocator_strategy;
+    ml_regulation_strategy_t regulation_strategy;
 } ml_game_descriptor_t;
 
 const ml_game_descriptor_t *ml_game_by_id(ml_game_id_t id);
