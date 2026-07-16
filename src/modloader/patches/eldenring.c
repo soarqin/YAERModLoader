@@ -777,6 +777,13 @@ bool eldenring_install() {
     er_log(L"install start: image_base=%p image_size=%zu prevent_regulation_save_write=%d patch_mem=%d", image_base, image_size, config.prevent_regulation_save_write ? 1 : 0, config.patch_mem ? 1 : 0);
 
     if (config.patch_mem) {
+        size_t heap_size_mb = config.patch_mem_heap_size != 0
+            ? config.patch_mem_heap_size : MIMALLOC_DL_ALLOCATOR_DEFAULT_HEAP_SIZE_MB;
+        if (mimalloc_dl_allocator_prepare(heap_size_mb)) {
+            er_log(L"patch_mem reserved dedicated mimalloc heap: %zu MB", heap_size_mb);
+        } else {
+            fwprintf(stderr, L"WARNING: patch_mem could not reserve dedicated mimalloc heap; using the default mimalloc heap\n");
+        }
         install_system_allocator_hook_before_main();
     } else {
         er_log(L"patch_mem disabled by config before main");

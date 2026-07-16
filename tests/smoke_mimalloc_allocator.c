@@ -6,6 +6,7 @@
 #include "modloader/mimalloc_allocator.h"
 
 int main(void) {
+    EXPECT_TRUE(mimalloc_dl_allocator_prepare(64));
     dl_allocator_t *allocator = mimalloc_dl_allocator();
     EXPECT_NOT_NULL(allocator);
     EXPECT_NOT_NULL(allocator->vtable);

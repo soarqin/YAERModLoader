@@ -28,6 +28,7 @@ config_t config = {
     .disable_mouse_camera_control = false,
     .prevent_regulation_save_write = true,
     .patch_mem = true,
+    .patch_mem_heap_size = 0,
     .patch_mem_hook_cs_graphics = true,
     .boot_boost = true,
     .replaced_save_filename = L"",
@@ -77,6 +78,10 @@ static int ini_read_cb(void *user, const char *section,
             config.prevent_regulation_save_write = value_to_bool(value);
         } else if (lstrcmpA(name, "patch_mem") == 0) {
             config.patch_mem = value_to_bool(value);
+        } else if (lstrcmpA(name, "patch_mem_heap_size") == 0) {
+            char *end;
+            unsigned long long size = strtoull(value, &end, 10);
+            if (end != value && *end == '\0' && size <= UINT32_MAX) config.patch_mem_heap_size = (uint32_t)size;
         } else if (lstrcmpA(name, "patch_mem_hook_cs_graphics") == 0) {
             config.patch_mem_hook_cs_graphics = value_to_bool(value);
         } else if (lstrcmpA(name, "boot_boost") == 0) {

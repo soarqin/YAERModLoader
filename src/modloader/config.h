@@ -9,6 +9,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <wchar.h>
 
 #ifdef __cplusplus
@@ -28,6 +29,7 @@ typedef struct {
     bool disable_mouse_camera_control;
     bool prevent_regulation_save_write;
     bool patch_mem;
+    uint32_t patch_mem_heap_size;
     bool patch_mem_hook_cs_graphics;
     bool boot_boost;
     wchar_t replaced_save_filename[64];
