@@ -15,6 +15,7 @@ extern "C" {
 #endif
 
 extern void *get_module_image_base(const wchar_t *module_name, size_t *size);
+extern void *get_module_entrypoint(const wchar_t *module_name);
 
 #ifdef __cplusplus
 }

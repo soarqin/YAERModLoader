@@ -36,11 +36,10 @@ Check [CHANGELOG.md](CHANGELOG.md) for details.
   - `-c` or `--config`: Specify the path of the config file.
   - `-p` or `--game-path`: Specify the path of the game, you can set it to full-path of `eldenring.exe`, or its `Game` folder, or even the upper-level folder(normally `ELDEN RING`).
   - `-d` or `--modengine-dll` or `--modloader-dll`: Specify the path of the replacement dll for loading. Note: `--modengine-dll` is just a compatibility option for ModEngine2.
-  - `-s` or `--suspend`: Start game in suspended mode, only for debugging purpose.
+  - `-s` or `--suspend`: Inject the loader DLL, then leave the game suspended before its entry point for debugging.
 
 ## Credits
 - [ModEngine](https://github.com/soulsmods/ModEngine2): The original mod loader for Souls games.
-- [Detours](https://github.com/microsoft/Detours): I stripped this library to a subset of its functions, to do dll injections only.
 - [minhook](https://github.com/TsudaKageyu/minhook): Used to hook functions in the game.
 - [klib](https://github.com/attractivechaos/klib): The library used to handle hash tables.
 - [inih](https://github.com/benhoyt/inih): The library used to parse ini files.

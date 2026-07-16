@@ -31,11 +31,10 @@
     - `-c`或`--config`：指定配置文件的路径。
     - `-p`或`--game-path`：指定游戏的路径，可以设置为`eldenring.exe`的完整路径，或其所在`Game`文件夹，甚至是上一级文件夹（通常是`ELDEN RING`）。
     - `-d`或`--modengine-dll`或`--modloader-dll`：指定用于加载的替换dll的路径。注意：`--modengine-dll`只是为了兼容ModEngine2。
-    - `-s`或`--suspend`：以挂起模式启动游戏，仅用于调试目的。
+    - `-s` 或 `--suspend`：注入加载器 DLL 后，将游戏挂起在入口点执行之前，仅用于调试。
 
 ## 鸣谢
 - [ModEngine](https://github.com/soulsmods/ModEngine2): 魂系游戏的原始模组加载器。
-- [Detours](https://github.com/microsoft/Detours): 我只保留了这个库的一部分功能，用于dll注入。
 - [minhook](https://github.com/TsudaKageyu/minhook): 用于在游戏中挂钩函数。
 - [uthash](https://github.com/troydhanson/uthash): 用于处理哈希表的库。
 - [inih](https://github.com/benhoyt/inih): 用于解析ini文件的库。

@@ -27,3 +27,20 @@ void *get_module_image_base(const wchar_t *module_name, size_t *size) {
     *size = ntHeader->OptionalHeader.SizeOfImage;
     return hModule;
 }
+
+void *get_module_entrypoint(const wchar_t *module_name) {
+    size_t image_size;
+    BYTE *image_base = get_module_image_base(module_name, &image_size);
+    if (image_base == NULL) {
+        return NULL;
+    }
+    const PIMAGE_DOS_HEADER dos_header = (const PIMAGE_DOS_HEADER)image_base;
+    const PIMAGE_NT_HEADERS nt_header =
+        (const PIMAGE_NT_HEADERS)(image_base + dos_header->e_lfanew);
+    const DWORD entrypoint = nt_header->OptionalHeader.AddressOfEntryPoint;
+    if (nt_header->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC ||
+        entrypoint == 0 || entrypoint >= image_size) {
+        return NULL;
+    }
+    return image_base + entrypoint;
+}

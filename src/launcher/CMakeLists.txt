@@ -15,7 +15,6 @@ generate_version_info(exe_res_files
 add_project(modloader_launcher WIN32
     launcher.c
     ${CMAKE_SOURCE_DIR}/src/common/allocator.c
-    detours_subset.h
 
     launcher.rc
 
@@ -33,4 +32,4 @@ endif ()
 if (NOT MSVC)
     target_link_options(modloader_launcher PRIVATE -municode)
 endif ()
-target_link_libraries(modloader_launcher game_registry steam wingetopt #[[lzma]] shlwapi)
+target_link_libraries(modloader_launcher game_registry steam wingetopt #[[lzma]] shlwapi psapi)

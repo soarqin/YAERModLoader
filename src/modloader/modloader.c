@@ -11,7 +11,8 @@
 #include "mod.h"
 #include "extdll.h"
 #include "lifecycle.h"
-#include "detours_subset.h"
+
+#include "process/image.h"
 
 #include "patches/window_flash.h"
 
@@ -28,7 +29,7 @@ HMODULE module_instance = NULL;
 typedef int (WINAPI*entrypoint_t)(void);
 static entrypoint_t orig_entrypoint = NULL;
 
-int WINAPI new_entrypoint(void) {
+static void modloader_init(void) {
     load_winhttp_proxy();
     load_dxgi_proxy();
     load_dinput8_proxy();
@@ -40,6 +41,17 @@ int WINAPI new_entrypoint(void) {
     config_load();
     gamehook_install();
     extdlls_load_all();
+}
+
+__declspec(dllexport) DWORD WINAPI YAERModLoaderInit(LPVOID parameter) {
+    UNREFERENCED_PARAMETER(parameter);
+    if (MH_Initialize() != MH_OK) return 0;
+    modloader_init();
+    return 1;
+}
+
+int WINAPI new_entrypoint(void) {
+    modloader_init();
     return orig_entrypoint();
 }
 
@@ -49,13 +61,19 @@ BOOL APIENTRY DllMain(const HMODULE module, const DWORD ul_reason_for_call, LPVO
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);
-            DetourRestoreAfterWith();
             module_instance = module;
             {
+                wchar_t remote_init[2];
+                if (GetEnvironmentVariableW(L"MODLOADER_REMOTE_INIT", remote_init, 2) != 0) break;
+            }
+            {
                 if (MH_Initialize() != MH_OK) break;
-                void *old_entrypoint = DetourGetEntryPoint(NULL);
-                MH_CreateHook(old_entrypoint, new_entrypoint, (LPVOID*)&orig_entrypoint);
-                MH_EnableHook(old_entrypoint);
+                void *old_entrypoint = get_module_entrypoint(NULL);
+                if (old_entrypoint == NULL ||
+                    MH_CreateHook(old_entrypoint, new_entrypoint, (LPVOID*)&orig_entrypoint) != MH_OK ||
+                    MH_EnableHook(old_entrypoint) != MH_OK) {
+                    return FALSE;
+                }
             }
             break;
         case DLL_PROCESS_DETACH:

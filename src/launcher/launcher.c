@@ -9,15 +9,15 @@
 #include "steam/app.h"
 #include "game/game.h"
 
-#include "detours_subset.h"
-
 #include <getopt.h>
 /*
 #include <LzmaDec.h>
 #include <Alloc.h>
 */
 #include <shlwapi.h>
+#include <psapi.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 static wchar_t full_game_path[MAX_PATH] = L"";
 static wchar_t full_config_path[MAX_PATH] = L"";
@@ -98,6 +98,82 @@ static bool check_current_folder_for_game_path(wchar_t *game_path) {
     GetModuleFileNameW(NULL, game_path, MAX_PATH);
     PathRemoveFileSpecW(game_path);
     return locate_game_executable(game_path);
+}
+
+static HMODULE find_remote_module(HANDLE process, const wchar_t *module_name) {
+    HMODULE remote_modules[256];
+    DWORD remote_module_size = 0;
+    const DWORD module_bytes = sizeof(remote_modules);
+    if (!EnumProcessModules(process, remote_modules, module_bytes, &remote_module_size)) {
+        return NULL;
+    }
+    for (DWORD i = 0; i < remote_module_size / sizeof(remote_modules[0]); i++) {
+        wchar_t remote_module_name[MAX_PATH];
+        if (GetModuleBaseNameW(process, remote_modules[i], remote_module_name, MAX_PATH) != 0 &&
+            lstrcmpiW(remote_module_name, module_name) == 0) {
+            return remote_modules[i];
+        }
+    }
+    return NULL;
+}
+
+static bool inject_dll(HANDLE process, const wchar_t *dll_path) {
+    const SIZE_T path_size = (lstrlenW(dll_path) + 1) * sizeof(wchar_t);
+    LPVOID remote_path = VirtualAllocEx(process, NULL, path_size,
+                                        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (remote_path == NULL) return false;
+
+    SIZE_T written = 0;
+    if (!WriteProcessMemory(process, remote_path, dll_path, path_size, &written) ||
+        written != path_size) {
+        VirtualFreeEx(process, remote_path, 0, MEM_RELEASE);
+        return false;
+    }
+
+    const HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
+    const LPTHREAD_START_ROUTINE load_library = kernel32 != NULL
+        ? (LPTHREAD_START_ROUTINE)GetProcAddress(kernel32, "LoadLibraryW") : NULL;
+    if (load_library == NULL) {
+        VirtualFreeEx(process, remote_path, 0, MEM_RELEASE);
+        return false;
+    }
+
+    const HANDLE thread = CreateRemoteThread(
+        process, NULL, 0, load_library, remote_path, 0, NULL);
+    if (thread == NULL) {
+        VirtualFreeEx(process, remote_path, 0, MEM_RELEASE);
+        return false;
+    }
+
+    const DWORD wait_result = WaitForSingleObject(thread, INFINITE);
+    DWORD exit_code = 0;
+    const bool success = wait_result == WAIT_OBJECT_0 &&
+                         GetExitCodeThread(thread, &exit_code) && exit_code != 0;
+    CloseHandle(thread);
+    VirtualFreeEx(process, remote_path, 0, MEM_RELEASE);
+    if (!success) return false;
+
+    const HMODULE remote_module = find_remote_module(process, PathFindFileNameW(dll_path));
+    const HMODULE local_module = LoadLibraryExW(dll_path, NULL, DONT_RESOLVE_DLL_REFERENCES);
+    const FARPROC local_init = local_module != NULL
+        ? GetProcAddress(local_module, "YAERModLoaderInit") : NULL;
+    if (remote_module == NULL || local_init == NULL) {
+        if (local_module != NULL) FreeLibrary(local_module);
+        return false;
+    }
+    const uintptr_t init_rva = (uintptr_t)local_init - (uintptr_t)local_module;
+    const LPTHREAD_START_ROUTINE remote_init =
+        (LPTHREAD_START_ROUTINE)((uintptr_t)remote_module + init_rva);
+    const HANDLE init_thread = CreateRemoteThread(process, NULL, 0, remote_init, NULL, 0, NULL);
+    FreeLibrary(local_module);
+    if (init_thread == NULL) return false;
+    const DWORD init_wait_result = WaitForSingleObject(init_thread, INFINITE);
+    DWORD init_exit_code = 0;
+    const bool init_success = init_wait_result == WAIT_OBJECT_0 &&
+                              GetExitCodeThread(init_thread, &init_exit_code) &&
+                              init_exit_code != 0;
+    CloseHandle(init_thread);
+    return init_success;
 }
 
 /*
@@ -182,35 +258,35 @@ fail1:
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLine, int nShowCmd) {
     STARTUPINFOW si = {0};
     PROCESS_INFORMATION pi = {0};
-    char filepath[MAX_PATH];
+    wchar_t dll_path[MAX_PATH];
     wchar_t game_folder[MAX_PATH];
 
     launch_game = ml_game_by_id(ML_GAME_ELDEN_RING);
     if (!parse_args(__argc, __wargv)) return -1;
     if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
-        /*if (decompress_embedded_dll_to(filepath)) {
+        /*if (decompress_embedded_dll_to(dll_path)) {
             if (full_config_path[0] == L'\0') {
                 GetModuleFileNameW(hInstance, full_config_path, MAX_PATH);
                 PathRemoveFileSpecW(full_config_path);
             }
         } else*/ {
-            GetModuleFileNameA(hInstance, filepath, MAX_PATH);
-            PathRemoveFileSpecA(filepath);
-            PathAppendA(filepath, "YAERModLoader.dll");
+            GetModuleFileNameW(hInstance, dll_path, MAX_PATH);
+            PathRemoveFileSpecW(dll_path);
+            PathAppendW(dll_path, L"YAERModLoader.dll");
         }
     } else {
         if (StrChrW(full_modengine_dll, L':') == NULL && full_modengine_dll[0] != L'\\' && full_modengine_dll[0] != L'/') {
-            char temp[MAX_PATH];
-            GetModuleFileNameA(hInstance, filepath, MAX_PATH);
-            PathRemoveFileSpecA(filepath);
-            WideCharToMultiByte(CP_ACP, 0, full_modengine_dll, -1, temp, MAX_PATH, NULL, NULL);
-            PathAppendA(filepath, temp);
+            GetModuleFileNameW(hInstance, dll_path, MAX_PATH);
+            PathRemoveFileSpecW(dll_path);
+            PathAppendW(dll_path, full_modengine_dll);
         } else {
-            WideCharToMultiByte(CP_ACP, 0, full_modengine_dll, -1, filepath, MAX_PATH, NULL, NULL);
+            lstrcpynW(dll_path, full_modengine_dll, MAX_PATH);
         }
     }
-    const HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
-    FARPROC create_process_addr = GetProcAddress(kernel32, "CreateProcessW");
+    if (!PathFileExistsW(dll_path) || PathIsDirectoryW(dll_path)) {
+        fwprintf(stderr, L"could not find mod loader DLL `%ls`\n", dll_path);
+        return -1;
+    }
 
     if ((full_game_path[0] == L'\0' && !check_current_folder_for_game_path(full_game_path)) || (full_game_path[0] != L'\0' && !locate_game_executable(full_game_path))) {
         if (!app_find_game_path(launch_game->steam_app_id, game_folder)) {
@@ -241,20 +317,22 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
         game_key[31] = L'\0';
         SetEnvironmentVariableW(L"MODLOADER_GAME", game_key);
     }
-
-    const BOOL success = DetourCreateProcessWithDllW(
-        full_game_path,
-        NULL,
-        NULL,
-        NULL,
-        FALSE,
-        suspend ? CREATE_SUSPENDED : 0,
-        NULL,
-        game_folder,
-        &si,
-        &pi,
-        filepath,
-        (const PDETOUR_CREATE_PROCESS_ROUTINEW)create_process_addr);
+    SetEnvironmentVariableW(L"MODLOADER_REMOTE_INIT", L"1");
+    si.cb = sizeof(si);
+    BOOL success = CreateProcessW(full_game_path, NULL, NULL, NULL, FALSE,
+                                  CREATE_SUSPENDED, NULL, game_folder, &si, &pi);
+    if (success && !inject_dll(pi.hProcess, dll_path)) {
+        fwprintf(stderr, L"could not inject `%ls` into %ls\n", dll_path, launch_game->title);
+        TerminateProcess(pi.hProcess, (UINT)-1);
+        success = FALSE;
+    }
+    if (success && !suspend) {
+        if (ResumeThread(pi.hThread) == (DWORD)-1) {
+            fwprintf(stderr, L"could not resume %ls\n", launch_game->title);
+            TerminateProcess(pi.hProcess, (UINT)-1);
+            success = FALSE;
+        }
+    }
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
     return success ? 0 : -1;

@@ -440,7 +440,7 @@ launcher 必须：
 - 从显式 EXE、游戏目录、当前目录和 Steam library manifest 按固定优先级定位游戏。
 - 使用游戏描述符的 App ID、工作目录和 EXE 相对路径。
 - 设置 `SteamAppId`、`SteamGameId` 与 `SteamOverlayGameId`。
-- 保持现有 Detours 注入路径，并为未来初始化握手保留 process/thread handle。
+- 统一使用 Remote Thread 调用 `LoadLibraryW` 注入 DLL，并在注入完成前保持游戏主线程挂起。
 
 DLL 进程内校验失败时，必须停止游戏专用 Hook，不能继续把错误 adapter 应用于目标进程。
 

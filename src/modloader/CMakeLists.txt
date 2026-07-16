@@ -31,7 +31,6 @@ add_project(modloader_dll SHARED
     path_convert.c path_convert.h
     vfs.c vfs.h
     filecache.c filecache.h
-    detours_subset.h
     patches/common.c patches/common.h
     patches/allocator.c patches/allocator.h
     patches/logo.c patches/logo.h
