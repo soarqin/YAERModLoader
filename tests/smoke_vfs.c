@@ -33,6 +33,9 @@ int main(void) {
     EXPECT_TRUE(vfs_normalize_path(L"\\PARTS/./test.bin\0", &normalized));
     EXPECT_STREQ_W(normalized, L"parts\\test.bin");
     LocalFree(normalized);
+    EXPECT_TRUE(vfs_normalize_path(L"data0:/PARAM/gameparam/gameparam.parambnd.dcx", &normalized));
+    EXPECT_STREQ_W(normalized, L"param\\gameparam\\gameparam.parambnd.dcx");
+    LocalFree(normalized);
     EXPECT_TRUE(!vfs_normalize_path(L"..\\test.bin", &normalized));
     {
         wchar_t deep[1600];
@@ -61,6 +64,7 @@ int main(void) {
     EXPECT_TRUE(vfs_add_package(second));
     EXPECT_EQ(vfs_generation(), 0);
     EXPECT_NOT_NULL(vfs_lookup(L"parts/test.bin"));
+    EXPECT_NOT_NULL(vfs_lookup(L"data0:/parts/test.bin"));
     {
         wchar_t *uncached_uid = NULL;
         EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &uncached_uid));

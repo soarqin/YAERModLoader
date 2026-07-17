@@ -1,4 +1,5 @@
 #include "allocator.h"
+#include "log.h"
 
 #include "modloader/hook.h"
 #include "modloader/mimalloc_allocator.h"
@@ -124,8 +125,9 @@ bool ml_allocator_install_after_runtime(const ml_game_descriptor_t *game, bool h
         void **graphics = rtti_find_vtable("CS::CSGraphicsImp");
         result = result && graphics != NULL && ml_hook_install(graphics[0], allocator_noop, NULL) == ML_HOOK_APPLIED;
     }
-    fwprintf(result ? stdout : stderr, result
-        ? L"NOTE: [allocator] heap allocators APPLIED for %ls\n"
-        : L"WARNING: [allocator] heap allocators HOOK_FAILED for %ls\n", game->title);
+    ml_log_write(result ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                 L"allocator", result
+                     ? L"heap allocators APPLIED for %ls"
+                     : L"heap allocators HOOK_FAILED for %ls", game->title);
     return result;
 }

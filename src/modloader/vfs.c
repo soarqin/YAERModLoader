@@ -82,8 +82,10 @@ bool vfs_normalize_path(const wchar_t *path, wchar_t **normalized) {
     }
 
     while (*path == L'\\' || *path == L'/') path++;
-    if (path[0] != L'\0' && path[1] == L':') {
-        path += 2;
+    {
+        const wchar_t *separator = wcschr(path, L':');
+        const wchar_t *slash = wcspbrk(path, L"\\/");
+        if (separator != NULL && (slash == NULL || separator < slash)) path = separator + 1;
         while (*path == L'\\' || *path == L'/') path++;
     }
     while (*path != L'\0') {

@@ -1,4 +1,5 @@
 #include "win32_hooks.h"
+#include "log.h"
 
 #include <MinHook.h>
 
@@ -380,9 +381,8 @@ bool ml_win32_file_hooks_install(void) {
     build_hook_specs(specs);
     bool result = ml_hook_batch_install(specs, 15, install_hook, remove_hook, &rollback_complete);
     hooks_installed = result || !rollback_complete;
-    fwprintf(result ? stdout : stderr, result
-        ? L"NOTE: [win32-vfs] file hooks APPLIED\n"
-        : L"WARNING: [win32-vfs] file hooks HOOK_FAILED\n");
+    ml_log_write(result ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                 L"win32-vfs", result ? L"file hooks APPLIED" : L"file hooks HOOK_FAILED");
     if (!rollback_complete) {
         fwprintf(stderr, L"WARNING: [win32-vfs] hook rollback incomplete; uninstall will retry cleanup\n");
     }

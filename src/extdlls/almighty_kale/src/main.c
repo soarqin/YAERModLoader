@@ -16,17 +16,14 @@
 #include <er_param/er_param_api.h>
 #include <steam/api.h>
 #include "ext_shared.h"
+#include "log.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdbool.h>
 #include <stdio.h>
 
-#define AK_LOG(fmt, ...) do { \
-    char _ak_buf[512]; \
-    snprintf(_ak_buf, sizeof(_ak_buf), "[almighty_kale] " fmt "\n", ##__VA_ARGS__); \
-    OutputDebugStringA(_ak_buf); \
-} while (0)
+#define AK_LOG(fmt, ...) ML_LOG_DEBUG(L"almighty-kale", L##fmt, ##__VA_ARGS__)
 
 /* Forward decls for shop count log */
 extern ak_shop_t *ak_mod_shops_array(void);

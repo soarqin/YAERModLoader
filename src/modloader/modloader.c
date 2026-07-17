@@ -11,6 +11,7 @@
 #include "mod.h"
 #include "extdll.h"
 #include "lifecycle.h"
+#include "log.h"
 
 #include "process/image.h"
 
@@ -37,6 +38,7 @@ static void modloader_init(void) {
     ml_lifecycle_advance(ML_LIFECYCLE_PHASE_PRE_ENTRY_SAFE);
     ml_window_flash_install();
     config_init(module_instance);
+    ml_log_set_level(config.log_level);
     mods_init();
     config_load();
     gamehook_install();

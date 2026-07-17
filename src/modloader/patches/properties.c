@@ -7,6 +7,7 @@
  */
 
 #include "properties.h"
+#include "log.h"
 
 #include "modloader/hook.h"
 #include "modloader/lifecycle.h"
@@ -41,7 +42,7 @@ static void apply_offline_property(ml_lifecycle_phase_t phase, void *userp) {
         return;
     }
     set_game_property("Menu.IsEnableOnlineMode", "false");
-    fwprintf(stdout, L"NOTE: [properties] Menu.IsEnableOnlineMode=false applied\n");
+    ML_LOG_INFO(L"properties", L"Menu.IsEnableOnlineMode=false applied");
 }
 
 void ml_properties_on_init(void) {
@@ -97,7 +98,7 @@ bool ml_properties_install(const ml_game_descriptor_t *game) {
     if (property_string == NULL) {
         property_string = ml_find_utf16_string(image, image_size, L"Game.Debug.NearOnlyDraw");
         if (property_string != NULL) {
-            fwprintf(stdout, L"NOTE: [properties] property string found outside .rdata at %p\n", property_string);
+            ML_LOG_INFO(L"properties", L"property string found outside .rdata at %p", property_string);
         }
     }
     if (property_string == NULL) {
@@ -109,7 +110,7 @@ bool ml_properties_install(const ml_game_descriptor_t *game) {
     if (property_init == NULL && text != (uint8_t *)image) {
         property_init = ml_find_rip_relative_lea((const uint8_t *)image, image_size, property_string);
         if (property_init != NULL) {
-            fwprintf(stdout, L"NOTE: [properties] property reference found outside .text at %p\n", property_init);
+            ML_LOG_INFO(L"properties", L"property reference found outside .text at %p", property_init);
         }
     }
     if (property_init == NULL) {
@@ -128,7 +129,7 @@ bool ml_properties_install(const ml_game_descriptor_t *game) {
         fwprintf(stderr, L"WARNING: [properties] could not schedule offline property\n");
         return false;
     }
-    fwprintf(stdout, L"NOTE: [properties] %hs::SetGameProperty resolved at %p; initializer hook applied at %p\n",
-             game->control_api_class, method.address, property_init_target);
+    ML_LOG_INFO(L"properties", L"%hs::SetGameProperty resolved at %p; initializer hook applied at %p",
+                game->control_api_class, method.address, property_init_target);
     return true;
 }

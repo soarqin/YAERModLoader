@@ -15,6 +15,7 @@ generate_version_info(exe_res_files
 add_project(modloader_launcher WIN32
     launcher.c
     ${CMAKE_SOURCE_DIR}/src/common/allocator.c
+    ${CMAKE_SOURCE_DIR}/src/common/log.c
 
     launcher.rc
 
@@ -24,6 +25,7 @@ add_project(modloader_launcher WIN32
 )
 
 target_include_directories(modloader_launcher PRIVATE ..)
+target_include_directories(modloader_launcher PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
 if (MSVC)
     target_compile_options(modloader_launcher PRIVATE "/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h")
 else ()

@@ -92,6 +92,7 @@ bool ml_dl_mount_snapshot(ml_dl_device_manager_t *manager, ml_dl_mount_snapshot_
 void ml_dl_mount_snapshot_destroy(ml_dl_mount_snapshot_t *snapshot);
 bool ml_dl_mounts_init(ml_dl_vfs_mounts_t *mounts);
 void ml_dl_mounts_destroy(ml_dl_vfs_mounts_t *mounts);
+void ml_dl_mounts_release(ml_dl_vfs_mounts_t *mounts);
 bool ml_dl_device_extract_new(ml_dl_device_manager_t *manager, const ml_dl_mount_snapshot_t *snapshot,
                               ml_dl_vfs_mounts_t *mounts);
 bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_dl_vfs_mounts_t *mounts);

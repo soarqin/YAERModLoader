@@ -1,6 +1,7 @@
 # almighty_kale extdll - self-contained build (1:1 C port of Glorious Merchant)
 add_project(extdll_almighty_kale SHARED
     ${CMAKE_SOURCE_DIR}/src/common/allocator.c
+    ${CMAKE_SOURCE_DIR}/src/common/log.c
     ${CMAKE_SOURCE_DIR}/src/common/ext_shared.c
     src/main.c
     src/config.c src/config.h

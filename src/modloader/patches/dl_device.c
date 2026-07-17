@@ -249,8 +249,6 @@ bool ml_dl_device_extract_new(ml_dl_device_manager_t *manager, const ml_dl_mount
                               ml_dl_vfs_mounts_t *mounts) {
     size_t mount_count;
     size_t new_count = 0;
-    size_t device_count;
-    size_t removed_device_count = 0;
     if (manager == NULL || snapshot == NULL || mounts == NULL) return false;
     mount_count = ml_dl_vector_count(&manager->bnd4_mounts, sizeof(ml_dl_virtual_mount_t));
     for (size_t i = 0; i < mount_count; i++) {
@@ -258,30 +256,10 @@ bool ml_dl_device_extract_new(ml_dl_device_manager_t *manager, const ml_dl_mount
         const wchar_t *root = ml_dl_string_data(&items[i].root);
         if (root != NULL && !snapshot_contains(snapshot, root)) new_count++;
     }
-    device_count = ml_dl_vector_count(&manager->devices, sizeof(ml_dl_device_t *));
-    for (size_t i = 0; i < device_count; i++) {
-        ml_dl_device_t *device = ((ml_dl_device_t **)manager->devices.first)[i];
-        for (size_t j = 0; j < mount_count; j++) {
-            ml_dl_virtual_mount_t *mount = &((ml_dl_virtual_mount_t *)manager->bnd4_mounts.first)[j];
-            const wchar_t *root = ml_dl_string_data(&mount->root);
-            if (mount->device == device && root != NULL && !snapshot_contains(snapshot, root)) {
-                removed_device_count++;
-                break;
-            }
-        }
-    }
-    /* Reserve both manager vectors before removing anything.  This also leaves
-       enough capacity for a later restore or permanent push of these mounts. */
+    /* MountEbl has already grown the game-owned vectors.  Detaching mounts only
+       shortens last; avoid reallocating those ABI-owned vectors here. */
     if (new_count > SIZE_MAX - mounts->count ||
-        removed_device_count > device_count ||
-        new_count > SIZE_MAX - mount_count ||
-        mounts->count + new_count > SIZE_MAX - (device_count - removed_device_count) ||
-        !mounts_reserve(mounts, mounts->count + new_count) ||
-        !vector_reserve(&manager->devices, device_count - removed_device_count + mounts->count + new_count,
-                        sizeof(ml_dl_device_t *)) ||
-        mounts->count > SIZE_MAX - mount_count ||
-        !vector_reserve(&manager->bnd4_mounts, mount_count + mounts->count,
-                        sizeof(ml_dl_virtual_mount_t))) return false;
+        !mounts_reserve(mounts, mounts->count + new_count)) return false;
     for (size_t i = mount_count; i != 0; i--) {
         ml_dl_virtual_mount_t *items = (ml_dl_virtual_mount_t *)manager->bnd4_mounts.first;
         ml_dl_virtual_mount_t mount = items[i - 1];
@@ -319,14 +297,8 @@ bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_dl_vfs_moun
     if (mounts->count > SIZE_MAX - device_count || mounts->count > SIZE_MAX - mount_count) return false;
     required_devices = device_count + mounts->count;
     required_mounts = mount_count + mounts->count;
-    /* extract_new() reserves these exact capacities before detaching mounts;
-       restoration must therefore be allocation-free and cannot partially move ownership. */
-    if (manager->devices.first == NULL || manager->devices.end == NULL ||
-        (size_t)((uint8_t *)manager->devices.end - (uint8_t *)manager->devices.first) /
-            sizeof(ml_dl_device_t *) < required_devices ||
-        manager->bnd4_mounts.first == NULL || manager->bnd4_mounts.end == NULL ||
-        (size_t)((uint8_t *)manager->bnd4_mounts.end - (uint8_t *)manager->bnd4_mounts.first) /
-            sizeof(ml_dl_virtual_mount_t) < required_mounts) return false;
+    if (!vector_reserve(&manager->devices, required_devices, sizeof(ml_dl_device_t *)) ||
+        !vector_reserve(&manager->bnd4_mounts, required_mounts, sizeof(ml_dl_virtual_mount_t))) return false;
     for (size_t i = 0; i < mounts->count; i++) {
         ((ml_dl_device_t **)manager->devices.first)[device_count + i] = mounts->items[i].device;
         ((ml_dl_virtual_mount_t *)manager->bnd4_mounts.first)[mount_count + i] = mounts->items[i];
@@ -342,6 +314,12 @@ bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_dl_vfs_moun
 void ml_dl_mounts_destroy(ml_dl_vfs_mounts_t *mounts) {
     if (mounts == NULL) return;
     for (size_t i = 0; i < mounts->count; i++) ml_dl_string_destroy(&mounts->items[i].root);
+    LocalFree(mounts->items);
+    memset(mounts, 0, sizeof(*mounts));
+}
+
+void ml_dl_mounts_release(ml_dl_vfs_mounts_t *mounts) {
+    if (mounts == NULL) return;
     LocalFree(mounts->items);
     memset(mounts, 0, sizeof(*mounts));
 }

@@ -80,12 +80,9 @@ static bool str_ends_with(const wchar_t *str, size_t str_len, const wchar_t *suf
 
 static void er_log(const wchar_t *fmt, ...) {
     va_list args;
-    fwprintf(stderr, L"NOTE: [eldenring] ");
     va_start(args, fmt);
-    vfwprintf(stderr, fmt, args);
+    ml_log_vwrite(ML_LOG_LEVEL_DEBUG, L"eldenring", fmt, args);
     va_end(args);
-    fwprintf(stderr, L"\n");
-    fflush(stderr);
 }
 
 /*

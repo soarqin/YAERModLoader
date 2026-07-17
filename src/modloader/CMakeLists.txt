@@ -19,6 +19,7 @@ generate_version_info(dll_res_files
 add_project(modloader_dll SHARED
     modloader.c
     ${CMAKE_SOURCE_DIR}/src/common/allocator.c
+    ${CMAKE_SOURCE_DIR}/src/common/log.h
     config.c config.h
     extdll.c extdll.h
     gamehook.c gamehook.h
@@ -58,11 +59,19 @@ add_project(modloader_dll SHARED
 
 target_include_directories(modloader_dll PRIVATE ..)
 target_include_directories(modloader_dll PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
+add_library(modloader_log OBJECT ${CMAKE_SOURCE_DIR}/src/common/log.c)
+target_include_directories(modloader_log PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
+target_sources(modloader_dll PRIVATE $<TARGET_OBJECTS:modloader_log>)
 target_compile_definitions(modloader_dll PRIVATE YAERMODLOADER_USE_MIMALLOC)
+target_compile_definitions(modloader_dll PRIVATE ML_LOG_REDIRECT_STDIO)
 if (MSVC)
-    target_compile_options(modloader_dll PRIVATE "$<$<COMPILE_LANGUAGE:C>:/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h>")
+    target_compile_options(modloader_dll PRIVATE
+        "$<$<COMPILE_LANGUAGE:C>:/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h>"
+        "$<$<COMPILE_LANGUAGE:C>:/FI${CMAKE_SOURCE_DIR}/src/common/log.h>")
 else ()
-    target_compile_options(modloader_dll PRIVATE "$<$<COMPILE_LANGUAGE:C>:-include;${CMAKE_SOURCE_DIR}/src/common/allocator.h>")
+    target_compile_options(modloader_dll PRIVATE
+        "$<$<COMPILE_LANGUAGE:C>:-include;${CMAKE_SOURCE_DIR}/src/common/allocator.h>"
+        "$<$<COMPILE_LANGUAGE:C>:-include;${CMAKE_SOURCE_DIR}/src/common/log.h>")
 endif ()
 if (STRIP_MODENGINE_CONFIG_SUPPORT)
     target_compile_definitions(modloader_dll PRIVATE STRIP_MODENGINE_CONFIG_SUPPORT)
@@ -70,6 +79,7 @@ else ()
     target_link_libraries(modloader_dll toml-c)
 endif ()
 target_link_libraries(modloader_dll game_registry process steam minhook inih klib mimalloc-static miniz xxhash gdi32 shlwapi version)
+set_source_files_properties(${CMAKE_SOURCE_DIR}/src/common/log.c PROPERTIES COMPILE_DEFINITIONS "ML_LOG_IMPLEMENTATION")
 if (NOT MSVC)
     target_link_options(modloader_dll PRIVATE -municode)
 endif ()

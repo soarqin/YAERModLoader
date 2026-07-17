@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <wchar.h>
 
+#include "log.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,6 +23,7 @@ typedef struct {
     int cpu_affinity_strategy;
     bool reset_achievements_on_new_game;
     bool enable_ime;
+    ml_log_level_t log_level;
 
     /* GAME */
     bool skip_intro;

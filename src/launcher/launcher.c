@@ -8,6 +8,7 @@
 
 #include "steam/app.h"
 #include "game/game.h"
+#include "log.h"
 
 #include <getopt.h>
 /*
@@ -41,7 +42,7 @@ bool parse_args(const int argc, wchar_t *argv[]) {
             case 't':
                 launch_game = ml_game_by_key(optarg);
                 if (launch_game == NULL) {
-                    fwprintf(stderr, L"unsupported launch target: %ls\n", optarg);
+                    ML_LOG_ERROR(L"launcher", L"unsupported launch target: %ls", optarg);
                     return false;
                 }
                 break;
@@ -58,10 +59,10 @@ bool parse_args(const int argc, wchar_t *argv[]) {
                 suspend = true;
                 break;
             case '?':
-                fwprintf(stderr, L"bad argument: %c\n", optopt);
+                ML_LOG_ERROR(L"launcher", L"bad argument: %c", optopt);
                 return false;
             case ':':
-                fwprintf(stderr, L"missing argument for : %c\n", optopt);
+                ML_LOG_ERROR(L"launcher", L"missing argument for: %c", optopt);
                 return false;
             default:
                 break;
@@ -284,18 +285,18 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
         }
     }
     if (!PathFileExistsW(dll_path) || PathIsDirectoryW(dll_path)) {
-        fwprintf(stderr, L"could not find mod loader DLL `%ls`\n", dll_path);
+        ML_LOG_ERROR(L"launcher", L"could not find mod loader DLL `%ls`", dll_path);
         return -1;
     }
 
     if ((full_game_path[0] == L'\0' && !check_current_folder_for_game_path(full_game_path)) || (full_game_path[0] != L'\0' && !locate_game_executable(full_game_path))) {
         if (!app_find_game_path(launch_game->steam_app_id, game_folder)) {
-            fwprintf(stderr, L"could not find %ls through Steam\n", launch_game->title);
+            ML_LOG_ERROR(L"launcher", L"could not find %ls through Steam", launch_game->title);
             return -1;
         }
         lstrcpyW(full_game_path, game_folder);
         if (!locate_game_executable(full_game_path)) {
-            fwprintf(stderr, L"could not find %ls executable in `%ls`\n", launch_game->title, game_folder);
+            ML_LOG_ERROR(L"launcher", L"could not find %ls executable in `%ls`", launch_game->title, game_folder);
             return -1;
         }
     }
@@ -322,13 +323,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
     BOOL success = CreateProcessW(full_game_path, NULL, NULL, NULL, FALSE,
                                   CREATE_SUSPENDED, NULL, game_folder, &si, &pi);
     if (success && !inject_dll(pi.hProcess, dll_path)) {
-        fwprintf(stderr, L"could not inject `%ls` into %ls\n", dll_path, launch_game->title);
+        ML_LOG_ERROR(L"launcher", L"could not inject `%ls` into %ls", dll_path, launch_game->title);
         TerminateProcess(pi.hProcess, (UINT)-1);
         success = FALSE;
     }
     if (success && !suspend) {
         if (ResumeThread(pi.hThread) == (DWORD)-1) {
-            fwprintf(stderr, L"could not resume %ls\n", launch_game->title);
+            ML_LOG_ERROR(L"launcher", L"could not resume %ls", launch_game->title);
             TerminateProcess(pi.hProcess, (UINT)-1);
             success = FALSE;
         }

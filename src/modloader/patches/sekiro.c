@@ -1,4 +1,5 @@
 #include "sekiro.h"
+#include "log.h"
 
 #include "asset_hooks.h"
 #include "common.h"
@@ -40,12 +41,12 @@ static BOOL CALLBACK install_after_runtime(PINIT_ONCE once, PVOID parameter, PVO
         assets_applied = ml_asset_hooks_install(game, image_base, image_size);
     }
     if (assets_requested) {
-        fwprintf(assets_applied ? stdout : stderr,
-                 assets_applied
-                     ? L"NOTE: [sekiro] AFTER_RUNTIME_INIT reached; asset capability APPLIED\n"
-                     : L"WARNING: [sekiro] AFTER_RUNTIME_INIT reached; asset capability HOOK_FAILED\n");
+        ml_log_write(assets_applied ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                     L"sekiro", assets_applied
+                         ? L"AFTER_RUNTIME_INIT reached; asset capability APPLIED"
+                         : L"AFTER_RUNTIME_INIT reached; asset capability HOOK_FAILED");
     } else {
-        fwprintf(stdout, L"NOTE: [sekiro] AFTER_RUNTIME_INIT reached; asset capability NOT_REQUESTED\n");
+        ML_LOG_INFO(L"sekiro", L"AFTER_RUNTIME_INIT reached; asset capability NOT_REQUESTED");
     }
     if (!assets_applied) return FALSE;
     if (!ml_lifecycle_advance(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT)) {
@@ -71,11 +72,8 @@ static bool install_runtime_ready_hook(void) {
     steam_api_init = (void *)GetProcAddress(steam_api, "SteamAPI_Init");
     result = ml_hook_install(steam_api_init, steam_api_init_hooked, (void **)&old_steam_api_init);
     if (result == ML_HOOK_APPLIED) runtime_ready_hook_target = steam_api_init;
-    fwprintf(result == ML_HOOK_APPLIED ? stdout : stderr,
-             result == ML_HOOK_APPLIED
-                 ? L"NOTE: [sekiro] SteamAPI_Init runtime-ready hook %hs\n"
-                 : L"WARNING: [sekiro] SteamAPI_Init runtime-ready hook %hs\n",
-             ml_hook_result_name(result));
+    ml_log_write(result == ML_HOOK_APPLIED ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                 L"sekiro", L"SteamAPI_Init runtime-ready hook %hs", ml_hook_result_name(result));
     return result == ML_HOOK_APPLIED;
 }
 

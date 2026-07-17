@@ -1,4 +1,5 @@
 #include "regulation.h"
+#include "log.h"
 
 #include "modloader/dl_allocator.h"
 #include "modloader/hook.h"
@@ -108,8 +109,9 @@ bool ml_regulation_install(const ml_game_descriptor_t *game) {
     if (game == NULL) return false;
     if (game->regulation_strategy == ML_REGULATION_STRATEGY_FD4) result = install_fd4();
     if (game->regulation_strategy == ML_REGULATION_STRATEGY_SPRJ) result = install_sprj();
-    fwprintf(result ? stdout : stderr, result
-        ? L"NOTE: [regulation] protection APPLIED for %ls\n"
-        : L"WARNING: [regulation] protection SIGNATURE_NOT_FOUND for %ls\n", game->title);
+    ml_log_write(result ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                 L"regulation", result
+                     ? L"protection APPLIED for %ls"
+                     : L"protection SIGNATURE_NOT_FOUND for %ls", game->title);
     return result;
 }

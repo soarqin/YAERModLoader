@@ -29,12 +29,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "log.h"
 
-#define AK_LOG(fmt, ...) do { \
-    char _ak_buf[512]; \
-    snprintf(_ak_buf, sizeof(_ak_buf), "[almighty_kale] " fmt "\n", ##__VA_ARGS__); \
-    OutputDebugStringA(_ak_buf); \
-} while (0)
+#define AK_LOG(fmt, ...) ML_LOG_DEBUG(L"almighty-kale", L##fmt, ##__VA_ARGS__)
 
 #define kcalloc(N,Z)   LocalAlloc(LPTR, (N)*(Z))
 #define kmalloc(Z)     LocalAlloc(0, (Z))

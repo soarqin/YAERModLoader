@@ -7,6 +7,7 @@
  */
 
 #include "window_flash.h"
+#include "log.h"
 
 #include <stdio.h>
 
@@ -37,10 +38,7 @@ ml_hook_result_t ml_window_flash_install(void) {
     void *register_class_ex_w = user32 == NULL ? NULL : (void *)GetProcAddress(user32, "RegisterClassExW");
     ml_hook_result_t result = ml_hook_install(register_class_ex_w, register_class_ex_w_hooked,
                                               (void **)&old_register_class_ex_w);
-    fwprintf(result == ML_HOOK_APPLIED ? stdout : stderr,
-             result == ML_HOOK_APPLIED
-                 ? L"NOTE: [window-flash] RegisterClassExW hook %hs\n"
-                 : L"WARNING: [window-flash] RegisterClassExW hook %hs\n",
-             ml_hook_result_name(result));
+    ml_log_write(result == ML_HOOK_APPLIED ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                 L"window-flash", L"RegisterClassExW hook %hs", ml_hook_result_name(result));
     return result;
 }

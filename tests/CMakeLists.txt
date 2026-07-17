@@ -14,7 +14,9 @@ file(GLOB smoke_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/smoke_*.c
 
 foreach(smoke_src ${smoke_sources})
     get_filename_component(smoke_target "${smoke_src}" NAME_WE)
-    add_executable(${smoke_target} "${smoke_src}" ${CMAKE_SOURCE_DIR}/src/common/allocator.c)
+    add_executable(${smoke_target} "${smoke_src}"
+        ${CMAKE_SOURCE_DIR}/src/common/allocator.c
+        ${CMAKE_SOURCE_DIR}/src/common/log.c)
     target_link_libraries(${smoke_target} PRIVATE game_registry process klib)
     if(smoke_target STREQUAL "smoke_mimalloc_allocator")
         target_sources(${smoke_target} PRIVATE ${CMAKE_SOURCE_DIR}/src/modloader/mimalloc_allocator.c)

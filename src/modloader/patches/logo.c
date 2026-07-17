@@ -7,6 +7,7 @@
  */
 
 #include "logo.h"
+#include "log.h"
 
 #include "process/fd4_step.h"
 #include "process/image.h"
@@ -62,17 +63,17 @@ bool ml_logo_skip_install(const ml_game_descriptor_t *game) {
         case ML_LOGO_STRATEGY_FD4:
             result = ml_logo_fd4_redirect(fd4_step_find_slot(L"TitleStep::STEP_BeginLogo"),
                                           fd4_step_find(L"TitleStep::STEP_BeginTitle"));
-            fwprintf(result ? stdout : stderr,
-                     result
-                         ? L"NOTE: [logo] FD4 TitleStep redirect APPLIED\n"
-                         : L"WARNING: [logo] FD4 TitleStep redirect SIGNATURE_NOT_FOUND\n");
+            ml_log_write(result ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                         L"logo", result
+                             ? L"FD4 TitleStep redirect APPLIED"
+                             : L"FD4 TitleStep redirect SIGNATURE_NOT_FOUND");
             return result;
         case ML_LOGO_STRATEGY_SPRJ:
             result = install_sprj_logo();
-            fwprintf(result ? stdout : stderr,
-                     result
-                         ? L"NOTE: [logo] SPRJ TitleStep redirect APPLIED\n"
-                         : L"WARNING: [logo] SPRJ TitleStep redirect SIGNATURE_NOT_FOUND\n");
+            ml_log_write(result ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                         L"logo", result
+                             ? L"SPRJ TitleStep redirect APPLIED"
+                             : L"SPRJ TitleStep redirect SIGNATURE_NOT_FOUND");
             return result;
         default:
             fwprintf(stderr, L"WARNING: [logo] strategy UNSUPPORTED for %ls\n", game->title);

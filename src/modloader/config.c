@@ -19,11 +19,13 @@
 #include <shlwapi.h>
 
 #include "game/game.h"
+#include "log.h"
 
 config_t config = {
     .cpu_affinity_strategy = 0,
     .reset_achievements_on_new_game = false,
     .enable_ime = false,
+    .log_level = ML_LOG_LEVEL_INFO,
     .skip_intro = true,
     .remove_chromatic_aberration = false,
     .remove_vignette = false,
@@ -45,7 +47,6 @@ static void enable_debug() {
     freopen("CONOUT$", "w", stdout);
     freopen("CONOUT$", "w", stderr);
     freopen("CONIN$", "r", stdin);
-    fwprintf(stderr, L"NOTE: Debug mode enabled\n");
 }
 
 static bool value_to_bool(const char *value) {
@@ -68,6 +69,14 @@ static int ini_read_cb(void *user, const char *section,
         if (lstrcmpA(name, "debug") == 0) {
             if (value_to_bool(value)) {
                 enable_debug();
+            }
+        } else if (lstrcmpA(name, "log_level") == 0) {
+            ml_log_level_t level;
+            if (ml_log_level_parse(value, &level)) {
+                config.log_level = level;
+                ml_log_set_level(level);
+            } else {
+                ML_LOG_WARN(L"config", L"Unknown log level: %hs", value);
             }
         } else if (lstrcmpA(name, "cpu_affinity") == 0) {
             config.cpu_affinity_strategy = strtol(value, NULL, 0);
@@ -134,6 +143,19 @@ bool config_load_toml(FILE *f) {
     value = toml_table_bool(me, "debug");
     if (value.ok && value.u.b) {
         enable_debug();
+    }
+    {
+        toml_value_t log_level = toml_table_string(me, "log_level");
+        if (log_level.ok) {
+            ml_log_level_t level;
+            if (ml_log_level_parse(log_level.u.s, &level)) {
+                config.log_level = level;
+                ml_log_set_level(level);
+            } else {
+                ML_LOG_WARN(L"config", L"Unknown log level: %hs", log_level.u.s);
+            }
+            free(log_level.u.s);
+        }
     }
     arr = toml_table_array(me, "external_dlls");
     if (arr == NULL) goto TOML_LOAD_MODS;
@@ -233,6 +255,10 @@ void config_load() {
 #endif
         config_load_ini(config_file);
     fclose(config_file);
+    ml_log_set_level(config.log_level);
+    if (GetConsoleWindow() != NULL) {
+        ML_LOG_INFO(NULL, L"Debug console enabled; log level=%ls", ml_log_level_name(config.log_level));
+    }
 }
 
 const wchar_t *module_path() { return modloader_module_path; }
