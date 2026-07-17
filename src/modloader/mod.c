@@ -81,7 +81,12 @@ bool mods_file_virtual_to_uid_prefixed(const wchar_t *path, wchar_t **uid) {
 }
 
 const wchar_t *mods_file_route_read(const wchar_t *path, DWORD desired_access, DWORD creation_disposition) {
-    if (mod_count <= 0 || path == NULL || StrCmpNIW(path, game_folder, game_folder_length) != 0) return NULL;
+    const wchar_t *uid_path;
+    if (mod_count <= 0 || path == NULL) return NULL;
+    uid_path = vfs_uid_to_path(path);
+    if (uid_path != NULL) return uid_path;
+    if (StrCmpNIW(path, game_folder, game_folder_length) != 0 ||
+        (path[game_folder_length] != L'\0' && path[game_folder_length] != L'\\' && path[game_folder_length] != L'/')) return NULL;
     return vfs_route_read_path(path + game_folder_length, desired_access, creation_disposition);
 }
 

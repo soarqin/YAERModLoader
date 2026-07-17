@@ -424,7 +424,6 @@ uint64_t vfs_reset_lookup_caches(void) {
 bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
     wchar_t *key;
     khiter_t slot;
-    uint64_t current;
     int length;
     wchar_t *result;
     wchar_t *cache_key;
@@ -432,8 +431,7 @@ bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
     if (uid == NULL) return false;
     *uid = NULL;
     AcquireSRWLockShared(&lookup_cache_lock);
-    current = vfs_generation();
-    if (current == 0 || path == NULL || index == NULL || uid_cache == NULL) {
+    if (path == NULL || index == NULL || uid_cache == NULL) {
         ReleaseSRWLockShared(&lookup_cache_lock);
         return false;
     }
@@ -451,13 +449,11 @@ bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
     LocalFree(key);
     result = NULL;
     if (slot != kh_end(index)) {
-        length = _scwprintf(L"\\\\YAERModLoader?%llu?%zx", (unsigned long long)current,
-                            (size_t)kh_value(index, slot));
+        length = _scwprintf(L"\\\\me3??%zx", (size_t)kh_value(index, slot));
         if (length < 0) return false;
         result = LocalAlloc(0, ((size_t)length + 1) * sizeof(*result));
         if (result == NULL) return false;
-        _snwprintf(result, (size_t)length + 1, L"\\\\YAERModLoader?%llu?%zx",
-                   (unsigned long long)current, (size_t)kh_value(index, slot));
+        _snwprintf(result, (size_t)length + 1, L"\\\\me3??%zx", (size_t)kh_value(index, slot));
     }
     cache_key = StrDupW(path);
     if (cache_key == NULL) {
@@ -465,12 +461,6 @@ bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
         return result != NULL;
     }
     AcquireSRWLockExclusive(&lookup_cache_lock);
-    if (vfs_generation() != current) {
-        ReleaseSRWLockExclusive(&lookup_cache_lock);
-        LocalFree(cache_key);
-        LocalFree(result);
-        return false;
-    }
     slot = kh_get(vfs_lookup_cache, uid_cache, cache_key);
     if (slot != kh_end(uid_cache)) {
         const wchar_t *cached = kh_value(uid_cache, slot);
@@ -502,23 +492,12 @@ bool vfs_virtual_to_uid_prefixed(const wchar_t *path, const wchar_t *game_root, 
 }
 
 const wchar_t *vfs_uid_to_path(const wchar_t *uid) {
-    static const wchar_t prefix[] = L"\\\\YAERModLoader?";
+    static const wchar_t prefix[] = L"\\\\me3??";
     wchar_t *end;
-    unsigned long long uid_generation;
     unsigned long long index_value;
     if (uid == NULL || wcsncmp(uid, prefix, (sizeof(prefix) / sizeof(prefix[0])) - 1) != 0) return NULL;
     AcquireSRWLockShared(&lookup_cache_lock);
     uid += (sizeof(prefix) / sizeof(prefix[0])) - 1;
-    if (!iswdigit(*uid)) {
-        ReleaseSRWLockShared(&lookup_cache_lock);
-        return NULL;
-    }
-    uid_generation = wcstoull(uid, &end, 10);
-    if (end == uid || *end++ != L'?' || uid_generation != vfs_generation()) {
-        ReleaseSRWLockShared(&lookup_cache_lock);
-        return NULL;
-    }
-    uid = end;
     if (!iswxdigit(*uid)) {
         ReleaseSRWLockShared(&lookup_cache_lock);
         return NULL;

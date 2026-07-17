@@ -8,7 +8,9 @@
 
 #include "dl_device.h"
 
+#include "modloader/dl_allocator.h"
 #include "process/pe.h"
+#include "xxhash.h"
 
 #include <shlwapi.h>
 
@@ -16,6 +18,8 @@
 #include <wchar.h>
 
 #include <miniz.h>
+#include <miniz_tdef.h>
+#include <miniz_tinfl.h>
 
 static void **seen_targets;
 static size_t seen_count;
@@ -137,18 +141,243 @@ bool ml_dl_device_expand_path(ml_dl_device_manager_t *manager, const wchar_t *pa
     return false;
 }
 
-bool ml_dl_string_replace_path(ml_msvc2015_string_t *dl_string, const wchar_t *path) {
+bool ml_dl_string_clone_replace(const ml_msvc2015_string_t *source, const wchar_t *path,
+                                ml_msvc2015_string_t *replacement) {
     size_t length;
     wchar_t *buffer;
-    if (dl_string == NULL || path == NULL || dl_string->encoding != 1) return false;
+    dl_allocator_t *allocator;
+    if (source == NULL || path == NULL || replacement == NULL || source->encoding != 1) return false;
+    allocator = source->allocator;
+    if (allocator == NULL || allocator->vtable == NULL || allocator->vtable->allocate_aligned == NULL) return false;
     length = wcslen(path);
-    if (length > dl_string->capacity) return false;
-    buffer = dl_string->capacity * sizeof(wchar_t) >= sizeof(dl_string->storage.inline_storage)
-        ? (wchar_t *)dl_string->storage.large : (wchar_t *)dl_string->storage.inline_storage;
-    if (buffer == NULL) return false;
+    memset(replacement, 0, sizeof(*replacement));
+    replacement->allocator = allocator;
+    replacement->capacity = 7;
+    replacement->encoding = 1;
+    if (length <= replacement->capacity) {
+        buffer = (wchar_t *)replacement->storage.inline_storage;
+    } else {
+        if (length == SIZE_MAX) return false;
+        buffer = allocator->vtable->allocate_aligned(allocator, (length + 1) * sizeof(*buffer), _Alignof(wchar_t));
+        if (buffer == NULL) return false;
+        replacement->storage.large = buffer;
+        replacement->capacity = length;
+    }
     memcpy(buffer, path, (length + 1) * sizeof(*buffer));
-    dl_string->length = length;
+    replacement->length = length;
     return true;
+}
+
+bool ml_dl_mount_snapshot(ml_dl_device_manager_t *manager, ml_dl_mount_snapshot_t *snapshot) {
+    size_t count;
+    if (manager == NULL || snapshot == NULL) return false;
+    memset(snapshot, 0, sizeof(*snapshot));
+    count = ml_dl_vector_count(&manager->bnd4_mounts, sizeof(ml_dl_virtual_mount_t));
+    if (count == 0) return true;
+    snapshot->roots = LocalAlloc(0, count * sizeof(*snapshot->roots));
+    if (snapshot->roots == NULL) return false;
+    for (size_t i = 0; i < count; i++) {
+        ml_dl_virtual_mount_t *mount = &((ml_dl_virtual_mount_t *)manager->bnd4_mounts.first)[i];
+        const wchar_t *root = ml_dl_string_data(&mount->root);
+        snapshot->roots[i] = root == NULL ? NULL : StrDupW(root);
+        if (root != NULL && snapshot->roots[i] == NULL) {
+            ml_dl_mount_snapshot_destroy(snapshot);
+            return false;
+        }
+        snapshot->count = i + 1;
+    }
+    return true;
+}
+
+void ml_dl_mount_snapshot_destroy(ml_dl_mount_snapshot_t *snapshot) {
+    if (snapshot == NULL) return;
+    for (size_t i = 0; i < snapshot->count; i++) LocalFree(snapshot->roots[i]);
+    LocalFree(snapshot->roots);
+    memset(snapshot, 0, sizeof(*snapshot));
+}
+
+bool ml_dl_mounts_init(ml_dl_vfs_mounts_t *mounts) {
+    if (mounts == NULL) return false;
+    memset(mounts, 0, sizeof(*mounts));
+    return true;
+}
+
+static bool snapshot_contains(const ml_dl_mount_snapshot_t *snapshot, const wchar_t *root) {
+    if (snapshot == NULL || root == NULL) return false;
+    for (size_t i = 0; i < snapshot->count; i++) {
+        if (snapshot->roots[i] != NULL && wcscmp(snapshot->roots[i], root) == 0) return true;
+    }
+    return false;
+}
+
+static bool mounts_reserve(ml_dl_vfs_mounts_t *mounts, size_t capacity) {
+    ml_dl_virtual_mount_t *items;
+    if (mounts == NULL || capacity > SIZE_MAX / sizeof(*items)) return false;
+    if (capacity <= mounts->capacity) return true;
+    items = LocalAlloc(0, capacity * sizeof(*items));
+    if (items == NULL) return false;
+    memcpy(items, mounts->items, mounts->count * sizeof(*items));
+    LocalFree(mounts->items);
+    mounts->items = items;
+    mounts->capacity = capacity;
+    return true;
+}
+
+static bool vector_reserve(ml_msvc2015_vector_t *vector, size_t count, size_t item_size) {
+    size_t capacity;
+    size_t used;
+    dl_allocator_t *allocator;
+    void *items;
+    if (vector == NULL || item_size == 0 || count > SIZE_MAX / item_size) return false;
+    capacity = vector->first == NULL || vector->end == NULL ? 0 :
+               (size_t)((uint8_t *)vector->end - (uint8_t *)vector->first) / item_size;
+    used = ml_dl_vector_count(vector, item_size);
+    if (count <= capacity) return true;
+    allocator = (dl_allocator_t *)vector->allocator;
+    if (allocator == NULL || allocator->vtable == NULL || allocator->vtable->allocate_aligned == NULL) return false;
+    items = allocator->vtable->allocate_aligned(allocator, count * item_size, sizeof(void *));
+    if (items == NULL) return false;
+    if (used != 0 && vector->first != NULL) memcpy(items, vector->first, used * item_size);
+    if (vector->first != NULL && allocator->vtable->free != NULL) allocator->vtable->free(allocator, vector->first);
+    vector->first = items;
+    vector->last = (uint8_t *)items + used * item_size;
+    vector->end = (uint8_t *)items + count * item_size;
+    return true;
+}
+
+bool ml_dl_device_extract_new(ml_dl_device_manager_t *manager, const ml_dl_mount_snapshot_t *snapshot,
+                              ml_dl_vfs_mounts_t *mounts) {
+    size_t mount_count;
+    size_t new_count = 0;
+    size_t device_count;
+    size_t removed_device_count = 0;
+    if (manager == NULL || snapshot == NULL || mounts == NULL) return false;
+    mount_count = ml_dl_vector_count(&manager->bnd4_mounts, sizeof(ml_dl_virtual_mount_t));
+    for (size_t i = 0; i < mount_count; i++) {
+        ml_dl_virtual_mount_t *items = (ml_dl_virtual_mount_t *)manager->bnd4_mounts.first;
+        const wchar_t *root = ml_dl_string_data(&items[i].root);
+        if (root != NULL && !snapshot_contains(snapshot, root)) new_count++;
+    }
+    device_count = ml_dl_vector_count(&manager->devices, sizeof(ml_dl_device_t *));
+    for (size_t i = 0; i < device_count; i++) {
+        ml_dl_device_t *device = ((ml_dl_device_t **)manager->devices.first)[i];
+        for (size_t j = 0; j < mount_count; j++) {
+            ml_dl_virtual_mount_t *mount = &((ml_dl_virtual_mount_t *)manager->bnd4_mounts.first)[j];
+            const wchar_t *root = ml_dl_string_data(&mount->root);
+            if (mount->device == device && root != NULL && !snapshot_contains(snapshot, root)) {
+                removed_device_count++;
+                break;
+            }
+        }
+    }
+    /* Reserve both manager vectors before removing anything.  This also leaves
+       enough capacity for a later restore or permanent push of these mounts. */
+    if (new_count > SIZE_MAX - mounts->count ||
+        removed_device_count > device_count ||
+        new_count > SIZE_MAX - mount_count ||
+        mounts->count + new_count > SIZE_MAX - (device_count - removed_device_count) ||
+        !mounts_reserve(mounts, mounts->count + new_count) ||
+        !vector_reserve(&manager->devices, device_count - removed_device_count + mounts->count + new_count,
+                        sizeof(ml_dl_device_t *)) ||
+        mounts->count > SIZE_MAX - mount_count ||
+        !vector_reserve(&manager->bnd4_mounts, mount_count + mounts->count,
+                        sizeof(ml_dl_virtual_mount_t))) return false;
+    for (size_t i = mount_count; i != 0; i--) {
+        ml_dl_virtual_mount_t *items = (ml_dl_virtual_mount_t *)manager->bnd4_mounts.first;
+        ml_dl_virtual_mount_t mount = items[i - 1];
+        const wchar_t *root = ml_dl_string_data(&mount.root);
+        if (root == NULL || snapshot_contains(snapshot, root)) continue;
+        memmove(mounts->items + 1, mounts->items, mounts->count * sizeof(*mounts->items));
+        mounts->items[0] = mount;
+        mounts->count++;
+        memmove(items + i - 1, items + i, (mount_count - i) * sizeof(*items));
+        mount_count--;
+    }
+    {
+        size_t device_count = ml_dl_vector_count(&manager->devices, sizeof(ml_dl_device_t *));
+        ml_dl_device_t **devices = (ml_dl_device_t **)manager->devices.first;
+        for (size_t i = device_count; i != 0; i--) {
+            bool used = false;
+            for (size_t j = 0; j < mounts->count; j++) if (mounts->items[j].device == devices[i - 1]) used = true;
+            if (used) memmove(devices + i - 1, devices + i, (device_count - i) * sizeof(*devices)), device_count--;
+        }
+        manager->devices.last = devices + device_count;
+    }
+    manager->bnd4_mounts.last = (uint8_t *)manager->bnd4_mounts.first + mount_count * sizeof(ml_dl_virtual_mount_t);
+    return true;
+}
+
+bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_dl_vfs_mounts_t *mounts) {
+    size_t device_count;
+    size_t mount_count;
+    size_t required_devices;
+    size_t required_mounts;
+    if (manager == NULL || mounts == NULL) return false;
+    device_count = ml_dl_vector_count(&manager->devices, sizeof(ml_dl_device_t *));
+    mount_count = ml_dl_vector_count(&manager->bnd4_mounts, sizeof(ml_dl_virtual_mount_t));
+    if (mounts->count == 0) return true;
+    if (mounts->count > SIZE_MAX - device_count || mounts->count > SIZE_MAX - mount_count) return false;
+    required_devices = device_count + mounts->count;
+    required_mounts = mount_count + mounts->count;
+    /* extract_new() reserves these exact capacities before detaching mounts;
+       restoration must therefore be allocation-free and cannot partially move ownership. */
+    if (manager->devices.first == NULL || manager->devices.end == NULL ||
+        (size_t)((uint8_t *)manager->devices.end - (uint8_t *)manager->devices.first) /
+            sizeof(ml_dl_device_t *) < required_devices ||
+        manager->bnd4_mounts.first == NULL || manager->bnd4_mounts.end == NULL ||
+        (size_t)((uint8_t *)manager->bnd4_mounts.end - (uint8_t *)manager->bnd4_mounts.first) /
+            sizeof(ml_dl_virtual_mount_t) < required_mounts) return false;
+    for (size_t i = 0; i < mounts->count; i++) {
+        ((ml_dl_device_t **)manager->devices.first)[device_count + i] = mounts->items[i].device;
+        ((ml_dl_virtual_mount_t *)manager->bnd4_mounts.first)[mount_count + i] = mounts->items[i];
+    }
+    manager->devices.last = (uint8_t *)manager->devices.first + required_devices * sizeof(ml_dl_device_t *);
+    manager->bnd4_mounts.last = (uint8_t *)manager->bnd4_mounts.first +
+                               required_mounts * sizeof(ml_dl_virtual_mount_t);
+    LocalFree(mounts->items);
+    memset(mounts, 0, sizeof(*mounts));
+    return true;
+}
+
+void ml_dl_mounts_destroy(ml_dl_vfs_mounts_t *mounts) {
+    if (mounts == NULL) return;
+    for (size_t i = 0; i < mounts->count; i++) ml_dl_string_destroy(&mounts->items[i].root);
+    LocalFree(mounts->items);
+    memset(mounts, 0, sizeof(*mounts));
+}
+
+bool ml_dl_device_push_mounts_permanent(ml_dl_device_manager_t *manager, ml_dl_vfs_mounts_t *mounts) {
+    size_t device_count;
+    size_t mount_count;
+    size_t required_devices;
+    size_t required_mounts;
+    if (manager == NULL || mounts == NULL) return false;
+    device_count = ml_dl_vector_count(&manager->devices, sizeof(ml_dl_device_t *));
+    mount_count = ml_dl_vector_count(&manager->bnd4_mounts, sizeof(ml_dl_virtual_mount_t));
+    if (mounts->count == 0) return true;
+    if (mounts->count > SIZE_MAX - device_count || mounts->count > SIZE_MAX - mount_count) return false;
+    required_devices = device_count + mounts->count;
+    required_mounts = mount_count + mounts->count;
+    if (!vector_reserve(&manager->devices, required_devices, sizeof(ml_dl_device_t *)) ||
+        !vector_reserve(&manager->bnd4_mounts, required_mounts, sizeof(ml_dl_virtual_mount_t))) return false;
+    for (size_t i = 0; i < mounts->count; i++) {
+        ((ml_dl_device_t **)manager->devices.first)[device_count + i] = mounts->items[i].device;
+        ((ml_dl_virtual_mount_t *)manager->bnd4_mounts.first)[mount_count + i] = mounts->items[i];
+    }
+    manager->devices.last = (uint8_t *)manager->devices.first + required_devices * sizeof(ml_dl_device_t *);
+    manager->bnd4_mounts.last = (uint8_t *)manager->bnd4_mounts.first +
+                               required_mounts * sizeof(ml_dl_virtual_mount_t);
+    LocalFree(mounts->items);
+    memset(mounts, 0, sizeof(*mounts));
+    return true;
+}
+
+void ml_dl_string_destroy(ml_msvc2015_string_t *string) {
+    if (string == NULL) return;
+    if (string->capacity > 7 && string->storage.large != NULL) {
+        dl_allocator_dealloc(string->allocator, string->storage.large);
+    }
+    memset(string, 0, sizeof(*string));
 }
 
 bool ml_dl_device_seen(void *target) {
@@ -188,35 +417,33 @@ bool ml_bhd5_header_valid(const void *data, size_t size) {
            bucket_count <= (file_size - bucket_offset) / sizeof(uint32_t);
 }
 
-bool ml_boot_boost_cache_key(const void *data, size_t size, uint64_t *key) {
+bool ml_boot_boost_cache_key(const void *data, size_t size, uint64_t key[2]) {
     const uint8_t *bytes = data;
-    uint64_t hash = UINT64_C(1469598103934665603);
+    XXH128_hash_t hash;
     if (bytes == NULL || key == NULL) return false;
-    for (size_t i = 0; i < size; i++) {
-        hash ^= bytes[i];
-        hash *= UINT64_C(1099511628211);
-    }
-    *key = hash;
+    hash = XXH3_128bits_withSeed(bytes, size, 1);
+    key[0] = hash.low64;
+    key[1] = hash.high64;
     return true;
 }
 
-wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, uint64_t key) {
+wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, const uint64_t key[2]) {
     int suffix_length;
     size_t directory_length;
     bool separator;
     wchar_t *result;
-    if (directory == NULL) return NULL;
+    if (directory == NULL || key == NULL) return NULL;
     directory_length = wcslen(directory);
     separator = directory_length != 0 && directory[directory_length - 1] != L'\\' &&
                 directory[directory_length - 1] != L'/';
-    suffix_length = _scwprintf(L"%016llx.bhd.zz", (unsigned long long)key);
+    suffix_length = _scwprintf(L"%016llx%016llx.bhd.zz", (unsigned long long)key[1], (unsigned long long)key[0]);
     if (suffix_length < 0 || directory_length > SIZE_MAX - (size_t)suffix_length - (separator ? 2 : 1)) return NULL;
     result = LocalAlloc(0, (directory_length + (size_t)suffix_length + (separator ? 2 : 1)) * sizeof(*result));
     if (result == NULL) return NULL;
     memcpy(result, directory, directory_length * sizeof(*result));
     if (separator) result[directory_length++] = L'\\';
-    _snwprintf(result + directory_length, (size_t)suffix_length + 1, L"%016llx.bhd.zz",
-               (unsigned long long)key);
+    _snwprintf(result + directory_length, (size_t)suffix_length + 1, L"%016llx%016llx.bhd.zz",
+               (unsigned long long)key[1], (unsigned long long)key[0]);
     return result;
 }
 
@@ -225,7 +452,7 @@ bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_s
     DWORD read;
     uint32_t expected_size;
     LARGE_INTEGER file_size;
-    uint8_t *compressed;
+    uint8_t *compressed = NULL;
     size_t compressed_size;
     bool valid = false;
     if (path == NULL || output == NULL || output_size > UINT32_MAX) return false;
@@ -237,9 +464,14 @@ bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_s
     compressed = LocalAlloc(0, compressed_size);
     if (compressed == NULL) goto done;
     if (ReadFile(file, compressed, (DWORD)compressed_size, &read, NULL) && read == compressed_size) {
-        mz_ulong uncompressed_size = output_size;
-        valid = mz_uncompress(output, &uncompressed_size, compressed, compressed_size) == MZ_OK &&
-                uncompressed_size == output_size && ml_bhd5_header_valid(output, output_size);
+        tinfl_decompressor decompressor;
+        size_t input_size = compressed_size;
+        size_t uncompressed_size = output_size;
+        tinfl_init(&decompressor);
+        valid = tinfl_decompress(&decompressor, compressed, &input_size, output, output, &uncompressed_size,
+                                 TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_STATUS_DONE &&
+                input_size == compressed_size && uncompressed_size == output_size &&
+                ml_bhd5_header_valid(output, output_size);
     }
     LocalFree(compressed);
 done:
@@ -250,7 +482,7 @@ done:
 
 bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t size) {
     wchar_t *temporary;
-    HANDLE file;
+    HANDLE file = INVALID_HANDLE_VALUE;
     size_t bound;
     size_t compressed_size;
     uint8_t *compressed;
@@ -266,9 +498,9 @@ bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t siz
     compressed = LocalAlloc(0, bound);
     if (compressed == NULL) { LocalFree(temporary); return false; }
     {
-        mz_ulong compressed_length = bound;
-        if (mz_compress2(compressed, &compressed_length, data, size, MZ_BEST_COMPRESSION) != MZ_OK) goto done;
-        compressed_size = compressed_length;
+        compressed_size = tdefl_compress_mem_to_mem(compressed, bound, data, size,
+            tdefl_create_comp_flags_from_zip_params(7, -MZ_DEFAULT_WINDOW_BITS, MZ_DEFAULT_STRATEGY));
+        if (compressed_size == 0) goto done;
     }
     if (compressed_size == 0 || compressed_size > MAXDWORD) goto done;
     file = CreateFileW(temporary, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -279,12 +511,7 @@ bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t siz
         FlushFileBuffers(file);
         CloseHandle(file);
         file = INVALID_HANDLE_VALUE;
-        if (!MoveFileExW(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-            DeleteFileW(path);
-            result = MoveFileExW(temporary, path, MOVEFILE_WRITE_THROUGH) != 0;
-        } else {
-            result = true;
-        }
+        result = MoveFileExW(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
     }
 done:
     if (file != INVALID_HANDLE_VALUE) CloseHandle(file);

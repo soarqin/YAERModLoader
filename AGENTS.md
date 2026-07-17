@@ -6,6 +6,8 @@ A Windows-only C11 mod loader for Elden Ring (`YAERModLoader`). Produces two pri
 - `YAERModLoader.exe` — standalone launcher (`modloader_launcher`, WIN32 subsystem)
 - `YAERModLoader.dll` — injected DLL (`modloader_dll`, proxy for `dxgi.dll` / `dinput8.dll` / `winhttp.dll`)
 
+When comparing or porting behavior from me3, use `docs/me3-repo.md` as the source of truth for the repository, branch, and synced commit. Do not infer the comparison baseline from whichever me3 working tree happens to be checked out. The cache dictionary system intentionally follows the performance optimization in the documented me3 fork; treat it as the project's chosen me3 implementation, not as a parity difference from the original repository.
+
 Optional extension DLLs live under `src/extdlls/` (e.g. `autoloot`, `no_dup_loot`, `itemlot_rate`, `almighty_kale`). Each subdirectory with source files is auto-discovered and built as a separate shared library.
 
 ## Build system

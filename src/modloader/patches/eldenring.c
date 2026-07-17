@@ -8,7 +8,7 @@
 
 #include "eldenring.h"
 #include "../lifecycle.h"
-#include "eldenring_assets.h"
+#include "asset_hooks.h"
 
 #include "modloader/config.h"
 #include "modloader/dl_allocator.h"
@@ -221,13 +221,16 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
                                 const DWORD dwFlagsAndAttributes,
                                 HANDLE hTemplateFile) {
     /* CreateFileW(NULL, ...) fails gracefully; do not crash on it here. */
-    if (lpFileName == NULL || lpFileName[0] == L'\\') {
+    if (lpFileName == NULL) {
         return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     }
     const wchar_t *replace = vfs_route_writable_path(lpFileName);
     if (replace == NULL) replace = mods_file_route_read(lpFileName, dwDesiredAccess, dwCreationDisposition);
     if (replace != NULL) {
         return old_CreateFileW(replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    }
+    if (lpFileName[0] == L'\\') {
+        return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     }
     wchar_t *full_path = check_replace_file(lpFileName);
     if (full_path == NULL) {
@@ -466,22 +469,26 @@ static void hook_eldenring_writable_file_apis() {
 }
 
 static BOOL CALLBACK eldenring_after_main_install_once(PINIT_ONCE init_once, PVOID parameter, PVOID *context) {
+    bool assets_applied = true;
     (void)init_once;
     (void)parameter;
     (void)context;
     er_log(L"after-main install start");
     if (mods_count() > 0) {
-        from_assets_install(ml_game_context_get(), image_base, image_size);
+        assets_applied = ml_asset_hooks_install(ml_game_context_get(), image_base, image_size);
     }
-    er_log(L"after-main install end");
-    return TRUE;
+    er_log(L"after-main install end: assets=%d", assets_applied ? 1 : 0);
+    return assets_applied ? TRUE : FALSE;
 }
 
 static bool __cdecl SteamAPI_Init_hooked(void) {
     bool result = old_SteamAPI_Init();
     er_log(L"SteamAPI_Init returned %d", result ? 1 : 0);
     if (result) {
-        InitOnceExecuteOnce(&after_main_once, eldenring_after_main_install_once, NULL, NULL);
+        if (!InitOnceExecuteOnce(&after_main_once, eldenring_after_main_install_once, NULL, NULL)) {
+            fwprintf(stderr, L"WARNING: [eldenring] AFTER_RUNTIME_INIT setup failed; deferred initialization will retry\n");
+            return result;
+        }
         ml_lifecycle_advance(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT);
     }
     return result;
@@ -587,7 +594,7 @@ void eldenring_uninstall() {
     er_log(L"uninstall start");
     game_running = false;
 
-    if (!from_assets_uninstall()) {
+    if (!ml_asset_hooks_uninstall()) {
         fwprintf(stderr, L"WARNING: [eldenring] one or more asset hooks could not be removed\n");
     }
 

@@ -70,6 +70,17 @@ typedef struct ml_dl_device_manager_guard_s {
     ml_dl_device_manager_t *manager;
 } ml_dl_device_manager_guard_t;
 
+typedef struct ml_dl_mount_snapshot_s {
+    wchar_t **roots;
+    size_t count;
+} ml_dl_mount_snapshot_t;
+
+typedef struct ml_dl_vfs_mounts_s {
+    ml_dl_virtual_mount_t *items;
+    size_t count;
+    size_t capacity;
+} ml_dl_vfs_mounts_t;
+
 _Static_assert(offsetof(ml_dl_device_manager_t, disk_device) == 64, "DlDeviceManager disk device offset");
 _Static_assert(offsetof(ml_dl_device_manager_t, virtual_roots) == 72, "DlDeviceManager virtual roots offset");
 
@@ -77,13 +88,23 @@ ml_dl_device_manager_t *ml_dl_device_manager_find(void *image_base);
 bool ml_dl_device_manager_lock(ml_dl_device_manager_t *manager, ml_dl_device_manager_guard_t *guard);
 void ml_dl_device_manager_unlock(ml_dl_device_manager_guard_t *guard);
 bool ml_dl_device_expand_path(ml_dl_device_manager_t *manager, const wchar_t *path, wchar_t **expanded);
-bool ml_dl_string_replace_path(ml_msvc2015_string_t *string, const wchar_t *path);
+bool ml_dl_mount_snapshot(ml_dl_device_manager_t *manager, ml_dl_mount_snapshot_t *snapshot);
+void ml_dl_mount_snapshot_destroy(ml_dl_mount_snapshot_t *snapshot);
+bool ml_dl_mounts_init(ml_dl_vfs_mounts_t *mounts);
+void ml_dl_mounts_destroy(ml_dl_vfs_mounts_t *mounts);
+bool ml_dl_device_extract_new(ml_dl_device_manager_t *manager, const ml_dl_mount_snapshot_t *snapshot,
+                              ml_dl_vfs_mounts_t *mounts);
+bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_dl_vfs_mounts_t *mounts);
+bool ml_dl_device_push_mounts_permanent(ml_dl_device_manager_t *manager, ml_dl_vfs_mounts_t *mounts);
+bool ml_dl_string_clone_replace(const ml_msvc2015_string_t *source, const wchar_t *path,
+                                 ml_msvc2015_string_t *replacement);
+void ml_dl_string_destroy(ml_msvc2015_string_t *string);
 const wchar_t *ml_dl_string_data(const ml_msvc2015_string_t *string);
 size_t ml_dl_vector_count(const ml_msvc2015_vector_t *vector, size_t item_size);
 bool ml_dl_device_seen(void *target);
 bool ml_dl_device_mark_seen(void *target);
 bool ml_bhd5_header_valid(const void *data, size_t size);
-bool ml_boot_boost_cache_key(const void *data, size_t size, uint64_t *key);
-wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, uint64_t key);
+bool ml_boot_boost_cache_key(const void *data, size_t size, uint64_t key[2]);
+wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, const uint64_t key[2]);
 bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_size);
 bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t size);

@@ -1,7 +1,7 @@
 #include "sekiro.h"
 
+#include "asset_hooks.h"
 #include "common.h"
-#include "eldenring_assets.h"
 #include "save_mapping.h"
 #include "win32_hooks.h"
 
@@ -30,18 +30,24 @@ static void *runtime_ready_hook_target;
 
 static BOOL CALLBACK install_after_runtime(PINIT_ONCE once, PVOID parameter, PVOID *context) {
     const ml_game_descriptor_t *game = ml_game_context_get();
-    bool assets_applied = true;
+    bool assets_requested = game != NULL && mods_count() > 0;
+    bool assets_applied = !assets_requested;
     (void)once;
     (void)parameter;
     (void)context;
 
-    if (game != NULL && mods_count() > 0) {
-        assets_applied = from_assets_install(game, image_base, image_size);
+    if (assets_requested) {
+        assets_applied = ml_asset_hooks_install(game, image_base, image_size);
     }
-    fwprintf(assets_applied ? stdout : stderr,
-             assets_applied
-                 ? L"NOTE: [sekiro] AFTER_RUNTIME_INIT reached; asset capability APPLIED\n"
-                 : L"WARNING: [sekiro] AFTER_RUNTIME_INIT reached; asset capability HOOK_FAILED\n");
+    if (assets_requested) {
+        fwprintf(assets_applied ? stdout : stderr,
+                 assets_applied
+                     ? L"NOTE: [sekiro] AFTER_RUNTIME_INIT reached; asset capability APPLIED\n"
+                     : L"WARNING: [sekiro] AFTER_RUNTIME_INIT reached; asset capability HOOK_FAILED\n");
+    } else {
+        fwprintf(stdout, L"NOTE: [sekiro] AFTER_RUNTIME_INIT reached; asset capability NOT_REQUESTED\n");
+    }
+    if (!assets_applied) return FALSE;
     if (!ml_lifecycle_advance(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT)) {
         fwprintf(stderr, L"WARNING: [sekiro] AFTER_RUNTIME_INIT lifecycle advance failed\n");
     }
@@ -50,12 +56,14 @@ static BOOL CALLBACK install_after_runtime(PINIT_ONCE once, PVOID parameter, PVO
 
 static bool __cdecl steam_api_init_hooked(void) {
     bool result = old_steam_api_init();
-    if (result) InitOnceExecuteOnce(&after_runtime_once, install_after_runtime, NULL, NULL);
+    if (result && !InitOnceExecuteOnce(&after_runtime_once, install_after_runtime, NULL, NULL)) {
+        fwprintf(stderr, L"WARNING: [sekiro] AFTER_RUNTIME_INIT setup failed; deferred initialization will retry\n");
+    }
     return result;
 }
 
 static bool install_runtime_ready_hook(void) {
-    HMODULE steam_api = GetModuleHandleW(L"steam_api64.dll");
+    HMODULE steam_api = LoadLibraryW(L"steam_api64.dll");
     void *steam_api_init;
     ml_hook_result_t result;
 
@@ -98,7 +106,7 @@ bool sekiro_install(void) {
 
 void sekiro_uninstall(void) {
     bool runtime_hook_removed = true;
-    if (!from_assets_uninstall()) {
+    if (!ml_asset_hooks_uninstall()) {
         fwprintf(stderr, L"WARNING: [sekiro] one or more asset hooks could not be removed\n");
     }
     ml_win32_file_hooks_uninstall();

@@ -61,6 +61,13 @@ int main(void) {
     EXPECT_TRUE(vfs_add_package(second));
     EXPECT_EQ(vfs_generation(), 0);
     EXPECT_NOT_NULL(vfs_lookup(L"parts/test.bin"));
+    {
+        wchar_t *uncached_uid = NULL;
+        EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &uncached_uid));
+        EXPECT_TRUE(wcscmp(uncached_uid, L"\\\\me3??0") == 0);
+        EXPECT_STREQ_W(vfs_uid_to_path(uncached_uid), vfs_lookup(L"parts/test.bin"));
+        LocalFree(uncached_uid);
+    }
     EXPECT_EQ(vfs_generation(), 0);
     EXPECT_EQ(vfs_reset_lookup_caches(), 1);
     EXPECT_EQ(vfs_generation(), 1);
@@ -105,6 +112,7 @@ int main(void) {
         wchar_t *uid = NULL;
         wchar_t *cached_uid = NULL;
         EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &uid));
+        EXPECT_TRUE(wcscmp(uid, L"\\\\me3??0") == 0);
         EXPECT_NOT_NULL(uid);
         EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &cached_uid));
         EXPECT_STREQ_W(cached_uid, uid);
@@ -118,15 +126,15 @@ int main(void) {
         EXPECT_STREQ_W(vfs_lookup(uid), vfs_lookup(L"parts/test.bin"));
         vfs_begin_lookup_reset();
         EXPECT_EQ(vfs_generation(), 0);
-        EXPECT_NULL(vfs_uid_to_path(uid));
+        EXPECT_STREQ_W(vfs_uid_to_path(uid), vfs_lookup(L"parts/test.bin"));
         EXPECT_EQ(vfs_reset_lookup_caches(), 2);
         EXPECT_EQ(vfs_generation(), 2);
         EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &cached_uid));
-        EXPECT_TRUE(wcscmp(cached_uid, uid) != 0);
+        EXPECT_TRUE(wcscmp(cached_uid, uid) == 0);
         LocalFree(cached_uid);
-        EXPECT_NULL(vfs_uid_to_path(L"\\\\YAERModLoader?2?ffffffff"));
-        EXPECT_NULL(vfs_uid_to_path(L"\\\\YAERModLoader?-2?0"));
-        EXPECT_NULL(vfs_uid_to_path(L"\\\\YAERModLoader? 2?0"));
+        EXPECT_NULL(vfs_uid_to_path(L"\\\\me3??ffffffff"));
+        EXPECT_NULL(vfs_uid_to_path(L"\\\\me3??-2"));
+        EXPECT_NULL(vfs_uid_to_path(L"\\\\me3?? 2"));
         LocalFree(uid);
     }
     vfs_uninit();

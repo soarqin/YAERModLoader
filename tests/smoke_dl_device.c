@@ -5,12 +5,36 @@
 #include <windows.h>
 
 #include "test_common.h"
+#include "modloader/dl_allocator.h"
 #include "modloader/patches/dl_device.h"
+
+static size_t allocated;
+static size_t freed;
+static size_t permanent_freed;
+
+static void *__cdecl test_allocate_aligned(dl_allocator_t *self, size_t size, size_t alignment) {
+    (void)self;
+    (void)alignment;
+    allocated++;
+    return malloc(size);
+}
+
+static void __cdecl test_free(dl_allocator_t *self, void *ptr) {
+    (void)self;
+    freed++;
+    free(ptr);
+}
+
+static void __cdecl test_permanent_free(dl_allocator_t *self, void *ptr) {
+    (void)self;
+    permanent_freed++;
+    free(ptr);
+}
 
 int main(void) {
     uint8_t header[64] = { 0 };
-    uint64_t first;
-    uint64_t second;
+    uint64_t first[2];
+    uint64_t second[2];
     wchar_t temporary[MAX_PATH];
     uint32_t file_size = 64;
     uint32_t bucket_count = 2;
@@ -19,23 +43,49 @@ int main(void) {
     ml_dl_device_manager_t manager = { 0 };
     wchar_t *expanded = NULL;
     wchar_t *cache_path;
+    dl_allocator_vtable_t allocator_vtable = { 0 };
+    dl_allocator_t allocator = { &allocator_vtable };
+    ml_msvc2015_string_t source = { 0 };
+    ml_msvc2015_string_t replacement;
+
+    allocator_vtable.allocate_aligned = test_allocate_aligned;
+    allocator_vtable.free = test_free;
+    source.allocator = &allocator;
+    memcpy(source.storage.inline_storage, L"data:/", 14);
+    source.length = 6;
+    source.capacity = 7;
+    source.encoding = 1;
+    EXPECT_TRUE(ml_dl_string_clone_replace(&source, L"short", &replacement));
+    EXPECT_STREQ_W(ml_dl_string_data(&replacement), L"short");
+    EXPECT_STREQ_W(ml_dl_string_data(&source), L"data:/");
+    ml_dl_string_destroy(&replacement);
+    EXPECT_EQ(allocated, 0);
+    EXPECT_EQ(freed, 0);
+    EXPECT_TRUE(ml_dl_string_clone_replace(&source, L"\\me3??123456789", &replacement));
+    EXPECT_STREQ_W(ml_dl_string_data(&replacement), L"\\me3??123456789");
+    EXPECT_STREQ_W(ml_dl_string_data(&source), L"data:/");
+    EXPECT_EQ(allocated, 1);
+    ml_dl_string_destroy(&replacement);
+    EXPECT_EQ(freed, 1);
 
     memcpy(header, "BHD5", 4);
     memcpy(header + 12, &file_size, sizeof(file_size));
     memcpy(header + 16, &bucket_count, sizeof(bucket_count));
     memcpy(header + 20, &bucket_offset, sizeof(bucket_offset));
     EXPECT_TRUE(ml_bhd5_header_valid(header, sizeof(header)));
-    EXPECT_TRUE(ml_boot_boost_cache_key(header, sizeof(header), &first));
-    EXPECT_TRUE(ml_boot_boost_cache_key(header, sizeof(header), &second));
-    EXPECT_EQ(first, second);
+    EXPECT_TRUE(ml_boot_boost_cache_key(header, sizeof(header), first));
+    EXPECT_TRUE(ml_boot_boost_cache_key(header, sizeof(header), second));
+    EXPECT_EQ(first[0], second[0]);
+    EXPECT_EQ(first[1], second[1]);
     {
         wchar_t directory[600];
         for (size_t i = 0; i < 599; i++) directory[i] = L'a';
         directory[599] = L'\0';
-        cache_path = ml_boot_boost_cache_path(directory, UINT64_C(0x1234));
+        const uint64_t key[2] = { UINT64_C(0x1234), UINT64_C(0x5678) };
+        cache_path = ml_boot_boost_cache_path(directory, key);
         EXPECT_NOT_NULL(cache_path);
-        EXPECT_EQ(wcslen(cache_path), 599 + 1 + 16 + 7);
-        EXPECT_TRUE(wcsstr(cache_path, L"1234.bhd.zz") != NULL);
+        EXPECT_EQ(wcslen(cache_path), 599 + 1 + 32 + 7);
+        EXPECT_TRUE(wcsstr(cache_path, L"00000000000056780000000000001234.bhd.zz") != NULL);
         LocalFree(cache_path);
     }
     EXPECT_TRUE(GetTempPathW(MAX_PATH, temporary) != 0);
@@ -45,6 +95,18 @@ int main(void) {
     memset(header, 0, sizeof(header));
     EXPECT_TRUE(ml_boot_boost_cache_load(temporary, header, sizeof(header)));
     DeleteFileW(temporary);
+    EXPECT_TRUE(ml_boot_boost_cache_store(temporary, header, sizeof(header)));
+    {
+        HANDLE file = CreateFileW(temporary, FILE_APPEND_DATA, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        const uint8_t trailing = 0;
+        DWORD written;
+        EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
+        EXPECT_TRUE(WriteFile(file, &trailing, sizeof(trailing), &written, NULL));
+        EXPECT_EQ(written, sizeof(trailing));
+        CloseHandle(file);
+    }
+    EXPECT_TRUE(!ml_boot_boost_cache_load(temporary, header, sizeof(header)));
+    EXPECT_EQ(GetFileAttributesW(temporary), INVALID_FILE_ATTRIBUTES);
     memcpy(roots[0].root.storage.inline_storage, L"dataX", 12);
     roots[0].root.length = roots[0].root.capacity = 4;
     roots[0].root.encoding = 1;
@@ -68,6 +130,58 @@ int main(void) {
     EXPECT_TRUE(ml_dl_device_expand_path(&manager, L"data:\\parts\\test.bin", &expanded));
     EXPECT_STREQ_W(expanded, L"data:\\parts\\test.bin");
     LocalFree(expanded);
+    {
+        dl_allocator_vtable_t vector_allocator_vtable = { 0 };
+        dl_allocator_t vector_allocator = { &vector_allocator_vtable };
+        ml_dl_device_t first_device = { 0 };
+        ml_dl_device_t second_device = { 0 };
+        ml_dl_device_t **devices = malloc(sizeof(*devices));
+        ml_dl_virtual_mount_t *manager_mounts = malloc(sizeof(*manager_mounts));
+        ml_dl_vfs_mounts_t vfs_mounts = { 0 };
+        vector_allocator_vtable.allocate_aligned = test_allocate_aligned;
+        vector_allocator_vtable.free = test_permanent_free;
+        devices[0] = &first_device;
+        manager_mounts[0].device = &first_device;
+        manager.devices = (ml_msvc2015_vector_t){ &vector_allocator, devices, devices + 1, devices + 1 };
+        manager.bnd4_mounts = (ml_msvc2015_vector_t){ &vector_allocator, manager_mounts, manager_mounts + 1,
+                                                      manager_mounts + 1 };
+        vfs_mounts.items = LocalAlloc(0, sizeof(*vfs_mounts.items));
+        vfs_mounts.items[0].device = &second_device;
+        vfs_mounts.count = vfs_mounts.capacity = 1;
+        EXPECT_TRUE(ml_dl_device_push_mounts_permanent(&manager, &vfs_mounts));
+        EXPECT_EQ(ml_dl_vector_count(&manager.devices, sizeof(ml_dl_device_t *)), 2);
+        EXPECT_EQ(ml_dl_vector_count(&manager.bnd4_mounts, sizeof(ml_dl_virtual_mount_t)), 2);
+        EXPECT_TRUE(((ml_dl_device_t **)manager.devices.first)[1] == &second_device);
+        EXPECT_TRUE(((ml_dl_virtual_mount_t *)manager.bnd4_mounts.first)[1].device == &second_device);
+        EXPECT_NULL(vfs_mounts.items);
+        EXPECT_EQ(permanent_freed, 2);
+        free(manager.devices.first);
+        free(manager.bnd4_mounts.first);
+    }
+    {
+        dl_allocator_vtable_t vector_allocator_vtable = { 0 };
+        dl_allocator_t vector_allocator = { &vector_allocator_vtable };
+        ml_dl_device_t device = { 0 };
+        ml_dl_device_t **devices = malloc(sizeof(*devices));
+        ml_dl_virtual_mount_t *manager_mounts = malloc(sizeof(*manager_mounts));
+        ml_dl_vfs_mounts_t vfs_mounts = { 0 };
+        vector_allocator_vtable.allocate_aligned = test_allocate_aligned;
+        vector_allocator_vtable.free = test_permanent_free;
+        devices[0] = &device;
+        manager_mounts[0].device = &device;
+        manager.devices = (ml_msvc2015_vector_t){ &vector_allocator, devices, devices, devices + 1 };
+        manager.bnd4_mounts = (ml_msvc2015_vector_t){ &vector_allocator, manager_mounts,
+                                                      manager_mounts, manager_mounts + 1 };
+        vfs_mounts.items = LocalAlloc(0, sizeof(*vfs_mounts.items));
+        vfs_mounts.items[0].device = &device;
+        vfs_mounts.count = vfs_mounts.capacity = 1;
+        EXPECT_TRUE(ml_dl_device_restore_mounts(&manager, &vfs_mounts));
+        EXPECT_EQ(ml_dl_vector_count(&manager.devices, sizeof(ml_dl_device_t *)), 1);
+        EXPECT_EQ(ml_dl_vector_count(&manager.bnd4_mounts, sizeof(ml_dl_virtual_mount_t)), 1);
+        EXPECT_NULL(vfs_mounts.items);
+        free(manager.devices.first);
+        free(manager.bnd4_mounts.first);
+    }
     header[0] = 'X';
     EXPECT_TRUE(!ml_bhd5_header_valid(header, sizeof(header)));
     printf("smoke_dl_device: all tests passed\n");
