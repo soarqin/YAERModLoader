@@ -12,10 +12,5 @@ add_project(process STATIC
     FOLDER libs
 )
 
-target_include_directories(process PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
 target_link_libraries(process PRIVATE klib)
-if (MSVC)
-    target_compile_options(process PRIVATE "/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h")
-else ()
-    target_compile_options(process PRIVATE -include ${CMAKE_SOURCE_DIR}/src/common/allocator.h)
-endif ()
+target_include_directories(process PRIVATE ${CMAKE_SOURCE_DIR}/src/common)

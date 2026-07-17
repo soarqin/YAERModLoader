@@ -15,6 +15,12 @@ static HMODULE steam_api_module = NULL;
 static FARPROC steam_userstats_func = NULL;
 static FARPROC steam_apps_func = NULL;
 
+typedef isteam_userstats *(__cdecl *steam_userstats_factory_t)(void);
+typedef bool (__cdecl *isteam_userstats_store_stats_t)(isteam_userstats *);
+typedef bool (__cdecl *isteam_userstats_reset_all_stats_t)(isteam_userstats *, bool);
+typedef isteam_apps *(__cdecl *steam_apps_factory_t)(void);
+typedef const char *(__cdecl *isteam_apps_get_current_game_language_t)(isteam_apps *);
+
 void steamapi_init() {
     steam_api_module = LoadLibraryW(L"steam_api64.dll");
     if (steam_api_module == NULL) {
@@ -48,24 +54,24 @@ isteam_userstats *steam_userstats() {
     if (steam_userstats_func == NULL) {
         return NULL;
     }
-    return ((void*(*__cdecl)())steam_userstats_func)();
+    return ((steam_userstats_factory_t)steam_userstats_func)();
 }
 
 bool isteam_userstats_store_stats(isteam_userstats *steam_userstats) {
     void **vtable = *(void***)steam_userstats;
-    return ((bool(*__cdecl)(isteam_userstats*))vtable[10])(steam_userstats);
+    return ((isteam_userstats_store_stats_t)vtable[10])(steam_userstats);
 }
 
 bool isteam_userstats_reset_all_stats(isteam_userstats *steam_userstats, bool achievements_too) {
     void **vtable = *(void***)steam_userstats;
-    return ((bool(*__cdecl)(isteam_userstats*, bool))vtable[21])(steam_userstats, achievements_too);
+    return ((isteam_userstats_reset_all_stats_t)vtable[21])(steam_userstats, achievements_too);
 }
 
 isteam_apps *steam_apps() {
     if (steam_apps_func == NULL) {
         return NULL;
     }
-    return ((void*(*__cdecl)())steam_apps_func)();
+    return ((steam_apps_factory_t)steam_apps_func)();
 }
 
 const char *isteam_apps_get_current_game_language(isteam_apps *apps) {
@@ -75,5 +81,5 @@ const char *isteam_apps_get_current_game_language(isteam_apps *apps) {
     void **vtable = *(void***)apps;
     /* vtable index 4 = GetCurrentGameLanguage (verified against the game's
      * steam_api64.dll ISteamApps vtable layout). */
-    return ((const char *(*__cdecl)(isteam_apps *))vtable[4])(apps);
+    return ((isteam_apps_get_current_game_language_t)vtable[4])(apps);
 }

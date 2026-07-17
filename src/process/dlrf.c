@@ -95,8 +95,10 @@ static bool memory_readable(const void *address, size_t size) {
 }
 
 static bool read_pointer(const void *address, const void **value) {
-    if (value == NULL || !memory_readable(address, sizeof(*value))) return false;
-    memcpy(value, address, sizeof(*value));
+    void *pointer;
+    if (value == NULL || !memory_readable(address, sizeof(pointer))) return false;
+    memcpy(&pointer, address, sizeof(pointer));
+    *value = pointer;
     return true;
 }
 

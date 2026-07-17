@@ -8,6 +8,8 @@
 
 #include "extdll.h"
 
+#include "allocator.h"
+
 #include "config.h"
 
 #include "game/game.h"
@@ -41,15 +43,15 @@ static bool is_elden_ring_extension(const char *name) {
 void extdlls_add(const char *name, const wchar_t *path) {
     if (extdll_count >= extdll_capacity) {
         extdll_capacity = extdll_capacity == 0 ? 8 : extdll_capacity * 2;
-        extdll_t *new_dlls = extdlls == NULL ? LocalAlloc(LMEM_ZEROINIT, extdll_capacity * sizeof(extdll_t)) : LocalReAlloc(extdlls, extdll_capacity * sizeof(extdll_t), LMEM_MOVEABLE | LMEM_ZEROINIT);
+        extdll_t *new_dlls = extdlls == NULL ? yaer_mem_alloc(LMEM_ZEROINIT, extdll_capacity * sizeof(extdll_t)) : yaer_mem_realloc(extdlls, extdll_capacity * sizeof(extdll_t), LMEM_MOVEABLE | LMEM_ZEROINIT);
         if (new_dlls == NULL) {
             return;
         }
         extdlls = new_dlls;
     }
     extdll_t *extdll = &extdlls[extdll_count++];
-    extdll->name = StrDupA(name);
-    extdll->base_path = StrDupW(path);
+    extdll->name = yaer_mem_strdup_a(name);
+    extdll->base_path = yaer_mem_strdup_w(path);
 }
 
 int extdlls_count() {
@@ -125,15 +127,15 @@ void extdlls_unload_all() {
             fwprintf(stdout, L"Uninitialized external dll %hs\n", extdll->name);
         }
         if (extdll->name) {
-            LocalFree(extdll->name);
+            yaer_mem_free(extdll->name);
             extdll->name = NULL;
         }
         if (extdll->base_path) {
-            LocalFree(extdll->base_path);
+            yaer_mem_free(extdll->base_path);
             extdll->base_path = NULL;
         }
     }
-    LocalFree(extdlls);
+    yaer_mem_free(extdlls);
     extdlls = NULL;
     extdll_count = 0;
     extdll_capacity = 0;

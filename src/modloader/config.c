@@ -8,11 +8,13 @@
 
 #include "config.h"
 
+#include "allocator.h"
+
 #include "extdll.h"
 #include "mod.h"
 
 #include <ini.h>
-#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
+#if !defined(ML_STRIP_MODENGINE_CONFIG)
 #include <toml.h>
 #endif
 
@@ -130,7 +132,7 @@ void config_load_ini(FILE *f) {
     ini_parse_file(f, ini_read_cb, NULL);
 }
 
-#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
+#if !defined(ML_STRIP_MODENGINE_CONFIG)
 bool config_load_toml(FILE *f) {
     char errbuf[256];
     toml_table_t *root = toml_parse_file(f, errbuf, 256);
@@ -223,7 +225,7 @@ void config_load() {
     if (env_config_path[0] == L'\0') {
         lstrcpyW(config_path, modloader_module_path);
         PathAppendW(config_path, L"YAERModLoader.ini");
-#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
+#if !defined(ML_STRIP_MODENGINE_CONFIG)
         if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
             lstrcpyW(config_path, modloader_module_path);
             PathAppendW(config_path, modengine_config_name);
@@ -236,7 +238,7 @@ void config_load() {
         } else if (PathIsDirectoryW(env_config_path)) {
             lstrcpyW(config_path, env_config_path);
             PathAppendW(config_path, L"YAERModLoader.ini");
-#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
+#if !defined(ML_STRIP_MODENGINE_CONFIG)
             if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
                 lstrcpyW(config_path, env_config_path);
                 PathAppendW(config_path, modengine_config_name);
@@ -250,7 +252,7 @@ void config_load() {
     }
     config_file = _wfopen(config_path, L"r");
     if (config_file == NULL) return;
-#if !defined(STRIP_MODENGINE_CONFIG_SUPPORT)
+#if !defined(ML_STRIP_MODENGINE_CONFIG)
     if (lstrcmpiW(PathFindExtensionW(config_path), L".toml") != 0 || !config_load_toml(config_file))
 #endif
         config_load_ini(config_file);
@@ -271,7 +273,7 @@ wchar_t *config_full_path_alloc(const wchar_t *filename) {
                      base[base_length - 1] != L'\\' && base[base_length - 1] != L'/';
     wchar_t *result;
     if (base_length > SIZE_MAX - filename_length - (separator ? 2 : 1)) return NULL;
-    result = LocalAlloc(0, (base_length + filename_length + (separator ? 2 : 1)) * sizeof(*result));
+    result = yaer_mem_alloc(0, (base_length + filename_length + (separator ? 2 : 1)) * sizeof(*result));
     if (result == NULL) return NULL;
     memcpy(result, base, (base_length + 1) * sizeof(*result));
     if (env_config_path[0] != L'\0' && PathFileExistsW(result) && !PathIsDirectoryW(result)) {

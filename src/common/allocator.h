@@ -1,5 +1,5 @@
-#ifndef YAERMODLOADER_ALLOCATOR_H
-#define YAERMODLOADER_ALLOCATOR_H
+#ifndef ML_ALLOCATOR_H
+#define ML_ALLOCATOR_H
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,16 +8,18 @@
 #include <shlwapi.h>
 
 #include <stddef.h>
-void *yaer_local_alloc(UINT flags, size_t size);
-void *yaer_local_realloc(void *ptr, size_t size, UINT flags);
-void yaer_local_free(void *ptr);
-char *yaer_strdup_a(const char *str);
-wchar_t *yaer_strdup_w(const wchar_t *str);
-
-#define LocalAlloc(flags, size) yaer_local_alloc((flags), (size))
-#define LocalReAlloc(ptr, size, flags) yaer_local_realloc((ptr), (size), (flags))
-#define LocalFree(ptr) yaer_local_free(ptr)
-#define StrDupA(str) yaer_strdup_a(str)
-#define StrDupW(str) yaer_strdup_w(str)
+#ifdef ML_USE_WIN32_ALLOCATOR
+#define yaer_mem_alloc LocalAlloc
+#define yaer_mem_realloc LocalReAlloc
+#define yaer_mem_free LocalFree
+#define yaer_mem_strdup_a StrDupA
+#define yaer_mem_strdup_w StrDupW
+#else
+void *yaer_mem_alloc(UINT flags, size_t size);
+void *yaer_mem_realloc(void *ptr, size_t size, UINT flags);
+void yaer_mem_free(void *ptr);
+char *yaer_mem_strdup_a(const char *str);
+wchar_t *yaer_mem_strdup_w(const wchar_t *str);
+#endif
 
 #endif

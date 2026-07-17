@@ -1,4 +1,5 @@
 #include "win32_hooks.h"
+#include "common/allocator.h"
 #include "log.h"
 
 #include <MinHook.h>
@@ -156,17 +157,17 @@ static HANDLE WINAPI create_file_a_hooked(LPCSTR path, DWORD access, DWORD share
     if (wide != NULL) {
         mapped = route_wide(wide, access, disposition, &failed);
         if (failed) {
-            LocalFree(wide);
+            yaer_mem_free(wide);
             SetLastError(ERROR_CANNOT_MAKE);
             return INVALID_HANDLE_VALUE;
         }
         if (mapped != NULL) {
             HANDLE result = old_create_file_w(mapped, access, share, security, disposition, flags, template_file);
-            LocalFree(wide);
+            yaer_mem_free(wide);
             return result;
         }
     }
-    LocalFree(wide);
+    yaer_mem_free(wide);
     return old_create_file_a(path, access, share, security, disposition, flags, template_file);
 }
 
@@ -199,13 +200,13 @@ static BOOL WINAPI delete_file_a_hooked(LPCSTR path) {
     wide = ml_path_from_ansi(path);
     if (wide == NULL) return old_delete_file_a(path);
     if (ml_save_mapping_route(wide, &mapped) && mapped == NULL) {
-        LocalFree(wide);
+        yaer_mem_free(wide);
         SetLastError(ERROR_CANNOT_MAKE);
         return FALSE;
     }
     if (mapped == NULL) mapped = vfs_route_writable_path(wide);
     BOOL result = mapped != NULL ? old_delete_file_w(mapped) : old_delete_file_a(path);
-    LocalFree(wide);
+    yaer_mem_free(wide);
     return result;
 }
 
@@ -219,7 +220,7 @@ static BOOL WINAPI create_directory_a_hooked(LPCSTR path, LPSECURITY_ATTRIBUTES 
     const wchar_t *mapped = NULL;
     if (wide != NULL) mapped = vfs_route_writable_path(wide);
     BOOL result = mapped != NULL ? old_create_directory_w(mapped, security) : old_create_directory_a(path, security);
-    LocalFree(wide);
+    yaer_mem_free(wide);
     return result;
 }
 
@@ -280,13 +281,13 @@ static BOOL WINAPI copy_file_a_hooked(LPCSTR existing_path, LPCSTR new_path, BOO
     wide_existing = ml_path_from_ansi(existing_path);
     wide_new = ml_path_from_ansi(new_path);
     if (wide_existing == NULL || wide_new == NULL) {
-        LocalFree(wide_existing);
-        LocalFree(wide_new);
+        yaer_mem_free(wide_existing);
+        yaer_mem_free(wide_new);
         return old_copy_file_a(existing_path, new_path, fail_if_exists);
     }
     if (!route_copy_paths(wide_existing, wide_new, &mapped_existing, &mapped_new)) {
-        LocalFree(wide_existing);
-        LocalFree(wide_new);
+        yaer_mem_free(wide_existing);
+        yaer_mem_free(wide_new);
         SetLastError(ERROR_CANNOT_MAKE);
         return FALSE;
     }
@@ -294,8 +295,8 @@ static BOOL WINAPI copy_file_a_hooked(LPCSTR existing_path, LPCSTR new_path, BOO
         ? old_copy_file_w(mapped_existing != NULL ? mapped_existing : wide_existing,
                           mapped_new != NULL ? mapped_new : wide_new, fail_if_exists)
         : old_copy_file_a(existing_path, new_path, fail_if_exists);
-    LocalFree(wide_existing);
-    LocalFree(wide_new);
+    yaer_mem_free(wide_existing);
+    yaer_mem_free(wide_new);
     return result;
 }
 
@@ -313,13 +314,13 @@ static BOOL WINAPI copy_file_ex_a_hooked(LPCSTR existing_path, LPCSTR new_path,
     wide_existing = ml_path_from_ansi(existing_path);
     wide_new = ml_path_from_ansi(new_path);
     if (wide_existing == NULL || wide_new == NULL) {
-        LocalFree(wide_existing);
-        LocalFree(wide_new);
+        yaer_mem_free(wide_existing);
+        yaer_mem_free(wide_new);
         return old_copy_file_ex_a(existing_path, new_path, progress, data, cancel, flags);
     }
     if (!route_copy_paths(wide_existing, wide_new, &mapped_existing, &mapped_new)) {
-        LocalFree(wide_existing);
-        LocalFree(wide_new);
+        yaer_mem_free(wide_existing);
+        yaer_mem_free(wide_new);
         SetLastError(ERROR_CANNOT_MAKE);
         return FALSE;
     }
@@ -327,8 +328,8 @@ static BOOL WINAPI copy_file_ex_a_hooked(LPCSTR existing_path, LPCSTR new_path,
         ? old_copy_file_ex_w(mapped_existing != NULL ? mapped_existing : wide_existing,
                              mapped_new != NULL ? mapped_new : wide_new, progress, data, cancel, flags)
         : old_copy_file_ex_a(existing_path, new_path, progress, data, cancel, flags);
-    LocalFree(wide_existing);
-    LocalFree(wide_new);
+    yaer_mem_free(wide_existing);
+    yaer_mem_free(wide_new);
     return result;
 }
 

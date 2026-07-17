@@ -1,5 +1,5 @@
-#ifndef TESTS_TEST_COMMON_H
-#define TESTS_TEST_COMMON_H
+#ifndef ML_TEST_COMMON_H
+#define ML_TEST_COMMON_H
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

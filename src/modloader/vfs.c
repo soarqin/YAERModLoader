@@ -8,6 +8,8 @@
 
 #include "vfs.h"
 
+#include "allocator.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shlwapi.h>
@@ -15,10 +17,10 @@
 #include <wctype.h>
 #include <stdlib.h>
 
-#define kcalloc(N,Z) LocalAlloc(LPTR, (N) * (Z))
-#define kmalloc(Z) LocalAlloc(0, (Z))
-#define krealloc(P,Z) ((P) ? LocalReAlloc((P), (Z), LMEM_MOVEABLE) : LocalAlloc(0, (Z)))
-#define kfree(P) LocalFree(P)
+#define kcalloc(N,Z) yaer_mem_alloc(LPTR, (N) * (Z))
+#define kmalloc(Z) yaer_mem_alloc(0, (Z))
+#define krealloc(P,Z) ((P) ? yaer_mem_realloc((P), (Z), LMEM_MOVEABLE) : yaer_mem_alloc(0, (Z)))
+#define kfree(P) yaer_mem_free(P)
 #include "khash.h"
 #include "khash_wstr.h"
 
@@ -54,7 +56,7 @@ static size_t writable_capacity;
 static wchar_t *vfs_join(const wchar_t *left, const wchar_t *right) {
     size_t left_len = wcslen(left);
     size_t right_len = wcslen(right);
-    wchar_t *result = LocalAlloc(0, (left_len + right_len + 2) * sizeof(*result));
+    wchar_t *result = yaer_mem_alloc(0, (left_len + right_len + 2) * sizeof(*result));
     if (result == NULL) return NULL;
     memcpy(result, left, left_len * sizeof(*result));
     if (left_len != 0 && left[left_len - 1] != L'\\') result[left_len++] = L'\\';
@@ -73,11 +75,11 @@ bool vfs_normalize_path(const wchar_t *path, wchar_t **normalized) {
     length = wcslen(path);
     if (length == SIZE_MAX || length + 1 > SIZE_MAX / sizeof(*result) ||
         length + 1 > SIZE_MAX / sizeof(*segment_starts)) return false;
-    result = LocalAlloc(0, (length + 1) * sizeof(*result));
+    result = yaer_mem_alloc(0, (length + 1) * sizeof(*result));
     if (result == NULL) return false;
-    segment_starts = LocalAlloc(0, (length + 1) * sizeof(*segment_starts));
+    segment_starts = yaer_mem_alloc(0, (length + 1) * sizeof(*segment_starts));
     if (segment_starts == NULL) {
-        LocalFree(result);
+        yaer_mem_free(result);
         return false;
     }
 
@@ -97,8 +99,8 @@ bool vfs_normalize_path(const wchar_t *path, wchar_t **normalized) {
         if (part_len == 0 || (part_len == 1 && start[0] == L'.')) continue;
         if (part_len == 2 && start[0] == L'.' && start[1] == L'.') {
             if (segment_count == 0) {
-                LocalFree(segment_starts);
-                LocalFree(result);
+                yaer_mem_free(segment_starts);
+                yaer_mem_free(result);
                 return false;
             }
             out = segment_starts[--segment_count];
@@ -109,7 +111,7 @@ bool vfs_normalize_path(const wchar_t *path, wchar_t **normalized) {
         for (size_t i = 0; i < part_len; i++) result[out++] = towlower(start[i]);
     }
     result[out] = L'\0';
-    LocalFree(segment_starts);
+    yaer_mem_free(segment_starts);
     *normalized = result;
     return true;
 }
@@ -120,33 +122,33 @@ static bool vfs_insert(const wchar_t *relative, const wchar_t *physical) {
     khiter_t slot;
     int ret;
     if (!vfs_normalize_path(relative, &key)) return false;
-    path = StrDupW(physical);
+    path = yaer_mem_strdup_w(physical);
     if (path == NULL) {
-        LocalFree(key);
+        yaer_mem_free(key);
         return false;
     }
     slot = kh_put(vfs_index, index, key, &ret);
     if (ret < 0) {
-        LocalFree(key);
-        LocalFree(path);
+        yaer_mem_free(key);
+        yaer_mem_free(path);
         return false;
     }
     if (ret == 0) {
         vfs_entry_t *entry = &entries[kh_value(index, slot)];
-        LocalFree(entry->path);
+        yaer_mem_free(entry->path);
         entry->path = path;
-        LocalFree(key);
+        yaer_mem_free(key);
         return true;
     }
     if (entry_count == entry_capacity) {
         size_t capacity = entry_capacity == 0 ? 128 : entry_capacity * 2;
         vfs_entry_t *new_entries = entries == NULL
-            ? LocalAlloc(LMEM_ZEROINIT, capacity * sizeof(*entries))
-            : LocalReAlloc(entries, capacity * sizeof(*entries), LMEM_MOVEABLE | LMEM_ZEROINIT);
+            ? yaer_mem_alloc(LMEM_ZEROINIT, capacity * sizeof(*entries))
+            : yaer_mem_realloc(entries, capacity * sizeof(*entries), LMEM_MOVEABLE | LMEM_ZEROINIT);
         if (new_entries == NULL) {
             kh_del(vfs_index, index, slot);
-            LocalFree(key);
-            LocalFree(path);
+            yaer_mem_free(key);
+            yaer_mem_free(path);
             return false;
         }
         entries = new_entries;
@@ -159,44 +161,44 @@ static bool vfs_insert(const wchar_t *relative, const wchar_t *physical) {
 }
 
 static bool vfs_scan(const wchar_t *root, const wchar_t *relative) {
-    wchar_t *directory = relative[0] == L'\0' ? StrDupW(root) : vfs_join(root, relative);
+    wchar_t *directory = relative[0] == L'\0' ? yaer_mem_strdup_w(root) : vfs_join(root, relative);
     wchar_t *pattern;
     WIN32_FIND_DATAW find;
     HANDLE handle;
     if (directory == NULL) return false;
     pattern = vfs_join(directory, L"*");
-    LocalFree(directory);
+    yaer_mem_free(directory);
     if (pattern == NULL) return false;
     handle = FindFirstFileW(pattern, &find);
-    LocalFree(pattern);
+    yaer_mem_free(pattern);
     if (handle == INVALID_HANDLE_VALUE) return false;
     do {
         if (lstrcmpW(find.cFileName, L".") == 0 || lstrcmpW(find.cFileName, L"..") == 0) continue;
-        wchar_t *child_relative = relative[0] == L'\0' ? StrDupW(find.cFileName) : vfs_join(relative, find.cFileName);
+        wchar_t *child_relative = relative[0] == L'\0' ? yaer_mem_strdup_w(find.cFileName) : vfs_join(relative, find.cFileName);
         wchar_t *child_path = child_relative == NULL ? NULL : vfs_join(root, child_relative);
         if (child_relative == NULL || child_path == NULL) {
-            LocalFree(child_relative);
-            LocalFree(child_path);
+            yaer_mem_free(child_relative);
+            yaer_mem_free(child_path);
             FindClose(handle);
             return false;
         }
         if ((find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
             if ((find.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0 && !vfs_scan(root, child_relative)) {
-                LocalFree(child_relative);
-                LocalFree(child_path);
+                yaer_mem_free(child_relative);
+                yaer_mem_free(child_path);
                 FindClose(handle);
                 return false;
             }
         } else {
             if (!vfs_insert(child_relative, child_path)) {
-                LocalFree(child_relative);
-                LocalFree(child_path);
+                yaer_mem_free(child_relative);
+                yaer_mem_free(child_path);
                 FindClose(handle);
                 return false;
             }
         }
-        LocalFree(child_relative);
-        LocalFree(child_path);
+        yaer_mem_free(child_relative);
+        yaer_mem_free(child_path);
     } while (FindNextFileW(handle, &find));
     FindClose(handle);
     return true;
@@ -222,16 +224,16 @@ void vfs_init(void) {
 void vfs_uninit(void) {
     if (entries != NULL) {
         for (size_t i = 0; i < entry_count; i++) {
-            LocalFree(entries[i].key);
-            LocalFree(entries[i].path);
+            yaer_mem_free(entries[i].key);
+            yaer_mem_free(entries[i].path);
         }
-        LocalFree(entries);
+        yaer_mem_free(entries);
     }
     for (size_t i = 0; i < VFS_LOOKUP_DOMAIN_COUNT; i++) {
         khash_t(vfs_lookup_cache) *cache = lookup_caches[i];
         if (cache != NULL) {
             for (khiter_t slot = kh_begin(cache); slot != kh_end(cache); slot++) {
-                if (kh_exist(cache, slot)) LocalFree((void *)kh_key(cache, slot));
+                if (kh_exist(cache, slot)) yaer_mem_free((void *)kh_key(cache, slot));
             }
             kh_destroy(vfs_lookup_cache, cache);
         }
@@ -240,8 +242,8 @@ void vfs_uninit(void) {
     if (uid_cache != NULL) {
         for (khiter_t slot = kh_begin(uid_cache); slot != kh_end(uid_cache); slot++) {
             if (kh_exist(uid_cache, slot)) {
-                LocalFree((void *)kh_key(uid_cache, slot));
-                LocalFree((void *)kh_value(uid_cache, slot));
+                yaer_mem_free((void *)kh_key(uid_cache, slot));
+                yaer_mem_free((void *)kh_value(uid_cache, slot));
             }
         }
         kh_destroy(vfs_lookup_cache, uid_cache);
@@ -249,10 +251,10 @@ void vfs_uninit(void) {
     }
     if (index != NULL) kh_destroy(vfs_index, index);
     for (size_t i = 0; i < writable_count; i++) {
-        LocalFree(writable_entries[i].key);
-        LocalFree(writable_entries[i].path);
+        yaer_mem_free(writable_entries[i].key);
+        yaer_mem_free(writable_entries[i].path);
     }
-    LocalFree(writable_entries);
+    yaer_mem_free(writable_entries);
     index = NULL;
     entries = NULL;
     entry_count = 0;
@@ -275,20 +277,20 @@ bool vfs_register_writable_path(const wchar_t *virtual_path, const wchar_t *phys
     wchar_t *path;
     if (virtual_path == NULL || physical_path == NULL || physical_path[0] == L'\0' || !vfs_normalize_path(virtual_path, &key)) return false;
     if (key[0] == L'\0') {
-        LocalFree(key);
+        yaer_mem_free(key);
         return false;
     }
-    path = StrDupW(physical_path);
+    path = yaer_mem_strdup_w(physical_path);
     if (path == NULL) {
-        LocalFree(key);
+        yaer_mem_free(key);
         return false;
     }
     AcquireSRWLockExclusive(&writable_lock);
     for (size_t i = 0; i < writable_count; i++) {
         if (wcscmp(key, writable_entries[i].key) == 0) {
             bool same = CompareStringOrdinal(path, -1, writable_entries[i].path, -1, TRUE) == CSTR_EQUAL;
-            LocalFree(path);
-            LocalFree(key);
+            yaer_mem_free(path);
+            yaer_mem_free(key);
             ReleaseSRWLockExclusive(&writable_lock);
             return same;
         }
@@ -296,11 +298,11 @@ bool vfs_register_writable_path(const wchar_t *virtual_path, const wchar_t *phys
     if (writable_count == writable_capacity) {
         size_t capacity = writable_capacity == 0 ? 8 : writable_capacity * 2;
         vfs_writable_entry_t *new_entries = writable_entries == NULL
-            ? LocalAlloc(LMEM_ZEROINIT, capacity * sizeof(*writable_entries))
-            : LocalReAlloc(writable_entries, capacity * sizeof(*writable_entries), LMEM_MOVEABLE | LMEM_ZEROINIT);
+            ? yaer_mem_alloc(LMEM_ZEROINIT, capacity * sizeof(*writable_entries))
+            : yaer_mem_realloc(writable_entries, capacity * sizeof(*writable_entries), LMEM_MOVEABLE | LMEM_ZEROINIT);
         if (new_entries == NULL) {
-            LocalFree(key);
-            LocalFree(path);
+            yaer_mem_free(key);
+            yaer_mem_free(path);
             ReleaseSRWLockExclusive(&writable_lock);
             return false;
         }
@@ -351,27 +353,27 @@ const wchar_t *vfs_lookup_domain(const wchar_t *path, vfs_lookup_domain_t domain
 
     if (!vfs_normalize_path(path, &key)) return NULL;
     slot = kh_get(vfs_index, index, key);
-    LocalFree(key);
+    yaer_mem_free(key);
     result = slot == kh_end(index) ? NULL : entries[kh_value(index, slot)].path;
 
     if (lookup_generation == 0) return result;
-    wchar_t *cache_key = StrDupW(path);
+    wchar_t *cache_key = yaer_mem_strdup_w(path);
     if (cache_key == NULL) return result;
     AcquireSRWLockExclusive(&lookup_cache_lock);
     if (vfs_generation() != lookup_generation) {
         ReleaseSRWLockExclusive(&lookup_cache_lock);
-        LocalFree(cache_key);
+        yaer_mem_free(cache_key);
         return result;
     }
     slot = kh_get(vfs_lookup_cache, cache, cache_key);
     if (slot != kh_end(cache)) {
         result = kh_value(cache, slot);
-        LocalFree(cache_key);
+        yaer_mem_free(cache_key);
     } else {
         int ret;
         slot = kh_put(vfs_lookup_cache, cache, cache_key, &ret);
         if (ret < 0) {
-            LocalFree(cache_key);
+            yaer_mem_free(cache_key);
         } else {
             kh_value(cache, slot) = result;
         }
@@ -389,15 +391,15 @@ static void clear_lookup_cache_locked(void) {
         khash_t(vfs_lookup_cache) *cache = lookup_caches[i];
         if (cache == NULL) continue;
         for (khiter_t slot = kh_begin(cache); slot != kh_end(cache); slot++) {
-            if (kh_exist(cache, slot)) LocalFree((void *)kh_key(cache, slot));
+            if (kh_exist(cache, slot)) yaer_mem_free((void *)kh_key(cache, slot));
         }
         kh_clear(vfs_lookup_cache, cache);
     }
     if (uid_cache != NULL) {
         for (khiter_t slot = kh_begin(uid_cache); slot != kh_end(uid_cache); slot++) {
             if (kh_exist(uid_cache, slot)) {
-                LocalFree((void *)kh_key(uid_cache, slot));
-                LocalFree((void *)kh_value(uid_cache, slot));
+                yaer_mem_free((void *)kh_key(uid_cache, slot));
+                yaer_mem_free((void *)kh_value(uid_cache, slot));
             }
         }
         kh_clear(vfs_lookup_cache, uid_cache);
@@ -440,7 +442,7 @@ bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
     slot = kh_get(vfs_lookup_cache, uid_cache, path);
     if (slot != kh_end(uid_cache)) {
         const wchar_t *cached = kh_value(uid_cache, slot);
-        if (cached != NULL) *uid = StrDupW(cached);
+        if (cached != NULL) *uid = yaer_mem_strdup_w(cached);
         ReleaseSRWLockShared(&lookup_cache_lock);
         return *uid != NULL;
     }
@@ -448,16 +450,16 @@ bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
 
     if (!vfs_normalize_path(path, &key)) return false;
     slot = kh_get(vfs_index, index, key);
-    LocalFree(key);
+    yaer_mem_free(key);
     result = NULL;
     if (slot != kh_end(index)) {
         length = _scwprintf(L"\\\\me3??%zx", (size_t)kh_value(index, slot));
         if (length < 0) return false;
-        result = LocalAlloc(0, ((size_t)length + 1) * sizeof(*result));
+        result = yaer_mem_alloc(0, ((size_t)length + 1) * sizeof(*result));
         if (result == NULL) return false;
         _snwprintf(result, (size_t)length + 1, L"\\\\me3??%zx", (size_t)kh_value(index, slot));
     }
-    cache_key = StrDupW(path);
+    cache_key = yaer_mem_strdup_w(path);
     if (cache_key == NULL) {
         *uid = result;
         return result != NULL;
@@ -466,17 +468,17 @@ bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
     slot = kh_get(vfs_lookup_cache, uid_cache, cache_key);
     if (slot != kh_end(uid_cache)) {
         const wchar_t *cached = kh_value(uid_cache, slot);
-        if (cached != NULL) *uid = StrDupW(cached);
-        LocalFree(cache_key);
-        LocalFree(result);
+        if (cached != NULL) *uid = yaer_mem_strdup_w(cached);
+        yaer_mem_free(cache_key);
+        yaer_mem_free(result);
     } else {
         slot = kh_put(vfs_lookup_cache, uid_cache, cache_key, &ret);
         if (ret < 0) {
-            LocalFree(cache_key);
+            yaer_mem_free(cache_key);
             *uid = result;
         } else {
             kh_value(uid_cache, slot) = result;
-            if (result != NULL) *uid = StrDupW(result);
+            if (result != NULL) *uid = yaer_mem_strdup_w(result);
         }
     }
     ReleaseSRWLockExclusive(&lookup_cache_lock);
@@ -563,7 +565,7 @@ const wchar_t *vfs_route_writable_path(const wchar_t *path) {
         }
     }
     ReleaseSRWLockShared(&writable_lock);
-    LocalFree(key);
+    yaer_mem_free(key);
     return result;
 }
 
@@ -584,14 +586,14 @@ const wchar_t *vfs_route_read_path_a(const char *path, DWORD desired_access, DWO
     if (path == NULL) return NULL;
     length = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
     if (length <= 0) return NULL;
-    wide = LocalAlloc(0, (size_t)length * sizeof(*wide));
+    wide = yaer_mem_alloc(0, (size_t)length * sizeof(*wide));
     if (wide == NULL) return NULL;
     if (MultiByteToWideChar(CP_ACP, 0, path, -1, wide, length) == 0) {
-        LocalFree(wide);
+        yaer_mem_free(wide);
         return NULL;
     }
     if (vfs_recursion_depth != 0 || vfs_is_package_path(wide)) {
-        LocalFree(wide);
+        yaer_mem_free(wide);
         return NULL;
     }
     result = vfs_route_writable_path(wide);
@@ -600,6 +602,6 @@ const wchar_t *vfs_route_read_path_a(const char *path, DWORD desired_access, DWO
         creation_disposition != TRUNCATE_EXISTING) {
         result = vfs_lookup_domain(wide, VFS_LOOKUP_DISK_ANSI);
     }
-    LocalFree(wide);
+    yaer_mem_free(wide);
     return result;
 }

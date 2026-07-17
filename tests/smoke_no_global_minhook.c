@@ -6,8 +6,8 @@
 
 #include "test_common.h"
 
-#ifndef TEST_SOURCE_ROOT
-#define TEST_SOURCE_ROOT "."
+#ifndef ML_TEST_SOURCE_ROOT
+#define ML_TEST_SOURCE_ROOT "."
 #endif
 
 static bool has_source_extension(const char *path) {
@@ -100,7 +100,7 @@ static int scan_source_dir(const char *dir, int *violations) {
 
 int main(void) {
     char src_dir[4096];
-    int written = snprintf(src_dir, sizeof(src_dir), "%s\\src", TEST_SOURCE_ROOT);
+    int written = snprintf(src_dir, sizeof(src_dir), "%s\\src", ML_TEST_SOURCE_ROOT);
     EXPECT_TRUE(written >= 0 && (size_t)written < sizeof(src_dir));
 
     int violations = 0;

@@ -7,6 +7,7 @@
  */
 
 #include "eldenring.h"
+#include "common/allocator.h"
 #include "../lifecycle.h"
 #include "asset_hooks.h"
 
@@ -199,7 +200,7 @@ wchar_t *check_replace_file(const wchar_t *lpFileName) {
     }
     /* MAX_PATH of headroom: PathAppendW requires the destination buffer to
      * hold at least MAX_PATH characters. */
-    wchar_t *full_path = LocalAlloc(0, (MAX_PATH + len) * sizeof(wchar_t));
+    wchar_t *full_path = yaer_mem_alloc(0, (MAX_PATH + len) * sizeof(wchar_t));
     if (full_path == NULL) {
         return NULL;
     }
@@ -234,7 +235,7 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
         return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     }
     HANDLE h = old_CreateFileW(full_path, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    LocalFree(full_path);
+    yaer_mem_free(full_path);
     return h;
 }
 
@@ -270,12 +271,12 @@ BOOL WINAPI CopyFile_hooked(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, B
     wchar_t *new_new_filename = check_replace_file(lpNewFileName);
     if (new_new_filename == NULL) {
         BOOL res = old_CopyFileW(new_existing_filename, lpNewFileName, bFailIfExists);
-        LocalFree(new_existing_filename);
+        yaer_mem_free(new_existing_filename);
         return res;
     }
     BOOL res = old_CopyFileW(new_existing_filename, new_new_filename, bFailIfExists);
-    LocalFree(new_existing_filename);
-    LocalFree(new_new_filename);
+    yaer_mem_free(new_existing_filename);
+    yaer_mem_free(new_new_filename);
     return res;
 }
 
@@ -413,7 +414,7 @@ BOOL WINAPI DeleteFileW_hooked(LPCWSTR lpFileName) {
     const wchar_t *replace = vfs_route_writable_path(lpFileName);
     wchar_t *allocated = replace == NULL ? check_replace_file(lpFileName) : NULL;
     BOOL result = old_DeleteFileW(replace != NULL ? replace : (allocated != NULL ? allocated : lpFileName));
-    LocalFree(allocated);
+    yaer_mem_free(allocated);
     return result;
 }
 

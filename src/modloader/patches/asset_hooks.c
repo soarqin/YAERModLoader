@@ -8,6 +8,8 @@
 
 #include "asset_hooks.h"
 
+#include "common/allocator.h"
+
 #include <string.h>
 
 #define WIN32_LEAN_AND_MEAN
@@ -244,7 +246,7 @@ static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t
 #ifndef ML_ASSET_HOOKS_TEST
     fwprintf(stderr, L"TRACE: [asset-hooks] RSA PEM markers: begin=%zu end=%zu\n", begin_offset, end_offset);
 #endif
-    der = LocalAlloc(0, end_offset - begin_offset);
+    der = yaer_mem_alloc(0, end_offset - begin_offset);
     if (der == NULL) return false;
     for (size_t i = begin_offset; i < end_offset; i++) {
         int value = base64_value(pem[i]);
@@ -264,17 +266,17 @@ static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t
 #endif
     if (cursor >= end || *cursor++ != 0x30 || !der_read_length(&cursor, end, &sequence_length) ||
         sequence_length > (size_t)(end - cursor)) {
-        LocalFree(der);
+        yaer_mem_free(der);
         return false;
     }
     sequence_end = cursor + sequence_length;
     if (cursor >= sequence_end || *cursor++ != 0x02 || !der_read_length(&cursor, sequence_end, &modulus_length) ||
         modulus_length == 0 || modulus_length > (size_t)(sequence_end - cursor)) {
-        LocalFree(der);
+        yaer_mem_free(der);
         return false;
     }
     *block_size = modulus_length - (modulus_length > 1 && cursor[0] == 0 ? 1 : 0);
-    LocalFree(der);
+    yaer_mem_free(der);
 #ifndef ML_ASSET_HOOKS_TEST
     fwprintf(stderr, L"TRACE: [asset-hooks] RSA parse complete: modulus=%zu block=%zu\n", modulus_length, *block_size);
 #endif
@@ -334,7 +336,7 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
     source = CreateFileW(expanded, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (source == INVALID_HANDLE_VALUE || !GetFileSizeEx(source, &source_size) || source_size.QuadPart <= 0 ||
         source_size.QuadPart > 64 * 1024 * 1024) goto fallback;
-    encrypted = LocalAlloc(0, (size_t)source_size.QuadPart);
+    encrypted = yaer_mem_alloc(0, (size_t)source_size.QuadPart);
     if (encrypted == NULL || !ReadFile(source, encrypted, (DWORD)source_size.QuadPart, &read, NULL) ||
         read != (DWORD)source_size.QuadPart || !ml_boot_boost_cache_key(encrypted, (size_t)source_size.QuadPart, key)) goto fallback;
     fwprintf(stderr, L"DEBUG: [asset-hooks] BootBoost source loaded: %lld bytes\n", source_size.QuadPart);
@@ -473,10 +475,10 @@ fallback:
 done:
     if (source != INVALID_HANDLE_VALUE) CloseHandle(source);
     DeleteFileW(stub_path);
-    LocalFree(encrypted);
-    LocalFree(cache_directory);
-    LocalFree(cache_path);
-    LocalFree(expanded);
+    yaer_mem_free(encrypted);
+    yaer_mem_free(cache_directory);
+    yaer_mem_free(cache_path);
+    yaer_mem_free(expanded);
     ml_dl_mounts_destroy(&stub_mounts);
     ml_dl_mounts_destroy(&full_mounts);
     ml_dl_mount_snapshot_destroy(&snapshot);
@@ -497,13 +499,13 @@ static void log_override_once(const wchar_t *route, const wchar_t *requested,
             return;
         }
     }
-    copy = StrDupW(physical);
+    copy = yaer_mem_strdup_w(physical);
     if (copy != NULL) {
         if (logged_override_count == logged_override_capacity) {
             size_t capacity = logged_override_capacity == 0 ? 64 : logged_override_capacity * 2;
             wchar_t **paths = logged_override_paths == NULL
-                ? LocalAlloc(0, capacity * sizeof(*paths))
-                : LocalReAlloc(logged_override_paths, capacity * sizeof(*paths), LMEM_MOVEABLE);
+                ? yaer_mem_alloc(0, capacity * sizeof(*paths))
+                : yaer_mem_realloc(logged_override_paths, capacity * sizeof(*paths), LMEM_MOVEABLE);
             if (paths != NULL) {
                 logged_override_paths = paths;
                 logged_override_capacity = capacity;
@@ -513,7 +515,7 @@ static void log_override_once(const wchar_t *route, const wchar_t *requested,
             logged_override_paths[logged_override_count++] = copy;
             added = true;
         } else {
-            LocalFree(copy);
+            yaer_mem_free(copy);
         }
     }
     ReleaseSRWLockExclusive(&override_log_lock);
@@ -525,8 +527,8 @@ static void log_override_once(const wchar_t *route, const wchar_t *requested,
 
 static void clear_override_log(void) {
     AcquireSRWLockExclusive(&override_log_lock);
-    for (size_t i = 0; i < logged_override_count; i++) LocalFree(logged_override_paths[i]);
-    LocalFree(logged_override_paths);
+    for (size_t i = 0; i < logged_override_count; i++) yaer_mem_free(logged_override_paths[i]);
+    yaer_mem_free(logged_override_paths);
     logged_override_paths = NULL;
     logged_override_count = 0;
     logged_override_capacity = 0;
@@ -547,8 +549,8 @@ static bool make_override_path(const ml_msvc2015_string_t *path, ml_msvc2015_str
             if (result) log_override_once(route, raw, expanded, vfs_uid_to_path(uid));
         }
     }
-    LocalFree(uid);
-    LocalFree(expanded);
+    yaer_mem_free(uid);
+    yaer_mem_free(expanded);
     ml_dl_device_manager_unlock(&guard);
     return result;
 }
@@ -749,7 +751,7 @@ static void *__cdecl make_ebl_object_hooked(void *utility, const wchar_t *path, 
             loose_override = physical != NULL;
             if (loose_override) log_override_once(L"MakeEblObject", path, expanded, physical);
         }
-        LocalFree(expanded);
+        yaer_mem_free(expanded);
     }
     if (loose_override) {
         ml_dl_device_manager_unlock(&guard);

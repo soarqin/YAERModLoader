@@ -1,6 +1,5 @@
 # almighty_kale extdll - self-contained build (1:1 C port of Glorious Merchant)
 add_project(extdll_almighty_kale SHARED
-    ${CMAKE_SOURCE_DIR}/src/common/allocator.c
     ${CMAKE_SOURCE_DIR}/src/common/log.c
     ${CMAKE_SOURCE_DIR}/src/common/ext_shared.c
     src/main.c
@@ -13,8 +12,3 @@ add_project(extdll_almighty_kale SHARED
 
 target_include_directories(${PROJECT_NAME} PRIVATE src .. ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/common)
 target_link_libraries(${PROJECT_NAME} PRIVATE process klib inih shlwapi er_param::headers steam minhook)
-if (MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE "/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h")
-else ()
-    target_compile_options(${PROJECT_NAME} PRIVATE -include ${CMAKE_SOURCE_DIR}/src/common/allocator.h)
-endif ()

@@ -31,14 +31,8 @@ foreach (dir ${dirs})
         continue()
     endif ()
     add_project(extdll_${subdir} SHARED ${files}
-        ${CMAKE_SOURCE_DIR}/src/common/allocator.c
         ${CMAKE_SOURCE_DIR}/src/common/ext_shared.c
         LANGUAGES C FOLDER extdlls OUTPUT_SUBDIR dll NO_PREFIX OUTPUT_NAME ${subdir})
     target_include_directories(extdll_${subdir} PRIVATE .. ${CMAKE_SOURCE_DIR}/src/common)
     target_link_libraries(extdll_${subdir} PRIVATE inih klib shlwapi process minhook er_param::headers)
-    if (MSVC)
-        target_compile_options(extdll_${subdir} PRIVATE "$<$<COMPILE_LANGUAGE:C>:/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h>")
-    else ()
-        target_compile_options(extdll_${subdir} PRIVATE "$<$<COMPILE_LANGUAGE:C>:-include;${CMAKE_SOURCE_DIR}/src/common/allocator.h>")
-    endif ()
 endforeach ()

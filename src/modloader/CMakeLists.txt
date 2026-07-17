@@ -3,7 +3,7 @@ project(modloader LANGUAGES C ASM_NASM VERSION "${YAERMODLOADER_VERSION}")
 
 set(CMAKE_ASM_NASM_OBJECT_FORMAT win64)
 
-option(STRIP_MODENGINE_CONFIG_SUPPORT "Strip ModEngine config support" OFF)
+option(ML_STRIP_MODENGINE_CONFIG_SUPPORT "Strip ModEngine config support" OFF)
 
 # dll target
 generate_version_info(dll_res_files
@@ -49,6 +49,7 @@ add_project(modloader_dll SHARED
     proxy/winhttp.c proxy/winhttp.h proxy/winhttp.def
     proxy/dinput8.c proxy/dinput8.h proxy/dinput8.def
     proxy/dxgi.c proxy/dxgi.h proxy/dxgi.def
+    proxy/common.c proxy/common.h
 
     ${dll_res_files}
 
@@ -62,19 +63,10 @@ target_include_directories(modloader_dll PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
 add_library(modloader_log OBJECT ${CMAKE_SOURCE_DIR}/src/common/log.c)
 target_include_directories(modloader_log PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
 target_sources(modloader_dll PRIVATE $<TARGET_OBJECTS:modloader_log>)
-target_compile_definitions(modloader_dll PRIVATE YAERMODLOADER_USE_MIMALLOC)
+target_compile_definitions(modloader_dll PRIVATE ML_USE_MIMALLOC)
 target_compile_definitions(modloader_dll PRIVATE ML_LOG_REDIRECT_STDIO)
-if (MSVC)
-    target_compile_options(modloader_dll PRIVATE
-        "$<$<COMPILE_LANGUAGE:C>:/FI${CMAKE_SOURCE_DIR}/src/common/allocator.h>"
-        "$<$<COMPILE_LANGUAGE:C>:/FI${CMAKE_SOURCE_DIR}/src/common/log.h>")
-else ()
-    target_compile_options(modloader_dll PRIVATE
-        "$<$<COMPILE_LANGUAGE:C>:-include;${CMAKE_SOURCE_DIR}/src/common/allocator.h>"
-        "$<$<COMPILE_LANGUAGE:C>:-include;${CMAKE_SOURCE_DIR}/src/common/log.h>")
-endif ()
-if (STRIP_MODENGINE_CONFIG_SUPPORT)
-    target_compile_definitions(modloader_dll PRIVATE STRIP_MODENGINE_CONFIG_SUPPORT)
+if (ML_STRIP_MODENGINE_CONFIG_SUPPORT)
+    target_compile_definitions(modloader_dll PRIVATE ML_STRIP_MODENGINE_CONFIG)
 else ()
     target_link_libraries(modloader_dll toml-c)
 endif ()

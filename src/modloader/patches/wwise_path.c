@@ -8,6 +8,8 @@
 
 #include "wwise_path.h"
 
+#include "common/allocator.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -36,7 +38,7 @@ wchar_t *wwise_join_path(const wchar_t *prefix, const wchar_t *path) {
     prefix_length = wcslen(prefix);
     path_length = wcslen(path);
     if (prefix_length > SIZE_MAX - path_length - 1) return NULL;
-    result = LocalAlloc(0, (prefix_length + path_length + 1) * sizeof(*result));
+    result = yaer_mem_alloc(0, (prefix_length + path_length + 1) * sizeof(*result));
     if (result == NULL) return NULL;
     memcpy(result, prefix, prefix_length * sizeof(*result));
     memcpy(result + prefix_length, path, (path_length + 1) * sizeof(*result));
@@ -55,8 +57,8 @@ bool wwise_wem_candidates(const wchar_t *path, wchar_t **first, wchar_t **second
     *first = wwise_join_path(L"wem/", path);
     *second = wwise_join_path(prefix, path);
     if (*first == NULL || *second == NULL) {
-        LocalFree(*first);
-        LocalFree(*second);
+        yaer_mem_free(*first);
+        yaer_mem_free(*second);
         *first = NULL;
         *second = NULL;
         return false;

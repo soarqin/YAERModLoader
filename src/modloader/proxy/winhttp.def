@@ -1,7 +1,7 @@
 LIBRARY winhttp
 EXPORTS
-    DllCanUnloadNow=winhttp_FakeDllCanUnloadNow PRIVATE
-    DllGetClassObject=winhttp_FakeDllGetClassObject PRIVATE
+    DllCanUnloadNow=proxy_DllCanUnloadNow PRIVATE
+    DllGetClassObject=proxy_DllGetClassObject PRIVATE
     Private1=winhttp_FakePrivate1
     SvchostPushServiceGlobals=winhttp_FakeSvchostPushServiceGlobals
     WinHttpAddRequestHeaders=winhttp_FakeWinHttpAddRequestHeaders

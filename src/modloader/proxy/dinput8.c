@@ -19,11 +19,21 @@ extern "C" {
 #endif
 
 void *dinput8_FakeDirectInput8Create() { return (void *)dinput8.OriginalDirectInput8Create(); }
-void *dinput8_FakeDllCanUnloadNow() { return (void *)dinput8.OriginalDllCanUnloadNow(); }
-void *dinput8_FakeDllGetClassObject() { return (void *)dinput8.OriginalDllGetClassObject(); }
 void *dinput8_FakeDllRegisterServer() { return (void *)dinput8.OriginalDllRegisterServer(); }
 void *dinput8_FakeDllUnregisterServer() { return (void *)dinput8.OriginalDllUnregisterServer(); }
 void *dinput8_FakeGetdfDIJoystick() { return (void *)dinput8.OriginalGetdfDIJoystick(); }
+
+HRESULT dinput8_DllCanUnloadNow(void) {
+    typedef HRESULT (STDAPICALLTYPE *function_t)(void);
+    return dinput8.OriginalDllCanUnloadNow == NULL ? E_NOINTERFACE : ((function_t)dinput8.OriginalDllCanUnloadNow)();
+}
+
+HRESULT dinput8_DllGetClassObject(REFCLSID class_id, REFIID interface_id, void **object) {
+    typedef HRESULT (STDAPICALLTYPE *function_t)(REFCLSID, REFIID, void **);
+    return dinput8.OriginalDllGetClassObject == NULL
+        ? E_NOINTERFACE
+        : ((function_t)dinput8.OriginalDllGetClassObject)(class_id, interface_id, object);
+}
 
 bool load_dinput8_proxy() {
     wchar_t path[MAX_PATH], syspath[MAX_PATH];

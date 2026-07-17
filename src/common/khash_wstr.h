@@ -1,5 +1,5 @@
-#ifndef KHASH_WSTR_H
-#define KHASH_WSTR_H
+#ifndef ML_KHASH_WSTR_H
+#define ML_KHASH_WSTR_H
 
 #include <windows.h>
 #include "khash.h"

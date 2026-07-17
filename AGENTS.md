@@ -66,7 +66,7 @@ deps/
   klib/           khash.h (header-only, INTERFACE target `klib` / alias `klib::headers`)
   minhook/        Function hooking
   inih/           INI parser
-  toml-c/         TOML parser (ModEngine2 config compatibility; can be stripped via -DSTRIP_MODENGINE_CONFIG_SUPPORT=ON)
+  toml-c/         TOML parser (ModEngine2 config compatibility; can be stripped via -DML_STRIP_MODENGINE_CONFIG_SUPPORT=ON)
   getopt/         wingetopt — command-line argument parsing
   lzma/           LZMA SDK (currently commented out in launcher link)
 tests/

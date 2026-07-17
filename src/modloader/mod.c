@@ -8,6 +8,8 @@
 
 #include "mod.h"
 
+#include "allocator.h"
+
 #include "vfs.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -97,13 +99,13 @@ const wchar_t *mods_file_route_read_a(const char *path, DWORD desired_access, DW
     if (path == NULL) return NULL;
     length = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
     if (length <= 0) return NULL;
-    wide = LocalAlloc(0, (size_t)length * sizeof(*wide));
+    wide = yaer_mem_alloc(0, (size_t)length * sizeof(*wide));
     if (wide == NULL) return NULL;
     if (MultiByteToWideChar(CP_ACP, 0, path, -1, wide, length) == 0) {
-        LocalFree(wide);
+        yaer_mem_free(wide);
         return NULL;
     }
     result = mods_file_route_read(wide, desired_access, creation_disposition);
-    LocalFree(wide);
+    yaer_mem_free(wide);
     return result;
 }

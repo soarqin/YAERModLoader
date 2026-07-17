@@ -94,10 +94,20 @@ struct winhttp_dll {
 extern "C" {
 #endif
 
-void *winhttp_FakeDllCanUnloadNow() { return (void *)winhttp.OriginalDllCanUnloadNow(); }
-void *winhttp_FakeDllGetClassObject() { return (void *)winhttp.OriginalDllGetClassObject(); }
 void *winhttp_FakePrivate1() { return (void *)winhttp.OriginalPrivate1(); }
 void *winhttp_FakeSvchostPushServiceGlobals() { return (void *)winhttp.OriginalSvchostPushServiceGlobals(); }
+
+HRESULT winhttp_DllCanUnloadNow(void) {
+    typedef HRESULT (STDAPICALLTYPE *function_t)(void);
+    return winhttp.OriginalDllCanUnloadNow == NULL ? E_NOINTERFACE : ((function_t)winhttp.OriginalDllCanUnloadNow)();
+}
+
+HRESULT winhttp_DllGetClassObject(REFCLSID class_id, REFIID interface_id, void **object) {
+    typedef HRESULT (STDAPICALLTYPE *function_t)(REFCLSID, REFIID, void **);
+    return winhttp.OriginalDllGetClassObject == NULL
+        ? E_NOINTERFACE
+        : ((function_t)winhttp.OriginalDllGetClassObject)(class_id, interface_id, object);
+}
 void *winhttp_FakeWinHttpAddRequestHeaders() { return (void *)winhttp.OriginalWinHttpAddRequestHeaders(); }
 void *winhttp_FakeWinHttpAddRequestHeadersEx() { return (void *)winhttp.OriginalWinHttpAddRequestHeadersEx(); }
 void *winhttp_FakeWinHttpAutoProxySvcMain() { return (void *)winhttp.OriginalWinHttpAutoProxySvcMain(); }

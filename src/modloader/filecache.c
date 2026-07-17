@@ -8,12 +8,14 @@
 
 #include "filecache.h"
 
+#include "allocator.h"
+
 #include <windows.h>
 
-#define kcalloc(N,Z)  LocalAlloc(LPTR, (N)*(Z))
-#define kmalloc(Z)    LocalAlloc(0, (Z))
-#define krealloc(P,Z) ((P) ? LocalReAlloc((P), (Z), LMEM_MOVEABLE) : LocalAlloc(0, (Z)))
-#define kfree(P)      LocalFree(P)
+#define kcalloc(N,Z)  yaer_mem_alloc(LPTR, (N)*(Z))
+#define kmalloc(Z)    yaer_mem_alloc(0, (Z))
+#define krealloc(P,Z) ((P) ? yaer_mem_realloc((P), (Z), LMEM_MOVEABLE) : yaer_mem_alloc(0, (Z)))
+#define kfree(P)      yaer_mem_free(P)
 #include "khash.h"
 #include "khash_wstr.h"
 
@@ -35,12 +37,12 @@ static SRWLOCK files_lock = SRWLOCK_INIT;
 void file_free(file_t *file);
 
 file_t *file_new(const wchar_t *base_path, const wchar_t *native_path) {
-    file_t *file = LocalAlloc(0, sizeof(file_t));
+    file_t *file = yaer_mem_alloc(0, sizeof(file_t));
     if (file == NULL) {
         return NULL;
     }
-    file->base_path = StrDupW(base_path);
-    file->native_path = StrDupW(native_path && native_path[0] ? native_path : L"");
+    file->base_path = yaer_mem_strdup_w(base_path);
+    file->native_path = yaer_mem_strdup_w(native_path && native_path[0] ? native_path : L"");
     if (file->base_path == NULL || file->native_path == NULL) {
         file_free(file);
         return NULL;
@@ -52,9 +54,9 @@ void file_free(file_t *file) {
     if (file == NULL) {
         return;
     }
-    if (file->base_path) LocalFree(file->base_path);
-    if (file->native_path) LocalFree(file->native_path);
-    LocalFree(file);
+    if (file->base_path) yaer_mem_free(file->base_path);
+    if (file->native_path) yaer_mem_free(file->native_path);
+    yaer_mem_free(file);
 }
 
 void filecache_init() {
