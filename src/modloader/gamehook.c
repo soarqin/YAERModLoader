@@ -55,6 +55,7 @@ static void install_allocator_after_runtime(ml_lifecycle_phase_t phase, void *us
 }
 
 bool gamehook_install() {
+    bool schedule_heap_allocator = false;
     if (!ml_game_context_init()) {
         ML_LOG_WARN(L"gamehook", L"unsupported or mismatched game process; game hooks are disabled");
         return false;
@@ -64,12 +65,8 @@ bool gamehook_install() {
         size_t heap_size_mb = config.patch_mem_heap_size != 0
             ? config.patch_mem_heap_size : MIMALLOC_DL_ALLOCATOR_DEFAULT_HEAP_SIZE_MB;
         bool system_allocator_applied = ml_allocator_install_before_main(game, heap_size_mb);
-        if (system_allocator_applied) {
-            if (!ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT,
-                                       install_allocator_after_runtime, (void *)game)) {
-                ML_LOG_WARN(L"allocator", L"heap allocator capability HOOK_FAILED: could not schedule after-runtime stage");
-            }
-        } else if (game->id == ML_GAME_DARK_SOULS_3) {
+        schedule_heap_allocator = system_allocator_applied;
+        if (!system_allocator_applied && game->id == ML_GAME_DARK_SOULS_3) {
             ML_LOG_WARN(L"darksouls3", L"heap allocator capability HOOK_FAILED stage=system_allocator");
         }
     } else {
@@ -81,9 +78,15 @@ bool gamehook_install() {
         ML_LOG_WARN(L"gamehook", L"%ls adapter is not implemented; game hooks are disabled", game->title);
         return false;
     }
+    /* me3 schedules the logo redirect before other after-runtime host work. */
     if (config.skip_intro &&
         !ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_logo_after_runtime, (void *)game)) {
         ML_LOG_WARN(L"logo", L"could not schedule Logo redirect");
+    }
+    if (schedule_heap_allocator &&
+        !ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT,
+                               install_allocator_after_runtime, (void *)game)) {
+        ML_LOG_WARN(L"allocator", L"heap allocator capability HOOK_FAILED: could not schedule after-runtime stage");
     }
     if (!ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_properties_after_runtime, (void *)game)) {
         ML_LOG_WARN(L"properties", L"could not schedule installation");
