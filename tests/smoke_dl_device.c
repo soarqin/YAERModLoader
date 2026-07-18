@@ -45,28 +45,43 @@ int main(void) {
     wchar_t *cache_path;
     dl_allocator_vtable_t allocator_vtable = { 0 };
     dl_allocator_t allocator = { &allocator_vtable };
-    ml_msvc2015_string_t source = { 0 };
-    ml_msvc2015_string_t replacement;
+    ml_dl_string_t source = { 0 };
+    ml_dl_string_t replacement;
 
     allocator_vtable.allocate_aligned = test_allocate_aligned;
     allocator_vtable.free = test_free;
-    source.allocator = &allocator;
-    memcpy(source.storage.inline_storage, L"data:/", 14);
-    source.length = 6;
-    source.capacity = 7;
-    source.encoding = 1;
-    EXPECT_TRUE(ml_dl_string_clone_replace(&source, L"short", &replacement));
-    EXPECT_STREQ_W(ml_dl_string_data(&replacement), L"short");
-    EXPECT_STREQ_W(ml_dl_string_data(&source), L"data:/");
-    ml_dl_string_destroy(&replacement);
+    source.msvc2015.allocator = &allocator;
+    memcpy(source.msvc2015.storage.inline_storage, L"data:/", 14);
+    source.msvc2015.length = 6;
+    source.msvc2015.capacity = 7;
+    source.msvc2015.encoding = 1;
+    EXPECT_TRUE(ml_dl_string_clone_replace(&source, ML_STL_ABI_MSVC2015, L"short", &replacement));
+    EXPECT_STREQ_W(ml_dl_string_data(&replacement, ML_STL_ABI_MSVC2015), L"short");
+    EXPECT_STREQ_W(ml_dl_string_data(&source, ML_STL_ABI_MSVC2015), L"data:/");
+    ml_dl_string_destroy(&replacement, ML_STL_ABI_MSVC2015);
     EXPECT_EQ(allocated, 0);
     EXPECT_EQ(freed, 0);
-    EXPECT_TRUE(ml_dl_string_clone_replace(&source, L"\\me3??123456789", &replacement));
-    EXPECT_STREQ_W(ml_dl_string_data(&replacement), L"\\me3??123456789");
-    EXPECT_STREQ_W(ml_dl_string_data(&source), L"data:/");
+    EXPECT_TRUE(ml_dl_string_clone_replace(&source, ML_STL_ABI_MSVC2015, L"\\me3??123456789", &replacement));
+    EXPECT_STREQ_W(ml_dl_string_data(&replacement, ML_STL_ABI_MSVC2015), L"\\me3??123456789");
+    EXPECT_STREQ_W(ml_dl_string_data(&source, ML_STL_ABI_MSVC2015), L"data:/");
     EXPECT_EQ(allocated, 1);
-    ml_dl_string_destroy(&replacement);
+    ml_dl_string_destroy(&replacement, ML_STL_ABI_MSVC2015);
     EXPECT_EQ(freed, 1);
+    {
+        ml_dl_string_t source2012 = { 0 };
+        source2012.msvc2012.allocator = &allocator;
+        memcpy(source2012.msvc2012.storage.inline_storage, L"data:/", 14);
+        source2012.msvc2012.length = 6;
+        source2012.msvc2012.capacity = 7;
+        source2012.msvc2012.encoding = 1;
+        EXPECT_TRUE(ml_dl_string_clone_replace(&source2012, ML_STL_ABI_MSVC2012,
+                                               L"\\me3??123456789", &replacement));
+        EXPECT_STREQ_W(ml_dl_string_data(&replacement, ML_STL_ABI_MSVC2012), L"\\me3??123456789");
+        EXPECT_STREQ_W(ml_dl_string_data(&source2012, ML_STL_ABI_MSVC2012), L"data:/");
+        EXPECT_EQ(replacement.msvc2012.allocator, &allocator);
+        ml_dl_string_destroy(&replacement, ML_STL_ABI_MSVC2012);
+        EXPECT_EQ(freed, 2);
+    }
 
     memcpy(header, "BHD5", 4);
     memcpy(header + 12, &file_size, sizeof(file_size));
@@ -107,29 +122,47 @@ int main(void) {
     }
     EXPECT_TRUE(!ml_boot_boost_cache_load(temporary, header, sizeof(header)));
     EXPECT_EQ(GetFileAttributesW(temporary), INVALID_FILE_ATTRIBUTES);
-    memcpy(roots[0].root.storage.inline_storage, L"dataX", 12);
-    roots[0].root.length = roots[0].root.capacity = 4;
-    roots[0].root.encoding = 1;
-    memcpy(roots[0].expanded.storage.inline_storage, L"game:/X", 16);
-    roots[0].expanded.length = roots[0].expanded.capacity = 6;
-    roots[0].expanded.encoding = 1;
-    memcpy(roots[1].root.storage.inline_storage, L"gameX", 12);
-    roots[1].root.length = roots[1].root.capacity = 4;
-    roots[1].root.encoding = 1;
-    memcpy(roots[1].expanded.storage.inline_storage, L"rootX", 12);
-    roots[1].expanded.length = roots[1].expanded.capacity = 4;
-    roots[1].expanded.encoding = 1;
-    manager.virtual_roots.first = roots;
-    manager.virtual_roots.last = roots + 2;
-    EXPECT_TRUE(ml_dl_device_expand_path(&manager, L"data:/parts/test.bin", &expanded));
+    memcpy(roots[0].root.msvc2015.storage.inline_storage, L"dataX", 12);
+    roots[0].root.msvc2015.length = roots[0].root.msvc2015.capacity = 4;
+    roots[0].root.msvc2015.encoding = 1;
+    memcpy(roots[0].expanded.msvc2015.storage.inline_storage, L"game:/X", 16);
+    roots[0].expanded.msvc2015.length = roots[0].expanded.msvc2015.capacity = 6;
+    roots[0].expanded.msvc2015.encoding = 1;
+    memcpy(roots[1].root.msvc2015.storage.inline_storage, L"gameX", 12);
+    roots[1].root.msvc2015.length = roots[1].root.msvc2015.capacity = 4;
+    roots[1].root.msvc2015.encoding = 1;
+    memcpy(roots[1].expanded.msvc2015.storage.inline_storage, L"rootX", 12);
+    roots[1].expanded.msvc2015.length = roots[1].expanded.msvc2015.capacity = 4;
+    roots[1].expanded.msvc2015.encoding = 1;
+    manager.virtual_roots.msvc2015.first = roots;
+    manager.virtual_roots.msvc2015.last = roots + 2;
+    EXPECT_TRUE(ml_dl_device_expand_path(&manager, ML_STL_ABI_MSVC2015, L"data:/parts/test.bin", &expanded));
     EXPECT_STREQ_W(expanded, L"rootparts/test.bin");
     LocalFree(expanded);
-    EXPECT_TRUE(ml_dl_device_expand_path(&manager, L"data:/parts:/test.bin", &expanded));
+    EXPECT_TRUE(ml_dl_device_expand_path(&manager, ML_STL_ABI_MSVC2015, L"data:/parts:/test.bin", &expanded));
     EXPECT_STREQ_W(expanded, L"rootparts:/test.bin");
     LocalFree(expanded);
-    EXPECT_TRUE(ml_dl_device_expand_path(&manager, L"data:\\parts\\test.bin", &expanded));
+    EXPECT_TRUE(ml_dl_device_expand_path(&manager, ML_STL_ABI_MSVC2015, L"data:\\parts\\test.bin", &expanded));
     EXPECT_STREQ_W(expanded, L"data:\\parts\\test.bin");
     LocalFree(expanded);
+    {
+        ml_dl_virtual_root_t root2012 = { 0 };
+        ml_dl_device_manager_t manager2012 = { 0 };
+        memcpy(root2012.root.msvc2012.storage.inline_storage, L"dataX", 12);
+        root2012.root.msvc2012.length = root2012.root.msvc2012.capacity = 4;
+        root2012.root.msvc2012.encoding = 1;
+        memcpy(root2012.expanded.msvc2012.storage.inline_storage, L"rootX", 12);
+        root2012.expanded.msvc2012.length = root2012.expanded.msvc2012.capacity = 4;
+        root2012.expanded.msvc2012.encoding = 1;
+        manager2012.virtual_roots.msvc2012 = (ml_msvc2012_vector_t){ &root2012, &root2012 + 1,
+                                                                    &root2012 + 1, &allocator };
+        EXPECT_TRUE(ml_dl_device_expand_path(&manager2012, ML_STL_ABI_MSVC2012,
+                                             L"data:/parts/test.bin", &expanded));
+        EXPECT_STREQ_W(expanded, L"rootparts/test.bin");
+        LocalFree(expanded);
+        EXPECT_EQ(ml_dl_vector_count(&manager2012.virtual_roots, ML_STL_ABI_MSVC2012,
+                                     sizeof(ml_dl_virtual_root_t)), 1);
+    }
     {
         dl_allocator_vtable_t vector_allocator_vtable = { 0 };
         dl_allocator_t vector_allocator = { &vector_allocator_vtable };
@@ -142,21 +175,65 @@ int main(void) {
         vector_allocator_vtable.free = test_permanent_free;
         devices[0] = &first_device;
         manager_mounts[0].device = &first_device;
-        manager.devices = (ml_msvc2015_vector_t){ &vector_allocator, devices, devices + 1, devices + 1 };
-        manager.bnd4_mounts = (ml_msvc2015_vector_t){ &vector_allocator, manager_mounts, manager_mounts + 1,
-                                                      manager_mounts + 1 };
+        manager.devices.msvc2015 = (ml_msvc2015_vector_t){ &vector_allocator, devices, devices + 1, devices + 1 };
+        manager.bnd4_mounts.msvc2015 = (ml_msvc2015_vector_t){ &vector_allocator, manager_mounts, manager_mounts + 1,
+                                                               manager_mounts + 1 };
         vfs_mounts.items = LocalAlloc(0, sizeof(*vfs_mounts.items));
         vfs_mounts.items[0].device = &second_device;
         vfs_mounts.count = vfs_mounts.capacity = 1;
-        EXPECT_TRUE(ml_dl_device_push_mounts_permanent(&manager, &vfs_mounts));
-        EXPECT_EQ(ml_dl_vector_count(&manager.devices, sizeof(ml_dl_device_t *)), 2);
-        EXPECT_EQ(ml_dl_vector_count(&manager.bnd4_mounts, sizeof(ml_dl_virtual_mount_t)), 2);
-        EXPECT_TRUE(((ml_dl_device_t **)manager.devices.first)[1] == &second_device);
-        EXPECT_TRUE(((ml_dl_virtual_mount_t *)manager.bnd4_mounts.first)[1].device == &second_device);
+        EXPECT_TRUE(ml_dl_device_push_mounts_permanent(&manager, ML_STL_ABI_MSVC2015, &vfs_mounts));
+        EXPECT_EQ(ml_dl_vector_count(&manager.devices, ML_STL_ABI_MSVC2015, sizeof(ml_dl_device_t *)), 2);
+        EXPECT_EQ(ml_dl_vector_count(&manager.bnd4_mounts, ML_STL_ABI_MSVC2015, sizeof(ml_dl_virtual_mount_t)), 2);
+        EXPECT_TRUE(((ml_dl_device_t **)manager.devices.msvc2015.first)[1] == &second_device);
+        EXPECT_TRUE(((ml_dl_virtual_mount_t *)manager.bnd4_mounts.msvc2015.first)[1].device == &second_device);
         EXPECT_NULL(vfs_mounts.items);
         EXPECT_EQ(permanent_freed, 2);
-        free(manager.devices.first);
-        free(manager.bnd4_mounts.first);
+        free(manager.devices.msvc2015.first);
+        free(manager.bnd4_mounts.msvc2015.first);
+    }
+    {
+        dl_allocator_vtable_t vector_allocator_vtable = { 0 };
+        dl_allocator_t vector_allocator = { &vector_allocator_vtable };
+        ml_dl_device_manager_t manager2012 = { 0 };
+        ml_dl_device_t first_device = { 0 };
+        ml_dl_device_t second_device = { 0 };
+        ml_dl_device_t **devices = malloc(sizeof(*devices));
+        ml_dl_virtual_mount_t *manager_mounts = malloc(sizeof(*manager_mounts));
+        ml_dl_vfs_mounts_t vfs_mounts = { 0 };
+        vector_allocator_vtable.allocate_aligned = test_allocate_aligned;
+        vector_allocator_vtable.free = test_permanent_free;
+        devices[0] = &first_device;
+        manager_mounts[0].device = &first_device;
+        manager2012.devices.msvc2012 = (ml_msvc2012_vector_t){
+            devices, devices + 1, devices + 1, &vector_allocator
+        };
+        manager2012.bnd4_mounts.msvc2012 = (ml_msvc2012_vector_t){
+            manager_mounts, manager_mounts + 1, manager_mounts + 1, &vector_allocator
+        };
+        vfs_mounts.items = LocalAlloc(0, sizeof(*vfs_mounts.items));
+        vfs_mounts.items[0].device = &second_device;
+        vfs_mounts.count = vfs_mounts.capacity = 1;
+        EXPECT_TRUE(ml_dl_device_push_mounts_permanent(&manager2012, ML_STL_ABI_MSVC2012,
+                                                        &vfs_mounts));
+        EXPECT_EQ(ml_dl_vector_count(&manager2012.devices, ML_STL_ABI_MSVC2012,
+                                     sizeof(ml_dl_device_t *)), 2);
+        EXPECT_EQ(ml_dl_vector_count(&manager2012.bnd4_mounts, ML_STL_ABI_MSVC2012,
+                                     sizeof(ml_dl_virtual_mount_t)), 2);
+        EXPECT_EQ(manager2012.devices.msvc2012.allocator, &vector_allocator);
+        EXPECT_EQ(manager2012.bnd4_mounts.msvc2012.allocator, &vector_allocator);
+        EXPECT_TRUE(((ml_dl_device_t **)manager2012.devices.msvc2012.first)[1] == &second_device);
+        EXPECT_EQ(permanent_freed, 4);
+        free(manager2012.devices.msvc2012.first);
+        free(manager2012.bnd4_mounts.msvc2012.first);
+    }
+    {
+        ml_dl_device_manager_t empty_manager = { 0 };
+        ml_dl_mount_snapshot_t empty_snapshot = { 0 };
+        ml_dl_vfs_mounts_t empty_mounts = { 0 };
+        EXPECT_TRUE(ml_dl_device_extract_new(&empty_manager, ML_STL_ABI_MSVC2012,
+                                             &empty_snapshot, &empty_mounts));
+        EXPECT_NULL(empty_manager.devices.msvc2012.first);
+        EXPECT_NULL(empty_manager.bnd4_mounts.msvc2012.first);
     }
     {
         dl_allocator_vtable_t vector_allocator_vtable = { 0 };
@@ -169,18 +246,18 @@ int main(void) {
         vector_allocator_vtable.free = test_permanent_free;
         devices[0] = &device;
         manager_mounts[0].device = &device;
-        manager.devices = (ml_msvc2015_vector_t){ &vector_allocator, devices, devices, devices + 1 };
-        manager.bnd4_mounts = (ml_msvc2015_vector_t){ &vector_allocator, manager_mounts,
-                                                      manager_mounts, manager_mounts + 1 };
+        manager.devices.msvc2015 = (ml_msvc2015_vector_t){ &vector_allocator, devices, devices, devices + 1 };
+        manager.bnd4_mounts.msvc2015 = (ml_msvc2015_vector_t){ &vector_allocator, manager_mounts,
+                                                               manager_mounts, manager_mounts + 1 };
         vfs_mounts.items = LocalAlloc(0, sizeof(*vfs_mounts.items));
         vfs_mounts.items[0].device = &device;
         vfs_mounts.count = vfs_mounts.capacity = 1;
-        EXPECT_TRUE(ml_dl_device_restore_mounts(&manager, &vfs_mounts));
-        EXPECT_EQ(ml_dl_vector_count(&manager.devices, sizeof(ml_dl_device_t *)), 1);
-        EXPECT_EQ(ml_dl_vector_count(&manager.bnd4_mounts, sizeof(ml_dl_virtual_mount_t)), 1);
+        EXPECT_TRUE(ml_dl_device_restore_mounts(&manager, ML_STL_ABI_MSVC2015, &vfs_mounts));
+        EXPECT_EQ(ml_dl_vector_count(&manager.devices, ML_STL_ABI_MSVC2015, sizeof(ml_dl_device_t *)), 1);
+        EXPECT_EQ(ml_dl_vector_count(&manager.bnd4_mounts, ML_STL_ABI_MSVC2015, sizeof(ml_dl_virtual_mount_t)), 1);
         EXPECT_NULL(vfs_mounts.items);
-        free(manager.devices.first);
-        free(manager.bnd4_mounts.first);
+        free(manager.devices.msvc2015.first);
+        free(manager.bnd4_mounts.msvc2015.first);
     }
     header[0] = 'X';
     EXPECT_TRUE(!ml_bhd5_header_valid(header, sizeof(header)));

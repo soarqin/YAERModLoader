@@ -14,3 +14,4 @@
 
 bool ml_properties_install(const ml_game_descriptor_t *game);
 void ml_properties_on_init(void);
+bool ml_properties_set_loose_params(bool enabled);

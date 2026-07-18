@@ -12,7 +12,7 @@ DLL 加载。
 | --- | --- | --- |
 | Elden Ring | `eldenring` | 稳定支持 |
 | Sekiro: Shadows Die Twice | `sekiro` | 稳定适配器，部分能力仍需现场验证 |
-| Dark Souls III | `darksouls3` | 实验性注册项，游戏专用 Hook 尚未启用 |
+| Dark Souls III | `darksouls3` | 实验性适配器，不包含 Arxan 中和 |
 
 Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；未指定
 启动目标时默认启动 Elden Ring。
@@ -57,21 +57,22 @@ Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；
 ### 游戏 section
 
 section 名称必须与当前可执行文件匹配：Elden Ring 使用 `[elden_ring]`，Sekiro
-使用 `[sekiro]`，Dark Souls III 实验性注册目标使用 `[darksouls3]`。Dark Souls III
-当前会在安装游戏专用 Hook 前停止。
+使用 `[sekiro]`，Dark Souls III 实验性适配器使用 `[darksouls3]`。Dark Souls III
+会安装共享 Host 能力，但不包含 dearxan 或等效 Arxan 中和；游戏可能阻止或恢复
+部分 Hook，实际状态必须以日志为准。
 
 | 选项 | Elden Ring | Sekiro | Dark Souls III | 说明 |
 | --- | --- | --- | --- | --- |
-| `skip_intro` | 支持 | 支持 | 无 Hook | 跳过开场 Logo。 |
-| `prevent_regulation_save_write` | 支持 | 支持 | 无 Hook | 阻止原始、修改后或过大的 regulation 数据写入存档。 |
-| `patch_mem` | 支持 | 支持 | 部分 | 使用基于 mimalloc 的 Dantelion 分配器。 |
-| `patch_mem_heap_size` | 支持 | 支持 | 部分 | 专用堆大小，单位为 MB；`0` 使用默认大小。 |
-| `patch_mem_hook_cs_graphics` | 支持 | 不支持 | 无 Hook | 作为 `patch_mem` 的一部分 Hook `CSGraphicsImp`。 |
-| `boot_boost` | 支持 | 支持 | 无 Hook | 缓存解密后的 BHD 标头，减少归档启动时间。 |
-| `replace_save_filename` | 支持 | 支持 | 无 Hook | 替换存档文件名；以点号开头时只替换扩展名。 |
-| `replace_seamless_coop_save_filename` | 支持 | 不支持 | 无 Hook | 替换 Seamless Co-op 的 `.co2` 存档文件名。 |
+| `skip_intro` | 支持 | 支持 | 实验性 | 跳过开场 Logo。 |
+| `prevent_regulation_save_write` | 支持 | 支持 | 实验性 | 阻止原始、修改后或过大的 regulation 数据写入存档。 |
+| `patch_mem` | 支持 | 支持 | 实验性 | 使用基于 mimalloc 的 Dantelion 分配器。 |
+| `patch_mem_heap_size` | 支持 | 支持 | 实验性 | 专用堆大小，单位为 MB；`0` 使用默认大小。 |
+| `patch_mem_hook_cs_graphics` | 支持 | 不支持 | 不支持 | 作为 `patch_mem` 的一部分 Hook `CSGraphicsImp`。 |
+| `boot_boost` | 支持 | 支持 | 实验性 | 缓存解密后的 BHD 标头，减少归档启动时间。 |
+| `replace_save_filename` | 支持 | 支持 | 实验性 | 替换存档文件名；以点号开头时只替换扩展名。 |
+| `replace_seamless_coop_save_filename` | 支持 | 不支持 | 不支持 | 替换 Seamless Co-op 的 `.co2` 存档文件名。 |
 
-标记为「无 Hook」的选项仍保留在模板中，以保持配置结构一致；当前游戏适配器不会安装对应功能。
+Dark Souls III 能力在完成目标版本签名验证和至少一次实际 Hook 安装验证前均保持实验性。
 
 ### DLL 与模组
 

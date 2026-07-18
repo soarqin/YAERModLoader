@@ -36,6 +36,7 @@ const wchar_t *vfs_lookup_prefixed_domain(const wchar_t *path, const wchar_t *ga
                                           vfs_lookup_domain_t domain);
 bool vfs_normalize_path(const wchar_t *path, wchar_t **normalized);
 size_t vfs_entry_count(void);
+bool vfs_has_wwise_entries(void);
 uint64_t vfs_generation(void);
 void vfs_begin_lookup_reset(void);
 uint64_t vfs_reset_lookup_caches(void);

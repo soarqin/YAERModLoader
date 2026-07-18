@@ -30,6 +30,14 @@ static set_game_property_t set_game_property;
 static void *property_init_target;
 static volatile LONG property_init_seen;
 
+typedef struct internal_property_s {
+    const char *property;
+    const char *value;
+} internal_property_t;
+
+static internal_property_t loose_param_property;
+static bool loose_param_property_enabled;
+
 extern void ml_property_init_hook_raw(void);
 
 static void apply_offline_property(ml_lifecycle_phase_t phase, void *userp) {
@@ -41,10 +49,24 @@ static void apply_offline_property(ml_lifecycle_phase_t phase, void *userp) {
     }
     set_game_property("Menu.IsEnableOnlineMode", "false");
     ML_LOG_INFO(L"properties", L"Menu.IsEnableOnlineMode=false applied");
+    if (loose_param_property_enabled) {
+        set_game_property(loose_param_property.property, loose_param_property.value);
+        ML_LOG_INFO(L"properties", L"%hs=%hs applied",
+                    loose_param_property.property, loose_param_property.value);
+    }
+}
+
+bool ml_properties_set_loose_params(bool enabled) {
+    loose_param_property = (internal_property_t){
+        "Game.Debug.EnableRegulationFile", "false"
+    };
+    loose_param_property_enabled = enabled;
+    return true;
 }
 
 void ml_properties_on_init(void) {
     if (InterlockedCompareExchange(&property_init_seen, 1, 0) != 0) return;
+    ML_LOG_INFO(L"properties", L"AFTER_PROPERTIES_READY reached");
     if (!ml_lifecycle_advance(ML_LIFECYCLE_PHASE_AFTER_PROPERTIES_READY)) {
         ML_LOG_WARN(L"properties", L"could not advance lifecycle");
     }

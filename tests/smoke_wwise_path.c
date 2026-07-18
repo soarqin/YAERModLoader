@@ -7,9 +7,16 @@
 #include "modloader/patches/wwise_path.h"
 
 int main(void) {
+    static const uint8_t wwise_call[] = {
+        0xe8, 1, 2, 3, 4, 0x83, 0xf8, 0x01, 0x74, 0x05,
+        0x48, 0x83, 0xc3, 0x38, 0x48, 0x83, 0x7d, 0x10, 0x08,
+    };
     wchar_t *first;
     wchar_t *second;
     wchar_t long_path[600];
+
+    EXPECT_EQ(wwise_find_open_call(wwise_call, sizeof(wwise_call)), 0);
+    EXPECT_EQ(wwise_find_open_call(wwise_call, sizeof(wwise_call) - 1), SIZE_MAX);
 
     EXPECT_STREQ_W(wwise_strip_prefixes(L"sd:/sd_dlc02:/init.bnk"), L"init.bnk");
     EXPECT_STREQ_W(wwise_strip_prefixes(L"sd_dlc02:/1000519763.wem"), L"1000519763.wem");

@@ -19,7 +19,7 @@ static const wchar_t *const darksouls3_exes[] = { L"Game\\DarkSoulsIII.exe", L"D
 static const ml_game_descriptor_t games[] = {
     { ML_GAME_ELDEN_RING, "eldenring", L"Elden Ring", 1245620, eldenring_exes, 2, L"EldenRing", L"elden_ring", L"config_eldenring.toml", ML_STL_ABI_MSVC2015, ML_SUPPORT_STABLE, L"CSFileStep::STEP_Init", "CSAutoControlAPI", 0xB0, ML_RUNTIME_READY_STEAM_API_INIT, ML_LOGO_STRATEGY_FD4, ML_ALLOCATOR_STRATEGY_ELDEN_RING, ML_REGULATION_STRATEGY_FD4 },
     { ML_GAME_SEKIRO, "sekiro", L"Sekiro: Shadows Die Twice", 814380, sekiro_exes, 1, L"Sekiro", L"sekiro", L"config_sekiro.toml", ML_STL_ABI_MSVC2015, ML_SUPPORT_STABLE, L"SprjFileStep::STEP_Init", "SprjAutoControlAPI", 0xB0, ML_RUNTIME_READY_STEAM_API_INIT, ML_LOGO_STRATEGY_SPRJ, ML_ALLOCATOR_STRATEGY_SEKIRO, ML_REGULATION_STRATEGY_SPRJ },
-    { ML_GAME_DARK_SOULS_3, "darksouls3", L"Dark Souls III", 374320, darksouls3_exes, 2, L"DarkSoulsIII", L"darksouls3", L"config_darksouls3.toml", ML_STL_ABI_MSVC2012, ML_SUPPORT_EXPERIMENTAL, L"SprjFileStep::STEP_Init", "SprjAutoControlAPI", 0xC0, ML_RUNTIME_READY_UNSUPPORTED, ML_LOGO_STRATEGY_SPRJ, ML_ALLOCATOR_STRATEGY_DARK_SOULS_3, ML_REGULATION_STRATEGY_SPRJ },
+    { ML_GAME_DARK_SOULS_3, "darksouls3", L"Dark Souls III", 374320, darksouls3_exes, 2, L"DarkSoulsIII", L"darksouls3", L"config_darksouls3.toml", ML_STL_ABI_MSVC2012, ML_SUPPORT_EXPERIMENTAL, L"SprjFileStep::STEP_Init", "SprjAutoControlAPI", 0xC0, ML_RUNTIME_READY_STEAM_API_INIT, ML_LOGO_STRATEGY_SPRJ, ML_ALLOCATOR_STRATEGY_DARK_SOULS_3, ML_REGULATION_STRATEGY_SPRJ },
 };
 
 const ml_game_descriptor_t *ml_game_by_id(ml_game_id_t id) {

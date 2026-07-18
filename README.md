@@ -12,7 +12,7 @@ external ModEngine-compatible DLL loading.
 | --- | --- | --- |
 | Elden Ring | `eldenring` | Stable |
 | Sekiro: Shadows Die Twice | `sekiro` | Stable adapter; field validation is still required for some capabilities |
-| Dark Souls III | `darksouls3` | Experimental registry entry; game-specific hooks are not enabled yet |
+| Dark Souls III | `darksouls3` | Experimental adapter; Arxan neutralization is not included |
 
 Elden Ring remains the primary target. The `sekiro` target is selected with
 `--launch-target sekiro`. Without an explicit target, the launcher starts
@@ -62,22 +62,24 @@ These options are outside a section:
 ### Game sections
 
 The section must match the current executable: `[elden_ring]` for Elden Ring,
-`[sekiro]` for Sekiro, or `[darksouls3]` for the experimental registry target.
-Dark Souls III currently stops before installing game-specific hooks.
+`[sekiro]` for Sekiro, or `[darksouls3]` for the experimental adapter. Dark
+Souls III installs the shared host capabilities but does not include dearxan or
+any equivalent Arxan neutralization, so individual hooks may be blocked or
+restored by the game and must be confirmed in the status log.
 
 | Option | Elden Ring | Sekiro | Dark Souls III | Description |
 | --- | --- | --- | --- | --- |
-| `skip_intro` | Yes | Yes | No hooks | Skip the intro logo. |
-| `prevent_regulation_save_write` | Yes | Yes | No hooks | Prevent raw modded or oversized regulation data from being written to saves. |
-| `patch_mem` | Yes | Yes | Partial | Use the mimalloc-backed Dantelion allocator. |
-| `patch_mem_heap_size` | Yes | Yes | Partial | Dedicated heap size in MB; `0` uses the default heap size. |
-| `patch_mem_hook_cs_graphics` | Yes | No | No hooks | Hook `CSGraphicsImp` as part of `patch_mem`. |
-| `boot_boost` | Yes | Yes | No hooks | Cache decrypted BHD headers to reduce archive startup time. |
-| `replace_save_filename` | Yes | Yes | No hooks | Replace the save filename; a leading dot replaces only the extension. |
-| `replace_seamless_coop_save_filename` | Yes | No | No hooks | Replace the Seamless Co-op `.co2` filename. |
+| `skip_intro` | Yes | Yes | Experimental | Skip the intro logo. |
+| `prevent_regulation_save_write` | Yes | Yes | Experimental | Prevent raw modded or oversized regulation data from being written to saves. |
+| `patch_mem` | Yes | Yes | Experimental | Use the mimalloc-backed Dantelion allocator. |
+| `patch_mem_heap_size` | Yes | Yes | Experimental | Dedicated heap size in MB; `0` uses the default heap size. |
+| `patch_mem_hook_cs_graphics` | Yes | No | No | Hook `CSGraphicsImp` as part of `patch_mem`. |
+| `boot_boost` | Yes | Yes | Experimental | Cache decrypted BHD headers to reduce archive startup time. |
+| `replace_save_filename` | Yes | Yes | Experimental | Replace the save filename; a leading dot replaces only the extension. |
+| `replace_seamless_coop_save_filename` | Yes | No | No | Replace the Seamless Co-op `.co2` filename. |
 
-Options marked `No hooks` are still shown in the template for consistency;
-the current game adapter does not install the corresponding functionality.
+Dark Souls III capabilities are experimental until their signatures and at
+least one real hook installation are validated against a supported game build.
 
 ### DLLs and mods
 

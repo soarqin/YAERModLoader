@@ -56,7 +56,13 @@ int main(void) {
     wchar_t writable_route[MAX_PATH];
     wchar_t save_fail[MAX_PATH];
     HANDLE file;
+    typedef HANDLE (WINAPI *create_file_w_t)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES,
+                                             DWORD, DWORD, HANDLE);
+    create_file_w_t kernelbase_create_file_w;
     DWORD length = GetTempPathW(MAX_PATH, root);
+    EXPECT_EQ(ml_win32_file_hooks_test_target("CreateFileW"),
+              GetProcAddress(GetModuleHandleW(L"kernelbase.dll"), "CreateFileW"));
+    EXPECT_TRUE(ml_win32_file_hooks_test_target("CreateFileW") != (void *)CreateFileW);
     EXPECT_TRUE(length != 0 && length < MAX_PATH);
     EXPECT_TRUE(GetTempFileNameW(root, L"mlh", 0, source) != 0);
     EXPECT_TRUE(GetTempFileNameW(root, L"mlc", 0, copy) != 0);
@@ -77,6 +83,11 @@ int main(void) {
     read_route_path = read_route;
     writable_route_path = writable_route;
     save_fail_path = save_fail;
+    kernelbase_create_file_w = (create_file_w_t)ml_win32_file_hooks_test_target("CreateFileW");
+    file = kernelbase_create_file_w(source, GENERIC_READ, FILE_SHARE_READ, NULL,
+                                    OPEN_EXISTING, 0, NULL);
+    EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
+    CloseHandle(file);
     file = ml_win32_file_hooks_test_create_file_w(source, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, 0);
     EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
     CloseHandle(file);

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "test_common.h"
+#include "game/game.h"
 #include "modloader/patches/asset_hooks.h"
 
 int main(void) {
@@ -31,6 +32,7 @@ int main(void) {
     size_t displacement_offset;
     size_t instruction_end_offset;
     size_t block_size;
+    const ml_game_descriptor_t *ds3 = ml_game_by_id(ML_GAME_DARK_SOULS_3);
 
     EXPECT_EQ(sizeof(mount_pattern), 42);
     EXPECT_TRUE(ml_asset_hooks_test_match_mount_ebl(mount_pattern, sizeof(mount_pattern),
@@ -52,6 +54,18 @@ int main(void) {
     memcpy(invalid, mount_pattern, sizeof(invalid));
     invalid[40] = 0x73;
     EXPECT_TRUE(!ml_asset_hooks_test_match_mount_ebl(invalid, sizeof(invalid), NULL, NULL));
+    EXPECT_NOT_NULL(ds3);
+    EXPECT_TRUE(!ml_asset_hooks_loose_params_present(ml_game_by_id(ML_GAME_SEKIRO)));
+    EXPECT_TRUE(!ml_asset_hooks_loose_params_present(ds3));
+    EXPECT_TRUE(ml_asset_hooks_is_loose_param_path(ds3,
+        L"data1:/param/gameparam/gameparam.parambnd.dcx"));
+    EXPECT_TRUE(ml_asset_hooks_is_loose_param_path(ds3,
+        L"data1:/param/gameparam/gameparam_dlc1.parambnd.dcx"));
+    EXPECT_TRUE(ml_asset_hooks_is_loose_param_path(ds3,
+        L"data1:/param/gameparam/gameparam_dlc2.parambnd.dcx"));
+    EXPECT_TRUE(!ml_asset_hooks_is_loose_param_path(ds3, L"data0:/regulation.bin"));
+    EXPECT_TRUE(!ml_asset_hooks_is_loose_param_path(ml_game_by_id(ML_GAME_SEKIRO),
+        L"data1:/param/gameparam/gameparam.parambnd.dcx"));
     printf("smoke_asset_hooks: all tests passed\n");
     return 0;
 }

@@ -47,6 +47,7 @@ static copy_file_ex_a_t old_copy_file_ex_a;
 static move_file_ex_w_t old_move_file_ex_w;
 static replace_file_w_t old_replace_file_w;
 static bool hooks_installed;
+static void *hook_targets[15];
 
 static HANDLE WINAPI create_file_w_hooked(LPCWSTR path, DWORD access, DWORD share,
                                            LPSECURITY_ATTRIBUTES security, DWORD disposition,
@@ -93,22 +94,45 @@ static ml_hook_result_t install_hook(void *target, void *detour, void **original
     return result;
 }
 
-static void build_hook_specs(ml_hook_spec_t specs[15]) {
-    specs[0] = (ml_hook_spec_t){ CreateFileW, create_file_w_hooked, (void **)&old_create_file_w };
-    specs[1] = (ml_hook_spec_t){ CreateFileA, create_file_a_hooked, (void **)&old_create_file_a };
-    specs[2] = (ml_hook_spec_t){ CreateFile2, create_file_2_hooked, (void **)&old_create_file_2 };
-    specs[3] = (ml_hook_spec_t){ DeleteFileW, delete_file_w_hooked, (void **)&old_delete_file_w };
-    specs[4] = (ml_hook_spec_t){ DeleteFileA, delete_file_a_hooked, (void **)&old_delete_file_a };
-    specs[5] = (ml_hook_spec_t){ CreateDirectoryW, create_directory_w_hooked, (void **)&old_create_directory_w };
-    specs[6] = (ml_hook_spec_t){ CreateDirectoryA, create_directory_a_hooked, (void **)&old_create_directory_a };
-    specs[7] = (ml_hook_spec_t){ CreateDirectoryExW, create_directory_ex_w_hooked, (void **)&old_create_directory_ex_w };
-    specs[8] = (ml_hook_spec_t){ CopyFileW, copy_file_w_hooked, (void **)&old_copy_file_w };
-    specs[9] = (ml_hook_spec_t){ CopyFileExW, copy_file_ex_w_hooked, (void **)&old_copy_file_ex_w };
-    specs[10] = (ml_hook_spec_t){ CopyFile2, copy_file_2_hooked, (void **)&old_copy_file_2 };
-    specs[11] = (ml_hook_spec_t){ CopyFileA, copy_file_a_hooked, (void **)&old_copy_file_a };
-    specs[12] = (ml_hook_spec_t){ CopyFileExA, copy_file_ex_a_hooked, (void **)&old_copy_file_ex_a };
-    specs[13] = (ml_hook_spec_t){ MoveFileExW, move_file_ex_w_hooked, (void **)&old_move_file_ex_w };
-    specs[14] = (ml_hook_spec_t){ ReplaceFileW, replace_file_w_hooked, (void **)&old_replace_file_w };
+static void *kernelbase_proc(HMODULE kernelbase, const char *name, void *fallback) {
+    void *target = kernelbase == NULL ? NULL : (void *)GetProcAddress(kernelbase, name);
+    return target != NULL ? target : fallback;
+}
+
+static void build_hook_specs(ml_hook_spec_t specs[15], bool resolve_targets) {
+    if (resolve_targets) {
+        HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
+        hook_targets[0] = kernelbase_proc(kernelbase, "CreateFileW", CreateFileW);
+        hook_targets[1] = kernelbase_proc(kernelbase, "CreateFileA", CreateFileA);
+        hook_targets[2] = kernelbase_proc(kernelbase, "CreateFile2", CreateFile2);
+        hook_targets[3] = kernelbase_proc(kernelbase, "DeleteFileW", DeleteFileW);
+        hook_targets[4] = kernelbase_proc(kernelbase, "DeleteFileA", DeleteFileA);
+        hook_targets[5] = kernelbase_proc(kernelbase, "CreateDirectoryW", CreateDirectoryW);
+        hook_targets[6] = kernelbase_proc(kernelbase, "CreateDirectoryA", CreateDirectoryA);
+        hook_targets[7] = kernelbase_proc(kernelbase, "CreateDirectoryExW", CreateDirectoryExW);
+        hook_targets[8] = kernelbase_proc(kernelbase, "CopyFileW", CopyFileW);
+        hook_targets[9] = kernelbase_proc(kernelbase, "CopyFileExW", CopyFileExW);
+        hook_targets[10] = kernelbase_proc(kernelbase, "CopyFile2", CopyFile2);
+        hook_targets[11] = kernelbase_proc(kernelbase, "CopyFileA", CopyFileA);
+        hook_targets[12] = kernelbase_proc(kernelbase, "CopyFileExA", CopyFileExA);
+        hook_targets[13] = kernelbase_proc(kernelbase, "MoveFileExW", MoveFileExW);
+        hook_targets[14] = kernelbase_proc(kernelbase, "ReplaceFileW", ReplaceFileW);
+    }
+    specs[0] = (ml_hook_spec_t){ hook_targets[0], create_file_w_hooked, (void **)&old_create_file_w };
+    specs[1] = (ml_hook_spec_t){ hook_targets[1], create_file_a_hooked, (void **)&old_create_file_a };
+    specs[2] = (ml_hook_spec_t){ hook_targets[2], create_file_2_hooked, (void **)&old_create_file_2 };
+    specs[3] = (ml_hook_spec_t){ hook_targets[3], delete_file_w_hooked, (void **)&old_delete_file_w };
+    specs[4] = (ml_hook_spec_t){ hook_targets[4], delete_file_a_hooked, (void **)&old_delete_file_a };
+    specs[5] = (ml_hook_spec_t){ hook_targets[5], create_directory_w_hooked, (void **)&old_create_directory_w };
+    specs[6] = (ml_hook_spec_t){ hook_targets[6], create_directory_a_hooked, (void **)&old_create_directory_a };
+    specs[7] = (ml_hook_spec_t){ hook_targets[7], create_directory_ex_w_hooked, (void **)&old_create_directory_ex_w };
+    specs[8] = (ml_hook_spec_t){ hook_targets[8], copy_file_w_hooked, (void **)&old_copy_file_w };
+    specs[9] = (ml_hook_spec_t){ hook_targets[9], copy_file_ex_w_hooked, (void **)&old_copy_file_ex_w };
+    specs[10] = (ml_hook_spec_t){ hook_targets[10], copy_file_2_hooked, (void **)&old_copy_file_2 };
+    specs[11] = (ml_hook_spec_t){ hook_targets[11], copy_file_a_hooked, (void **)&old_copy_file_a };
+    specs[12] = (ml_hook_spec_t){ hook_targets[12], copy_file_ex_a_hooked, (void **)&old_copy_file_ex_a };
+    specs[13] = (ml_hook_spec_t){ hook_targets[13], move_file_ex_w_hooked, (void **)&old_move_file_ex_w };
+    specs[14] = (ml_hook_spec_t){ hook_targets[14], replace_file_w_hooked, (void **)&old_replace_file_w };
 }
 
 static bool route_copy_paths(LPCWSTR existing_path, LPCWSTR new_path,
@@ -377,7 +401,7 @@ bool ml_win32_file_hooks_install(void) {
     ml_hook_spec_t specs[15];
     bool rollback_complete;
     if (hooks_installed) return true;
-    build_hook_specs(specs);
+    build_hook_specs(specs, true);
     bool result = ml_hook_batch_install(specs, 15, install_hook, remove_hook, &rollback_complete);
     hooks_installed = result || !rollback_complete;
     ml_log_write(result ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
@@ -391,7 +415,7 @@ bool ml_win32_file_hooks_install(void) {
 void ml_win32_file_hooks_uninstall(void) {
     ml_hook_spec_t specs[15];
     if (!hooks_installed) return;
-    build_hook_specs(specs);
+    build_hook_specs(specs, false);
     if (ml_hook_batch_remove(specs, 15, remove_hook)) {
         hooks_installed = false;
     } else {
@@ -416,6 +440,11 @@ void ml_win32_file_hooks_test_init(void) {
     old_copy_file_ex_a = CopyFileExA;
     old_move_file_ex_w = MoveFileExW;
     old_replace_file_w = ReplaceFileW;
+}
+
+void *ml_win32_file_hooks_test_target(const char *name) {
+    HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
+    return kernelbase == NULL ? NULL : (void *)GetProcAddress(kernelbase, name);
 }
 
 HANDLE ml_win32_file_hooks_test_create_file_w(LPCWSTR path, DWORD access, DWORD share,

@@ -45,6 +45,7 @@ add_project(modloader_dll SHARED
     patches/asset_hooks.c patches/asset_hooks.h
     patches/eldenring.c patches/eldenring.h
     patches/sekiro.c patches/sekiro.h
+    patches/darksouls3.c patches/darksouls3.h
 
     proxy/winhttp.c proxy/winhttp.h proxy/winhttp.def
     proxy/dinput8.c proxy/dinput8.h proxy/dinput8.def

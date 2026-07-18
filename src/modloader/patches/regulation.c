@@ -73,8 +73,11 @@ static bool sprj_writer_signature_matches(const uint8_t *target, const uint8_t *
     if (target == NULL || target + 17 > text_end) return false;
     if (memcmp(target, "\x48\x8b\xd1\x48\x8b\x0d", 6) != 0) return false;
     if (memcmp(target + 10, "\x48\x85\xc9", 3) != 0) return false;
-    if (target[13] == 0x75) return target + 17 <= text_end && target[15] == 0x32 && target[16] == 0xc0;
-    return target + 21 <= text_end && target[13] == 0x0f && target[14] == 0x85 && target[19] == 0x32 && target[20] == 0xc0;
+    if (target[13] == 0x75) {
+        return target + 18 <= text_end && target[15] == 0x32 && target[16] == 0xc0 && target[17] == 0xc3;
+    }
+    return target + 22 <= text_end && target[13] == 0x0f && target[14] == 0x85 &&
+           target[19] == 0x32 && target[20] == 0xc0 && target[21] == 0xc3;
 }
 
 static bool install_sprj(void) {
@@ -86,6 +89,7 @@ static bool install_sprj(void) {
     uint8_t *cursor = base;
     size_t remaining = text_size;
     size_t installed = 0;
+    size_t matched = 0;
 
     while (cursor != NULL && remaining >= 13) {
         uint8_t *call = sig_scan(cursor, remaining, "48 8D 4C 24 ?? E8 ?? ?? ?? ?? 84 C0 74 ??");
@@ -93,12 +97,15 @@ static bool install_sprj(void) {
         if (call == NULL) break;
         target = call + 10 + *(int32_t *)(call + 6);
         if (target >= base && target < base + text_size &&
-            sprj_writer_signature_matches(target, base + text_size) &&
-            ml_hook_install(target, skip_regulation_write, NULL) == ML_HOOK_APPLIED) {
-            installed++;
+            sprj_writer_signature_matches(target, base + text_size)) {
+            matched++;
+            if (ml_hook_install(target, skip_regulation_write, NULL) == ML_HOOK_APPLIED) installed++;
         }
         remaining -= (size_t)(call + 1 - cursor);
         cursor = call + 1;
+    }
+    if (matched != 0 && installed == 0) {
+        ML_LOG_WARN(L"regulation", L"SPRJ regulation writer matched but hooks were blocked");
     }
     return installed > 0;
 }

@@ -12,6 +12,7 @@
 #include "config.h"
 #include "patches/common.h"
 #include "patches/allocator.h"
+#include "patches/darksouls3.h"
 #include "patches/eldenring.h"
 #include "patches/logo.h"
 #include "patches/properties.h"
@@ -31,18 +32,26 @@ static void install_logo_after_runtime(ml_lifecycle_phase_t phase, void *userp) 
 }
 
 static void install_properties_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
+    const ml_game_descriptor_t *game = (const ml_game_descriptor_t *)userp;
+    bool applied;
     (void)phase;
-    ml_properties_install((const ml_game_descriptor_t *)userp);
+    applied = ml_properties_install(game);
+    ml_log_write(applied ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                 L"properties", applied
+                     ? L"property initialization hook APPLIED for %ls"
+                     : L"property initialization hook HOOK_FAILED for %ls",
+                 game == NULL ? L"<unknown>" : game->title);
 }
 
 static void install_regulation_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
     (void)phase;
-    ml_regulation_install((const ml_game_descriptor_t *)userp);
+    (void)ml_regulation_install((const ml_game_descriptor_t *)userp);
 }
 
 static void install_allocator_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
     (void)phase;
-    ml_allocator_install_after_runtime((const ml_game_descriptor_t *)userp, config.patch_mem_hook_cs_graphics);
+    (void)ml_allocator_install_after_runtime((const ml_game_descriptor_t *)userp,
+                                             config.patch_mem_hook_cs_graphics);
 }
 
 bool gamehook_install() {
@@ -54,11 +63,21 @@ bool gamehook_install() {
     if (config.patch_mem) {
         size_t heap_size_mb = config.patch_mem_heap_size != 0
             ? config.patch_mem_heap_size : MIMALLOC_DL_ALLOCATOR_DEFAULT_HEAP_SIZE_MB;
-        ml_allocator_install_before_main(game, heap_size_mb);
-        ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_allocator_after_runtime, (void *)game);
+        bool system_allocator_applied = ml_allocator_install_before_main(game, heap_size_mb);
+        if (system_allocator_applied) {
+            if (!ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT,
+                                       install_allocator_after_runtime, (void *)game)) {
+                ML_LOG_WARN(L"allocator", L"heap allocator capability HOOK_FAILED: could not schedule after-runtime stage");
+            }
+        } else if (game->id == ML_GAME_DARK_SOULS_3) {
+            ML_LOG_WARN(L"darksouls3", L"heap allocator capability HOOK_FAILED stage=system_allocator");
+        }
+    } else {
+        ML_LOG_INFO(L"allocator", L"heap allocators SKIPPED_DISABLED for %ls", game->title);
     }
     ml_lifecycle_advance(ML_LIFECYCLE_PHASE_BEFORE_MAIN);
-    if (game->id != ML_GAME_ELDEN_RING && game->id != ML_GAME_SEKIRO) {
+    if (game->id != ML_GAME_ELDEN_RING && game->id != ML_GAME_SEKIRO &&
+        game->id != ML_GAME_DARK_SOULS_3) {
         ML_LOG_WARN(L"gamehook", L"%ls adapter is not implemented; game hooks are disabled", game->title);
         return false;
     }
@@ -76,7 +95,7 @@ bool gamehook_install() {
     steamapi_init();
     bool result = game->id == ML_GAME_ELDEN_RING
         ? common_install() && eldenring_install()
-        : sekiro_install();
+        : game->id == ML_GAME_SEKIRO ? sekiro_install() : darksouls3_install();
     return result;
 }
 
@@ -87,6 +106,8 @@ void gamehook_uninstall() {
         common_uninstall();
     } else if (game != NULL && game->id == ML_GAME_SEKIRO) {
         sekiro_uninstall();
+    } else if (game != NULL && game->id == ML_GAME_DARK_SOULS_3) {
+        darksouls3_uninstall();
     }
 
     MH_Uninitialize();

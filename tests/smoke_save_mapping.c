@@ -49,9 +49,11 @@ int main(void) {
     wchar_t linked_source[MAX_PATH];
     const wchar_t *mapped = NULL;
     const ml_game_descriptor_t *game = ml_game_by_id(ML_GAME_SEKIRO);
+    const ml_game_descriptor_t *ds3 = ml_game_by_id(ML_GAME_DARK_SOULS_3);
     DWORD old_length = GetEnvironmentVariableW(L"APPDATA", old_appdata, MAX_PATH);
 
     EXPECT_NOT_NULL(game);
+    EXPECT_NOT_NULL(ds3);
     EXPECT_TRUE(GetTempPathW(MAX_PATH, root) != 0);
     EXPECT_TRUE(GetTempFileNameW(root, L"sav", 0, root) != 0);
     DeleteFileW(root);
@@ -101,10 +103,32 @@ int main(void) {
     EXPECT_TRUE(PathFileExistsW(mapped));
     EXPECT_TRUE(file_has_byte(mapped, 0x5a));
 
+    DeleteFileW(vfs_route_writable_path(backup));
+    DeleteFileW(vfs_route_writable_path(source));
+    ml_save_mapping_uninit();
+    vfs_uninit();
+    DeleteFileW(backup);
+    DeleteFileW(source);
+    RemoveDirectoryW(account);
+    RemoveDirectoryW(save_root);
+
+    lstrcpyW(save_root, root); PathAppendW(save_root, L"DarkSoulsIII");
+    EXPECT_TRUE(CreateDirectoryW(save_root, NULL));
+    lstrcpyW(account, save_root); PathAppendW(account, L"76561198000000000");
+    EXPECT_TRUE(CreateDirectoryW(account, NULL));
+    lstrcpyW(source, account); PathAppendW(source, L"DS30000.sl2");
+    EXPECT_TRUE(create_empty_file(source));
+    vfs_init();
+    EXPECT_TRUE(ml_save_mapping_init(ds3, L"ds3-test.sl2"));
+    EXPECT_TRUE(ml_save_mapping_route(source, &mapped));
+    EXPECT_NOT_NULL(mapped);
+    EXPECT_TRUE(wcsstr(mapped, L"ds3-test.sl2") != NULL);
+    EXPECT_TRUE(PathFileExistsW(mapped));
+
     mapped = (const wchar_t *)1;
     EXPECT_TRUE(!ml_save_mapping_route(L"C:\\outside\\S0000.sl2", &mapped));
     EXPECT_NULL(mapped);
-    lstrcpyW(backup, save_root); PathAppendW(backup, L"..\\outside\\S0000.sl2");
+    lstrcpyW(backup, save_root); PathAppendW(backup, L"..\\outside\\DS30000.sl2");
     mapped = (const wchar_t *)1;
     EXPECT_TRUE(!ml_save_mapping_route(backup, &mapped));
     EXPECT_NULL(mapped);
@@ -114,7 +138,7 @@ int main(void) {
     lstrcpyW(link_path, save_root); PathAppendW(link_path, L"linked-account");
     if (CreateSymbolicLinkW(link_path, outside,
                             SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
-        lstrcpyW(linked_source, link_path); PathAppendW(linked_source, L"S0000.sl2");
+        lstrcpyW(linked_source, link_path); PathAppendW(linked_source, L"DS30000.sl2");
         EXPECT_TRUE(create_empty_file(linked_source));
         mapped = (const wchar_t *)1;
         EXPECT_TRUE(!ml_save_mapping_route(linked_source, &mapped));
@@ -123,7 +147,6 @@ int main(void) {
         RemoveDirectoryW(link_path);
     }
 
-    DeleteFileW(vfs_route_writable_path(backup));
     DeleteFileW(vfs_route_writable_path(source));
     ml_save_mapping_uninit();
     vfs_uninit();

@@ -9,6 +9,7 @@ void ml_win32_file_hooks_uninstall(void);
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 void ml_win32_file_hooks_test_init(void);
+void *ml_win32_file_hooks_test_target(const char *name);
 HANDLE ml_win32_file_hooks_test_create_file_w(LPCWSTR path, DWORD access, DWORD share,
                                                DWORD disposition, DWORD flags);
 HANDLE ml_win32_file_hooks_test_create_file_2(LPCWSTR path, DWORD access, DWORD share,

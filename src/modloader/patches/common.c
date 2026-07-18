@@ -17,6 +17,7 @@
 #include "modloader/vfs.h"
 
 #include "process/rtti.h"
+#include "process/pe.h"
 
 #include <MinHook.h>
 
@@ -86,8 +87,21 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
         wchar_t *direct_path;
         wchar_t *nested_path;
         if (wwise_wem_candidates(replace, &direct_path, &nested_path)) {
-            const wchar_t *new_replace = vfs_lookup_domain(direct_path, VFS_LOOKUP_WWISE);
-            if (new_replace == NULL) new_replace = vfs_lookup_domain(nested_path, VFS_LOOKUP_WWISE);
+            const wchar_t *new_replace = NULL;
+            for (int i = 0; i < 3 && new_replace == NULL; i++) {
+                wchar_t *candidate = wwise_join_path(prefixes[i], direct_path);
+                if (candidate != NULL) {
+                    new_replace = vfs_lookup_domain(candidate, VFS_LOOKUP_WWISE);
+                    yaer_mem_free(candidate);
+                }
+            }
+            for (int i = 0; i < 3 && new_replace == NULL; i++) {
+                wchar_t *candidate = wwise_join_path(prefixes[i], nested_path);
+                if (candidate != NULL) {
+                    new_replace = vfs_lookup_domain(candidate, VFS_LOOKUP_WWISE);
+                    yaer_mem_free(candidate);
+                }
+            }
             yaer_mem_free(direct_path);
             yaer_mem_free(nested_path);
             if (new_replace != NULL) {
@@ -114,11 +128,23 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
 
 static bool hook_wwise_archive_position_resolver() {
     void **vtable = rtti_find_vtable("DLMOW::IOHookBlocking");
-    if (vtable == NULL) {
-        return false;
-    }
-    ak_file_location_resolver_open_t open_by_name = ((dlmow_io_hook_blocking_vtable_t *)vtable)->open_by_name;
+    ak_file_location_resolver_open_t open_by_name = vtable == NULL ? NULL :
+        ((dlmow_io_hook_blocking_vtable_t *)vtable)->open_by_name;
     if (open_by_name == NULL) {
+        void *image = GetModuleHandleW(NULL);
+        const IMAGE_SECTION_HEADER *text = pe_section_by_name(image, ".text");
+        size_t text_size = 0;
+        uint8_t *text_base = pe_section_data(image, text, &text_size);
+        size_t call_offset = wwise_find_open_call(text_base, text_size);
+        if (call_offset != SIZE_MAX) {
+            int32_t displacement;
+            memcpy(&displacement, text_base + call_offset + 1, sizeof(displacement));
+            open_by_name = (ak_file_location_resolver_open_t)(text_base + call_offset + 5 + displacement);
+            ML_LOG_INFO(L"common", L"Wwise resolver found by signature fallback at %p", open_by_name);
+        }
+    }
+    if (open_by_name == NULL) {
+        ML_LOG_WARN(L"common", L"Wwise resolver SIGNATURE_NOT_FOUND: RTTI and fallback scan found no target");
         return false;
     }
     ml_hook_result_t result = ml_hook_install((void *)open_by_name, (void *)&ak_file_location_resolver_open, (void **)&old_ak_file_location_resolver_open);
@@ -131,11 +157,26 @@ static bool hook_wwise_archive_position_resolver() {
 }
 
 bool common_install() {
+    bool ime_applied = common_install_ime();
+    bool wwise_applied = common_install_wwise();
+    if (!ime_applied) ML_LOG_WARN(L"common", L"IME capability HOOK_FAILED; continuing with other capabilities");
+    return wwise_applied;
+}
+
+bool common_install_ime() {
     if (config.enable_ime) {
-        patch_ime_disable();
+        return ime_hook_target != NULL || patch_ime_disable();
     }
-    /* Do not hook if no mod is added, to improve game performance during loading. */
-    if (mods_count() <= 0) return true;
+    return true;
+}
+
+bool common_wwise_requested() {
+    return vfs_has_wwise_entries();
+}
+
+bool common_install_wwise() {
+    if (!common_wwise_requested()) return true;
+    if (wwise_hook_target != NULL) return true;
     if (!hook_wwise_archive_position_resolver()) return false;
     return true;
 }

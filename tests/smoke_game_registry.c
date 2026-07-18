@@ -37,7 +37,7 @@ int main(void) {
     EXPECT_EQ(game->support_level, ML_SUPPORT_EXPERIMENTAL);
     EXPECT_EQ(game->stl_abi, ML_STL_ABI_MSVC2012);
     EXPECT_EQ(game->ebl_bhd_holder_offset, 0xC0);
-    EXPECT_EQ(game->runtime_ready_trigger, ML_RUNTIME_READY_UNSUPPORTED);
+    EXPECT_EQ(game->runtime_ready_trigger, ML_RUNTIME_READY_STEAM_API_INIT);
     EXPECT_EQ(game->logo_strategy, ML_LOGO_STRATEGY_SPRJ);
     EXPECT_EQ(game->allocator_strategy, ML_ALLOCATOR_STRATEGY_DARK_SOULS_3);
     EXPECT_EQ(game->regulation_strategy, ML_REGULATION_STRATEGY_SPRJ);

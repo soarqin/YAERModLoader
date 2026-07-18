@@ -12,13 +12,25 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "from/abi_msvc2012.h"
 #include "from/abi_msvc2015.h"
+#include "game/game.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 typedef struct ml_dl_device_s ml_dl_device_t;
 typedef struct ml_dl_file_operator_s ml_dl_file_operator_t;
+
+typedef union ml_dl_string_u {
+    ml_msvc2012_string_t msvc2012;
+    ml_msvc2015_string_t msvc2015;
+} ml_dl_string_t;
+
+typedef union ml_dl_vector_u {
+    ml_msvc2012_vector_t msvc2012;
+    ml_msvc2015_vector_t msvc2015;
+} ml_dl_vector_t;
 
 typedef struct ml_dl_device_vtable_s {
     void *dtor;
@@ -42,23 +54,23 @@ struct ml_dl_file_operator_s {
 };
 
 typedef struct ml_dl_virtual_root_s {
-    ml_msvc2015_string_t root;
-    ml_msvc2015_string_t expanded;
+    ml_dl_string_t root;
+    ml_dl_string_t expanded;
 } ml_dl_virtual_root_t;
 
 typedef struct ml_dl_virtual_mount_s {
-    ml_msvc2015_string_t root;
+    ml_dl_string_t root;
     ml_dl_device_t *device;
     size_t size;
 } ml_dl_virtual_mount_t;
 
 typedef struct ml_dl_device_manager_s {
-    ml_msvc2015_vector_t devices;
-    ml_msvc2015_vector_t spis;
+    ml_dl_vector_t devices;
+    ml_dl_vector_t spis;
     ml_dl_device_t *disk_device;
-    ml_msvc2015_vector_t virtual_roots;
-    ml_msvc2015_vector_t bnd3_mounts;
-    ml_msvc2015_vector_t bnd4_mounts;
+    ml_dl_vector_t virtual_roots;
+    ml_dl_vector_t bnd3_mounts;
+    ml_dl_vector_t bnd4_mounts;
     void *bnd3_spi;
     void *bnd4_spi;
     void *mutex_vtable;
@@ -81,27 +93,33 @@ typedef struct ml_dl_vfs_mounts_s {
     size_t capacity;
 } ml_dl_vfs_mounts_t;
 
+_Static_assert(sizeof(ml_dl_string_t) == 48, "Dantelion string ABI size");
+_Static_assert(sizeof(ml_dl_vector_t) == 32, "Dantelion vector ABI size");
 _Static_assert(offsetof(ml_dl_device_manager_t, disk_device) == 64, "DlDeviceManager disk device offset");
 _Static_assert(offsetof(ml_dl_device_manager_t, virtual_roots) == 72, "DlDeviceManager virtual roots offset");
 
-ml_dl_device_manager_t *ml_dl_device_manager_find(void *image_base);
+ml_dl_device_manager_t *ml_dl_device_manager_find(void *image_base, ml_stl_abi_t abi);
 bool ml_dl_device_manager_lock(ml_dl_device_manager_t *manager, ml_dl_device_manager_guard_t *guard);
 void ml_dl_device_manager_unlock(ml_dl_device_manager_guard_t *guard);
-bool ml_dl_device_expand_path(ml_dl_device_manager_t *manager, const wchar_t *path, wchar_t **expanded);
-bool ml_dl_mount_snapshot(ml_dl_device_manager_t *manager, ml_dl_mount_snapshot_t *snapshot);
+bool ml_dl_device_expand_path(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
+                              const wchar_t *path, wchar_t **expanded);
+bool ml_dl_mount_snapshot(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
+                          ml_dl_mount_snapshot_t *snapshot);
 void ml_dl_mount_snapshot_destroy(ml_dl_mount_snapshot_t *snapshot);
 bool ml_dl_mounts_init(ml_dl_vfs_mounts_t *mounts);
-void ml_dl_mounts_destroy(ml_dl_vfs_mounts_t *mounts);
+void ml_dl_mounts_destroy(ml_dl_vfs_mounts_t *mounts, ml_stl_abi_t abi);
 void ml_dl_mounts_release(ml_dl_vfs_mounts_t *mounts);
-bool ml_dl_device_extract_new(ml_dl_device_manager_t *manager, const ml_dl_mount_snapshot_t *snapshot,
-                              ml_dl_vfs_mounts_t *mounts);
-bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_dl_vfs_mounts_t *mounts);
-bool ml_dl_device_push_mounts_permanent(ml_dl_device_manager_t *manager, ml_dl_vfs_mounts_t *mounts);
-bool ml_dl_string_clone_replace(const ml_msvc2015_string_t *source, const wchar_t *path,
-                                 ml_msvc2015_string_t *replacement);
-void ml_dl_string_destroy(ml_msvc2015_string_t *string);
-const wchar_t *ml_dl_string_data(const ml_msvc2015_string_t *string);
-size_t ml_dl_vector_count(const ml_msvc2015_vector_t *vector, size_t item_size);
+bool ml_dl_device_extract_new(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
+                              const ml_dl_mount_snapshot_t *snapshot, ml_dl_vfs_mounts_t *mounts);
+bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
+                                 ml_dl_vfs_mounts_t *mounts);
+bool ml_dl_device_push_mounts_permanent(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
+                                        ml_dl_vfs_mounts_t *mounts);
+bool ml_dl_string_clone_replace(const ml_dl_string_t *source, ml_stl_abi_t abi,
+                                const wchar_t *path, ml_dl_string_t *replacement);
+void ml_dl_string_destroy(ml_dl_string_t *string, ml_stl_abi_t abi);
+const wchar_t *ml_dl_string_data(const ml_dl_string_t *string, ml_stl_abi_t abi);
+size_t ml_dl_vector_count(const ml_dl_vector_t *vector, ml_stl_abi_t abi, size_t item_size);
 bool ml_dl_device_seen(void *target);
 bool ml_dl_device_mark_seen(void *target);
 bool ml_bhd5_header_valid(const void *data, size_t size);

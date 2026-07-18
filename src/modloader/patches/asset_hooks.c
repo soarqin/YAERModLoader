@@ -9,6 +9,7 @@
 #include "asset_hooks.h"
 
 #include "common/allocator.h"
+#include "game/game.h"
 
 #include <string.h>
 
@@ -16,6 +17,12 @@
 #include <windows.h>
 
 static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t *block_size);
+
+static const wchar_t *loose_param_paths[] = {
+    L"data1:/param/gameparam/gameparam.parambnd.dcx",
+    L"data1:/param/gameparam/gameparam_dlc1.parambnd.dcx",
+    L"data1:/param/gameparam/gameparam_dlc2.parambnd.dcx",
+};
 
 #ifndef ML_ASSET_HOOKS_TEST
 #include "dl_device.h"
@@ -38,15 +45,44 @@ static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t
 #include <shlwapi.h>
 #endif
 
+bool ml_asset_hooks_requested(void) {
+#ifdef ML_ASSET_HOOKS_TEST
+    return false;
+#else
+    return vfs_entry_count() != 0;
+#endif
+}
+
+bool ml_asset_hooks_loose_params_present(const ml_game_descriptor_t *game) {
+    if (game == NULL || game->id != ML_GAME_DARK_SOULS_3) return false;
+#ifdef ML_ASSET_HOOKS_TEST
+    return false;
+#else
+    for (size_t i = 0; i < sizeof(loose_param_paths) / sizeof(loose_param_paths[0]); i++) {
+        if (vfs_lookup(loose_param_paths[i]) != NULL) return true;
+    }
+    return false;
+#endif
+}
+
+bool ml_asset_hooks_is_loose_param_path(const ml_game_descriptor_t *game, const wchar_t *path) {
+    if (game == NULL || game->id != ML_GAME_DARK_SOULS_3 || path == NULL) return false;
+    for (size_t i = 0; i < sizeof(loose_param_paths) / sizeof(loose_param_paths[0]); i++) {
+        if (_wcsicmp(loose_param_paths[i], path) == 0) return true;
+    }
+    return false;
+}
+
 #ifndef ML_ASSET_HOOKS_TEST
-typedef void *(__cdecl *dl_open_file_t)(ml_dl_device_t *, ml_msvc2015_string_t *, const wchar_t *, void *, void *, bool);
-typedef bool (__cdecl *dl_set_path_t)(ml_dl_file_operator_t *, ml_msvc2015_string_t *, bool, bool);
+typedef void *(__cdecl *dl_open_file_t)(ml_dl_device_t *, ml_dl_string_t *, const wchar_t *, void *, void *, bool);
+typedef bool (__cdecl *dl_set_path_t)(ml_dl_file_operator_t *, ml_dl_string_t *, bool, bool);
 typedef void *(__cdecl *make_ebl_object_t)(void *, const wchar_t *, void *);
 typedef bool (__cdecl *mount_ebl_t)(const wchar_t *, const wchar_t *, const wchar_t *, void *, const char *, size_t);
 
 static void *game_image_base;
 static size_t game_image_size;
 static ml_dl_device_manager_t *device_manager;
+static ml_stl_abi_t game_stl_abi;
 static fd4_step_fn_t old_file_step_init;
 static make_ebl_object_t old_make_ebl_object;
 static mount_ebl_t old_mount_ebl;
@@ -76,9 +112,9 @@ typedef struct bhd5_holder_s {
 
 static bool remove_asset_hook(void *target);
 static bool remove_asset_hooks(asset_hook_t *hooks, size_t count);
-static bool make_override_path(const ml_msvc2015_string_t *path, ml_msvc2015_string_t *replacement,
+static bool make_override_path(const ml_dl_string_t *path, ml_dl_string_t *replacement,
                                const wchar_t *route);
-static void *__cdecl disk_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_string_t *path,
+static void *__cdecl disk_open_file_hooked(ml_dl_device_t *device, ml_dl_string_t *path,
                                            const wchar_t *path_cstr, void *container,
                                            void *allocator, bool temporary);
 static void remove_ebl_device_opens_from(size_t count);
@@ -97,6 +133,7 @@ static LONG logged_ebl_open;
 static LONG logged_disk_open;
 static LONG logged_disk_open_return;
 static LONG logged_mount_ebl;
+static LONG boot_boost_status_reported;
 static wchar_t **logged_override_paths;
 static size_t logged_override_count;
 static size_t logged_override_capacity;
@@ -330,7 +367,7 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
     *mounted = false;
     *handled = false;
     if (!ml_dl_device_manager_lock(device_manager, &guard) ||
-        !ml_dl_device_expand_path(device_manager, bhd_path, &expanded)) goto fallback;
+        !ml_dl_device_expand_path(device_manager, game_stl_abi, bhd_path, &expanded)) goto fallback;
     ML_LOG_DEBUG(L"asset-hooks", L"BootBoost expanded BHD path: %ls", expanded);
     source = CreateFileW(expanded, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (source == INVALID_HANDLE_VALUE || !GetFileSizeEx(source, &source_size) || source_size.QuadPart <= 0 ||
@@ -346,14 +383,14 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
     ML_LOG_DEBUG(L"asset-hooks", L"BootBoost cache path: %ls", cache_path);
     CreateDirectoryW(cache_directory, NULL);
     if (!write_boot_boost_stub(encrypted, (size_t)source_size.QuadPart, block_size, stub_path, MAX_PATH) ||
-        !ml_dl_mount_snapshot(device_manager, &snapshot) || !ml_dl_mounts_init(&stub_mounts)) goto fallback;
+        !ml_dl_mount_snapshot(device_manager, game_stl_abi, &snapshot) || !ml_dl_mounts_init(&stub_mounts)) goto fallback;
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost invoking stub MountEbl: %ls", stub_path);
     result = original(mount_name, stub_path, bdt_path, allocator, rsa_key, key_len);
     *handled = result;
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost stub MountEbl returned: %d", result ? 1 : 0);
     DeleteFileW(stub_path);
     if (!result) goto fallback;
-    if (!ml_dl_device_extract_new(device_manager, &snapshot, &stub_mounts)) {
+    if (!ml_dl_device_extract_new(device_manager, game_stl_abi, &snapshot, &stub_mounts)) {
         *mounted = true;
         result = true;
         goto done;
@@ -396,8 +433,8 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
                     holder->bucket_count = bucket_count;
                     holder->buckets = (uint32_t *)(cached + bucket_offset);
                     dl_allocator_dealloc(allocator, previous);
-                    if (!ml_dl_device_push_mounts_permanent(device_manager, &stub_mounts)) {
-                        if (ml_dl_device_restore_mounts(device_manager, &stub_mounts)) {
+                    if (!ml_dl_device_push_mounts_permanent(device_manager, game_stl_abi, &stub_mounts)) {
+                        if (ml_dl_device_restore_mounts(device_manager, game_stl_abi, &stub_mounts)) {
                             *mounted = true;
                             result = true;
                             goto done;
@@ -420,7 +457,7 @@ full_mount:
            attempted. Its game-owned root string must not be freed here. */
         ml_dl_mounts_release(&stub_mounts);
         ml_dl_mount_snapshot_destroy(&snapshot);
-        if (!ml_dl_mount_snapshot(device_manager, &snapshot)) {
+        if (!ml_dl_mount_snapshot(device_manager, game_stl_abi, &snapshot)) {
             *handled = false;
             result = false;
             goto done;
@@ -433,7 +470,7 @@ full_mount:
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost full MountEbl returned: %d", result ? 1 : 0);
     if (!result) goto fallback;
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost extracting full mounts");
-    if (!ml_dl_device_extract_new(device_manager, &snapshot, &full_mounts)) {
+    if (!ml_dl_device_extract_new(device_manager, game_stl_abi, &snapshot, &full_mounts)) {
         *mounted = true;
         result = true;
         goto done;
@@ -455,8 +492,8 @@ full_mount:
         }
     }
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost full mount cache-store stage");
-    if (!ml_dl_device_push_mounts_permanent(device_manager, &full_mounts)) {
-        if (ml_dl_device_restore_mounts(device_manager, &full_mounts)) {
+    if (!ml_dl_device_push_mounts_permanent(device_manager, game_stl_abi, &full_mounts)) {
+        if (ml_dl_device_restore_mounts(device_manager, game_stl_abi, &full_mounts)) {
             *mounted = true;
             result = true;
             goto done;
@@ -477,8 +514,8 @@ done:
     yaer_mem_free(cache_directory);
     yaer_mem_free(cache_path);
     yaer_mem_free(expanded);
-    ml_dl_mounts_destroy(&stub_mounts);
-    ml_dl_mounts_destroy(&full_mounts);
+    ml_dl_mounts_destroy(&stub_mounts, game_stl_abi);
+    ml_dl_mounts_destroy(&full_mounts, game_stl_abi);
     ml_dl_mount_snapshot_destroy(&snapshot);
     ml_dl_device_manager_unlock(&guard);
     *mounted = result;
@@ -533,19 +570,19 @@ static void clear_override_log(void) {
     ReleaseSRWLockExclusive(&override_log_lock);
 }
 
-static bool make_override_path(const ml_msvc2015_string_t *path, ml_msvc2015_string_t *replacement,
+static bool make_override_path(const ml_dl_string_t *path, ml_dl_string_t *replacement,
                                const wchar_t *route) {
     ml_dl_device_manager_guard_t guard = { 0 };
     wchar_t *expanded = NULL;
     const wchar_t *uid = NULL;
     bool result = false;
-    const wchar_t *raw = ml_dl_string_data(path);
+    const wchar_t *raw = ml_dl_string_data(path, game_stl_abi);
     if (raw == NULL || device_manager == NULL || !ml_dl_device_manager_lock(device_manager, &guard)) return false;
-    if (vfs_uid_to_path(raw) == NULL && ml_dl_device_expand_path(device_manager, raw, &expanded)) {
+    if (vfs_uid_to_path(raw) == NULL && ml_dl_device_expand_path(device_manager, game_stl_abi, raw, &expanded)) {
         uid = mods_file_virtual_to_uid_prefixed(expanded);
         if (uid == NULL) uid = vfs_virtual_to_uid(expanded);
         if (uid != NULL) {
-            result = ml_dl_string_clone_replace(path, uid, replacement);
+            result = ml_dl_string_clone_replace(path, game_stl_abi, uid, replacement);
             if (result) log_override_once(route, raw, expanded, vfs_uid_to_path(uid));
         }
     }
@@ -584,10 +621,10 @@ static bool install_asset_hook(asset_hook_t *hooks, size_t *count, size_t capaci
 
 static bool hook_file_operator(ml_dl_file_operator_t *file_operator);
 
-static void *__cdecl disk_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_string_t *path,
+static void *__cdecl disk_open_file_hooked(ml_dl_device_t *device, ml_dl_string_t *path,
                                             const wchar_t *path_cstr, void *container, void *allocator, bool temporary) {
     void *result;
-    ml_msvc2015_string_t replacement = { 0 };
+    ml_dl_string_t replacement = { 0 };
     bool overridden = make_override_path(path, &replacement, L"disk open_file");
     dl_open_file_t original = (dl_open_file_t)asset_hook_original(open_hooks, open_hook_count, &device->vtable->open_file);
     if (InterlockedCompareExchange(&logged_disk_open, 1, 0) == 0) {
@@ -596,11 +633,11 @@ static void *__cdecl disk_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_s
     }
     if (overridden) {
         path = &replacement;
-        path_cstr = ml_dl_string_data(&replacement);
+        path_cstr = ml_dl_string_data(&replacement, game_stl_abi);
     }
-    if (original == NULL) { ml_dl_string_destroy(&replacement); return NULL; }
+    if (original == NULL) { ml_dl_string_destroy(&replacement, game_stl_abi); return NULL; }
     result = original(device, path, path_cstr, container, allocator, temporary);
-    ml_dl_string_destroy(&replacement);
+    ml_dl_string_destroy(&replacement, game_stl_abi);
     if (InterlockedCompareExchange(&logged_disk_open_return, 1, 0) == 0) {
         ML_LOG_DEBUG(L"asset-hooks", L"disk open_file returned: operator=%p", result);
     }
@@ -615,9 +652,9 @@ static dl_open_file_t ebl_open_original(void *target) {
     return NULL;
 }
 
-static void *__cdecl ebl_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_string_t *path,
+static void *__cdecl ebl_open_file_hooked(ml_dl_device_t *device, ml_dl_string_t *path,
                                           const wchar_t *path_cstr, void *container, void *allocator, bool temporary) {
-    ml_msvc2015_string_t replacement = { 0 };
+    ml_dl_string_t replacement = { 0 };
     dl_open_file_t original = device == NULL || device->vtable == NULL ? NULL :
                               ebl_open_original(device->vtable->open_file);
     if (InterlockedCompareExchange(&logged_ebl_open, 1, 0) == 0) {
@@ -626,10 +663,10 @@ static void *__cdecl ebl_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_st
     }
     if (make_override_path(path, &replacement, L"BND4 open_file")) {
         void *result;
-        const wchar_t *replacement_cstr = ml_dl_string_data(&replacement);
+        const wchar_t *replacement_cstr = ml_dl_string_data(&replacement, game_stl_abi);
         result = disk_open_file_hooked(disk_device, &replacement, replacement_cstr,
                                        container, allocator, temporary);
-        ml_dl_string_destroy(&replacement);
+        ml_dl_string_destroy(&replacement, game_stl_abi);
         return result;
     }
     return original == NULL ? NULL : original(device, path, path_cstr, container, allocator, temporary);
@@ -640,8 +677,10 @@ static bool hook_ebl_device_opens(void) {
     size_t start_count = ebl_open_hook_count;
     ml_dl_virtual_mount_t *mounts;
     if (device_manager == NULL || disk_device == NULL) return false;
-    mount_count = ml_dl_vector_count(&device_manager->bnd4_mounts, sizeof(ml_dl_virtual_mount_t));
-    mounts = (ml_dl_virtual_mount_t *)device_manager->bnd4_mounts.first;
+    mount_count = ml_dl_vector_count(&device_manager->bnd4_mounts, game_stl_abi, sizeof(ml_dl_virtual_mount_t));
+    mounts = game_stl_abi == ML_STL_ABI_MSVC2012
+        ? (ml_dl_virtual_mount_t *)device_manager->bnd4_mounts.msvc2012.first
+        : (ml_dl_virtual_mount_t *)device_manager->bnd4_mounts.msvc2015.first;
     for (size_t i = 0; i < mount_count; i++) {
         void *target;
         void *original;
@@ -673,28 +712,28 @@ static void remove_ebl_device_opens_from(size_t count) {
     }
 }
 
-static bool set_path_with_override(ml_dl_file_operator_t *file_operator, ml_msvc2015_string_t *path,
+static bool set_path_with_override(ml_dl_file_operator_t *file_operator, ml_dl_string_t *path,
                                    bool p3, bool p4, size_t index) {
     void **slot = &file_operator->vtable->set_path + index;
     dl_set_path_t original = (dl_set_path_t)asset_hook_original(set_path_hooks, set_path_hook_count, slot);
-    ml_msvc2015_string_t replacement = { 0 };
+    ml_dl_string_t replacement = { 0 };
     bool overridden = make_override_path(path, &replacement, L"DlFileOperator::SetPath");
     bool result;
     if (overridden) path = &replacement;
     result = original != NULL && original(file_operator, path, p3, p4);
-    ml_dl_string_destroy(&replacement);
+    ml_dl_string_destroy(&replacement, game_stl_abi);
     return result;
 }
 
-static bool __cdecl set_path_hooked(ml_dl_file_operator_t *file_operator, ml_msvc2015_string_t *path, bool p3, bool p4) {
+static bool __cdecl set_path_hooked(ml_dl_file_operator_t *file_operator, ml_dl_string_t *path, bool p3, bool p4) {
     return set_path_with_override(file_operator, path, p3, p4, 0);
 }
 
-static bool __cdecl set_path2_hooked(ml_dl_file_operator_t *file_operator, ml_msvc2015_string_t *path, bool p3, bool p4) {
+static bool __cdecl set_path2_hooked(ml_dl_file_operator_t *file_operator, ml_dl_string_t *path, bool p3, bool p4) {
     return set_path_with_override(file_operator, path, p3, p4, 1);
 }
 
-static bool __cdecl set_path3_hooked(ml_dl_file_operator_t *file_operator, ml_msvc2015_string_t *path, bool p3, bool p4) {
+static bool __cdecl set_path3_hooked(ml_dl_file_operator_t *file_operator, ml_dl_string_t *path, bool p3, bool p4) {
     return set_path_with_override(file_operator, path, p3, p4, 2);
 }
 
@@ -744,7 +783,7 @@ static void *__cdecl make_ebl_object_hooked(void *utility, const wchar_t *path, 
     const wchar_t *physical = NULL;
     bool loose_override = false;
     if (device_manager != NULL && path != NULL && ml_dl_device_manager_lock(device_manager, &guard)) {
-        if (ml_dl_device_expand_path(device_manager, path, &expanded)) {
+        if (ml_dl_device_expand_path(device_manager, game_stl_abi, path, &expanded)) {
             physical = mods_file_search_prefixed_domain(expanded, VFS_LOOKUP_VIRTUAL);
             if (physical == NULL) physical = vfs_lookup(expanded);
             loose_override = physical != NULL;
@@ -775,6 +814,9 @@ static bool __cdecl mount_ebl_hooked(const wchar_t *mount_name, const wchar_t *b
         boot_boost_mount(bhd_path, (dl_allocator_t *)allocator, old_mount_ebl,
                                                mount_name, bdt_path, rsa_key, key_len, &result, &handled)) {
         ML_LOG_INFO(L"asset-hooks", L"MountEbl BootBoost result: %d", result ? 1 : 0);
+        if (result && InterlockedCompareExchange(&boot_boost_status_reported, 1, 0) == 0) {
+            ML_LOG_INFO(L"asset-hooks", L"BootBoost capability APPLIED");
+        }
         if (result) {
             ml_dl_device_manager_guard_t hook_guard = { 0 };
             bool hooked = ml_dl_device_manager_lock(device_manager, &hook_guard) && hook_ebl_device_opens();
@@ -786,17 +828,20 @@ static bool __cdecl mount_ebl_hooked(const wchar_t *mount_name, const wchar_t *b
     if (handled) return result;
     ML_LOG_TRACE(L"asset-hooks", L"MountEbl calling original");
     if (device_manager != NULL && ml_dl_device_manager_lock(device_manager, &guard)) {
-        snapshot_ok = ml_dl_mount_snapshot(device_manager, &snapshot);
+        snapshot_ok = ml_dl_mount_snapshot(device_manager, game_stl_abi, &snapshot);
         (void)ml_dl_mounts_init(&new_mounts);
     }
     result = old_mount_ebl(mount_name, bhd_path, bdt_path, allocator, rsa_key, key_len);
-    if (guard.manager != NULL && snapshot_ok && ml_dl_device_extract_new(device_manager, &snapshot, &new_mounts)) {
-        if (!ml_dl_device_push_mounts_permanent(device_manager, &new_mounts)) {
+    if (config.boot_boost && result && InterlockedCompareExchange(&boot_boost_status_reported, 1, 0) == 0) {
+        ML_LOG_INFO(L"asset-hooks", L"BootBoost capability FALLBACK");
+    }
+    if (guard.manager != NULL && snapshot_ok && ml_dl_device_extract_new(device_manager, game_stl_abi, &snapshot, &new_mounts)) {
+        if (!ml_dl_device_push_mounts_permanent(device_manager, game_stl_abi, &new_mounts)) {
             ML_LOG_WARN(L"asset-hooks", L"failed to restore mounted BND4 devices");
-            (void)ml_dl_device_restore_mounts(device_manager, &new_mounts);
+            (void)ml_dl_device_restore_mounts(device_manager, game_stl_abi, &new_mounts);
         }
     }
-    ml_dl_mounts_destroy(&new_mounts);
+    ml_dl_mounts_destroy(&new_mounts, game_stl_abi);
     ml_dl_mount_snapshot_destroy(&snapshot);
     ml_dl_device_manager_unlock(&guard);
     if (result) {
@@ -816,7 +861,7 @@ static bool __cdecl mount_ebl_hooked(const wchar_t *mount_name, const wchar_t *b
 static bool install_pre_hooks(void) {
     void *mount;
     if (pre_hooks_installed) return true;
-    device_manager = ml_dl_device_manager_find(game_image_base);
+    device_manager = ml_dl_device_manager_find(game_image_base, game_stl_abi);
     if (device_manager == NULL) {
         ML_LOG_WARN(L"asset-hooks", L"DlDeviceManager validation failed; archive device hooks disabled");
         return false;
@@ -888,10 +933,13 @@ static bool install_post_hooks(void) {
 static void __cdecl file_step_init_hooked(void *this_ptr, fd4_time_t *time) {
     vfs_begin_lookup_reset();
     bool pre_hooks_applied = install_pre_hooks();
+    bool post_hooks_applied = false;
     old_file_step_init(this_ptr, time);
     ML_LOG_INFO(L"asset-hooks", L"VFS cache generation %llu enabled",
                 (unsigned long long)vfs_reset_lookup_caches());
-    if (pre_hooks_applied) install_post_hooks();
+    if (pre_hooks_applied) post_hooks_applied = install_post_hooks();
+    ML_LOG_INFO(L"asset-hooks", L"asset capability %ls",
+                pre_hooks_applied && post_hooks_applied ? L"APPLIED" : L"HOOK_FAILED");
 }
 
 bool ml_asset_hooks_install(const ml_game_descriptor_t *game, void *image_base, size_t image_size) {
@@ -901,6 +949,7 @@ bool ml_asset_hooks_install(const ml_game_descriptor_t *game, void *image_base, 
     if (file_step_hook_installed) return true;
     game_image_base = image_base;
     game_image_size = image_size;
+    game_stl_abi = game->stl_abi;
     step = fd4_step_find(game->file_step_name);
     if (step == NULL) {
         ML_LOG_WARN(L"asset-hooks", L"%ls not found for %ls; Dantelion VFS disabled",
@@ -954,6 +1003,7 @@ bool ml_asset_hooks_uninstall(void) {
     ebl_open_hook_count = 0;
     game_image_base = NULL;
     game_image_size = 0;
+    game_stl_abi = ML_STL_ABI_MSVC2015;
     device_manager = NULL;
     disk_device = NULL;
     old_file_step_init = NULL;
@@ -969,6 +1019,7 @@ bool ml_asset_hooks_uninstall(void) {
     logged_disk_open = 0;
     logged_disk_open_return = 0;
     logged_mount_ebl = 0;
+    boot_boost_status_reported = 0;
     clear_override_log();
     set_path_hook_attempted = false;
     set_path_hook_result = false;

@@ -16,6 +16,24 @@
 #include <stdint.h>
 #include <wchar.h>
 
+size_t wwise_find_open_call(const uint8_t *text, size_t size) {
+    if (text == NULL) return SIZE_MAX;
+    for (size_t i = 0; i + 18 <= size; i++) {
+        size_t offset;
+        if (text[i] != 0xe8 || text[i + 5] != 0x83 || text[i + 6] != 0xf8 || text[i + 7] != 0x01) continue;
+        if (text[i + 8] == 0x74) offset = i + 10;
+        else if (i + 14 <= size && text[i + 8] == 0x0f && text[i + 9] == 0x84) offset = i + 14;
+        else continue;
+        if (offset + 8 > size || text[offset] < 0x48 || text[offset] > 0x4f ||
+            text[offset + 1] != 0x83 || text[offset + 2] < 0xc0 || text[offset + 2] > 0xc7 ||
+            text[offset + 3] != 0x38 || text[offset + 4] < 0x48 || text[offset + 4] > 0x4f ||
+            text[offset + 5] != 0x83) continue;
+        if (offset + 9 <= size && text[offset + 6] == 0x7d && text[offset + 8] == 0x08) return i;
+        if (offset + 12 <= size && text[offset + 6] == 0xbd && text[offset + 11] == 0x08) return i;
+    }
+    return SIZE_MAX;
+}
+
 const wchar_t *wwise_strip_prefixes(const wchar_t *path) {
     if (path == NULL) return NULL;
 

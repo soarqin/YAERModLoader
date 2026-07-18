@@ -553,6 +553,20 @@ size_t vfs_entry_count(void) {
     return index != NULL ? kh_size(index) : 0;
 }
 
+bool vfs_has_wwise_entries(void) {
+    if (index == NULL) return false;
+    for (khiter_t slot = kh_begin(index); slot != kh_end(index); slot++) {
+        const wchar_t *path;
+        const wchar_t *extension;
+        if (!kh_exist(index, slot)) continue;
+        path = kh_key(index, slot);
+        if (_wcsnicmp(path, L"sd\\", 3) != 0 && _wcsnicmp(path, L"sd_dlc02\\", 9) != 0) continue;
+        extension = PathFindExtensionW(path);
+        if (_wcsicmp(extension, L".bnk") == 0 || _wcsicmp(extension, L".wem") == 0) return true;
+    }
+    return false;
+}
+
 void vfs_recursion_guard_enter(void) {
     vfs_recursion_depth++;
 }

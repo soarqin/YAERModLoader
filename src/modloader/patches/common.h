@@ -15,6 +15,9 @@ extern "C" {
 #endif
 
 extern bool common_install();
+extern bool common_install_ime();
+extern bool common_wwise_requested();
+extern bool common_install_wwise();
 extern void common_uninstall();
 
 #ifdef __cplusplus
