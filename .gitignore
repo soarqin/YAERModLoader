@@ -34,8 +34,12 @@
 # Commonly used by CMake users
 /build/
 
-# CLion build folders
+# Build folders
+/build*/
 /cmake-build-*/
+
+# IDE folders
+/.vs*/
 
 # Agent folders
 /.opencode/
