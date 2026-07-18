@@ -23,11 +23,6 @@
 #include <miniz_tdef.h>
 #include <miniz_tinfl.h>
 
-static void **seen_targets;
-static size_t seen_count;
-static size_t seen_capacity;
-static SRWLOCK seen_lock = SRWLOCK_INIT;
-
 static bool pointer_in_section(void *image_base, const IMAGE_SECTION_HEADER *section, const void *pointer) {
     return pointer != NULL && pe_section_contains_va(image_base, section, pointer);
 }
@@ -555,30 +550,6 @@ void ml_dl_string_destroy(ml_dl_string_t *string, ml_stl_abi_t abi) {
         dl_allocator_dealloc(allocator, large);
     }
     memset(string, 0, sizeof(*string));
-}
-
-bool ml_dl_device_seen(void *target) {
-    bool found = false;
-    AcquireSRWLockShared(&seen_lock);
-    for (size_t i = 0; i < seen_count; i++) if (seen_targets[i] == target) { found = true; break; }
-    ReleaseSRWLockShared(&seen_lock);
-    return found;
-}
-
-bool ml_dl_device_mark_seen(void *target) {
-    if (target == NULL) return false;
-    AcquireSRWLockExclusive(&seen_lock);
-    for (size_t i = 0; i < seen_count; i++) if (seen_targets[i] == target) { ReleaseSRWLockExclusive(&seen_lock); return false; }
-    if (seen_count == seen_capacity) {
-        size_t capacity = seen_capacity == 0 ? 16 : seen_capacity * 2;
-        void **next = seen_targets == NULL ? yaer_mem_alloc(0, capacity * sizeof(*next)) : yaer_mem_realloc(seen_targets, capacity * sizeof(*next), LMEM_MOVEABLE);
-        if (next == NULL) { ReleaseSRWLockExclusive(&seen_lock); return false; }
-        seen_targets = next;
-        seen_capacity = capacity;
-    }
-    seen_targets[seen_count++] = target;
-    ReleaseSRWLockExclusive(&seen_lock);
-    return true;
 }
 
 bool ml_bhd5_header_valid(const void *data, size_t size) {

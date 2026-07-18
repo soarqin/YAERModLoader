@@ -21,13 +21,6 @@ const wchar_t *vfs_lookup(const wchar_t *path) {
     return L"unexpected";
 }
 
-const wchar_t *vfs_lookup_prefixed(const wchar_t *path, const wchar_t *game_root) {
-    (void)path;
-    (void)game_root;
-    InterlockedIncrement(&query_count);
-    return L"unexpected";
-}
-
 const wchar_t *vfs_lookup_prefixed_domain(const wchar_t *path, const wchar_t *game_root,
                                           vfs_lookup_domain_t domain) {
     (void)path;
@@ -65,7 +58,6 @@ int main(void) {
 
     EXPECT_EQ(mods_count(), 0);
     EXPECT_NULL(mods_file_search(L"parts/test.bin"));
-    EXPECT_NULL(mods_file_search_prefixed(L"C:\\game\\parts\\test.bin"));
     EXPECT_NULL(mods_file_search_prefixed_domain(
         L"C:\\game\\parts\\test.bin", VFS_LOOKUP_DISK_WIDE));
     EXPECT_NULL(mods_file_virtual_to_uid_prefixed(L"C:\\game\\parts\\test.bin"));

@@ -22,7 +22,7 @@
 
 static wchar_t game_folder[MAX_PATH];
 
-int mod_count = 0;
+static int mod_count = 0;
 
 void mods_init() {
     GetModuleFileNameW(NULL, game_folder, MAX_PATH);
@@ -66,10 +66,6 @@ int mods_count() {
 
 const wchar_t *mods_file_search(const wchar_t *path) {
     return mod_count <= 0 ? NULL : vfs_lookup(path);
-}
-
-const wchar_t *mods_file_search_prefixed(const wchar_t *path) {
-    return mod_count <= 0 ? NULL : vfs_lookup_prefixed(path, game_folder);
 }
 
 const wchar_t *mods_file_search_prefixed_domain(const wchar_t *path, int domain) {

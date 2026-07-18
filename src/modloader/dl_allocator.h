@@ -64,9 +64,6 @@ _Static_assert(sizeof(dl_allocator_vtable_t) == 25 * sizeof(void *), "DlAllocato
 
 dl_allocator_t *dl_allocator_for_object(const void *object);
 void dl_allocator_dealloc(dl_allocator_t *allocator, void *ptr);
-void **dl_allocator_table_first(void);
-void **dl_allocator_table_last_er(void);
-bool dl_allocator_fill_table(dl_allocator_t *allocator);
 
 #ifdef __cplusplus
 }

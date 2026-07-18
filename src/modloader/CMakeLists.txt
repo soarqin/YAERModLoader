@@ -31,7 +31,6 @@ add_project(modloader_dll SHARED
     mod.c mod.h
     path_convert.c path_convert.h
     vfs.c vfs.h
-    filecache.c filecache.h
     patches/common.c patches/common.h
     patches/allocator.c patches/allocator.h
     patches/logo.c patches/logo.h
@@ -42,6 +41,7 @@ add_project(modloader_dll SHARED
     patches/window_flash.c patches/window_flash.h
     patches/wwise_path.c patches/wwise_path.h
     patches/dl_device.c patches/dl_device.h
+    patches/asset_sig.c patches/asset_sig.h
     patches/asset_hooks.c patches/asset_hooks.h
     patches/eldenring.c patches/eldenring.h
     patches/sekiro.c patches/sekiro.h
@@ -50,6 +50,7 @@ add_project(modloader_dll SHARED
     proxy/winhttp.c proxy/winhttp.h proxy/winhttp.def
     proxy/dinput8.c proxy/dinput8.h proxy/dinput8.def
     proxy/dxgi.c proxy/dxgi.h proxy/dxgi.def
+    proxy/proxy_stubs.asm
     proxy/common.c proxy/common.h
 
     ${dll_res_files}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024,2025, Soar Qin<soarchin@gmail.com>
+ * Copyright (C) 2024,2025,2026, Soar Qin<soarchin@gmail.com>
 
  * Use of this source code is governed by an MIT-style
  * license that can be found in the LICENSE file or at
@@ -7,24 +7,22 @@
  */
 
 #include "eldenring.h"
-#include "common/allocator.h"
-#include "../lifecycle.h"
+
 #include "asset_hooks.h"
+#include "save_mapping.h"
+#include "win32_hooks.h"
 
 #include "modloader/config.h"
-#include "modloader/dl_allocator.h"
-#include "log.h"
-#include "modloader/mimalloc_allocator.h"
+#include "modloader/hook.h"
+#include "modloader/lifecycle.h"
 #include "modloader/mod.h"
-#include "modloader/vfs.h"
+
+#include "log.h"
 
 #include "game/game.h"
 
-#include "process/fd4_step.h"
 #include "process/image.h"
-#include "process/rtti.h"
 #include "process/scanner.h"
-#include "process/singleton.h"
 #include "process/util.h"
 
 #include "steam/api.h"
@@ -51,6 +49,9 @@ static wchar_t *wstring_str_mutable(er_wstring_local_t *str) {
     return (sizeof(wchar_t) * str->capacity >= 16) ? str->string : (wchar_t*)&str->string;
 }
 
+typedef void *(__cdecl *map_archive_path_t)(er_wstring_local_t *path, uint64_t p2, uint64_t p3, uint64_t p4, uint64_t p5, uint64_t p6);
+typedef bool (__cdecl *SteamAPI_Init_t)(void);
+
 static HANDLE async_operations_thread_handle = NULL;
 static volatile bool game_running = false;
 static HANDLE reset_achievements_on_new_game_thread_handle = NULL;
@@ -58,26 +59,10 @@ static void *image_base;
 static size_t image_size;
 static INIT_ONCE after_main_once = INIT_ONCE_STATIC_INIT;
 
-/* 80: config values are up to 63 chars; the `.suffix` form prepends `ER0000`
- * (69 max) and the bak variants append `.bak` (73 max), plus terminator. */
-static wchar_t replaced_save_filename[80] = L"";
-static wchar_t replaced_save_filename_bak[80] = L"";
-static wchar_t replaced_seamless_coop_save_filename[80] = L"";
-static wchar_t replaced_seamless_coop_save_filename_bak[80] = L"";
-
-#define ORIGINAL_SAVE_FILENAME L"ER0000.sl2"
-#define ORIGINAL_SAVE_FILENAME_LEN 10
-#define ORIGINAL_SAVE_FILENAME_BAK L"ER0000.sl2.bak"
-#define ORIGINAL_SAVE_FILENAME_BAK_LEN 14
-#define SEAMLESS_COOP_SAVE_FILENAME L"ER0000.co2"
-#define SEAMLESS_COOP_SAVE_FILENAME_LEN 10
-#define SEAMLESS_COOP_SAVE_FILENAME_BAK L"ER0000.co2.bak"
-#define SEAMLESS_COOP_SAVE_FILENAME_BAK_LEN 14
-
-static bool str_ends_with(const wchar_t *str, size_t str_len, const wchar_t *suffix, size_t suffix_len) {
-    if (suffix_len > str_len) return false;
-    return StrCmpNIW(str + str_len - suffix_len, suffix, suffix_len) == 0;
-}
+static map_archive_path_t old_map_archive_path = NULL;
+static void *archive_resolver_hook_target;
+static SteamAPI_Init_t old_SteamAPI_Init = NULL;
+static void *steam_api_init_hook_target;
 
 static void er_log(const wchar_t *fmt, ...) {
     va_list args;
@@ -86,81 +71,15 @@ static void er_log(const wchar_t *fmt, ...) {
     va_end(args);
 }
 
-/*
-static uint64_t get_game_version() {
-    wchar_t exepath[MAX_PATH];
-    GetModuleFileNameW(NULL, exepath, MAX_PATH);
-    DWORD len = GetFileVersionInfoSizeW(exepath, NULL);
-    if (len == 0) return 0LL;
-    BYTE *pVersionResource = malloc(len);
-    if (!GetFileVersionInfoW(exepath, 0, len, pVersionResource)) {
-        free(pVersionResource);
-        return 0LL;
-    }
-    UINT uLen;
-    VS_FIXEDFILEINFO *ptFixedFileInfo;
-    if (VerQueryValueW(pVersionResource, L"\\", (LPVOID*)&ptFixedFileInfo, &uLen) && uLen > 0) {
-        free(pVersionResource);
-        return (uint64_t)ptFixedFileInfo->dwFileVersionMS << 32 | (uint64_t)ptFixedFileInfo->dwFileVersionLS;
-    }
-    free(pVersionResource);
-    return 0LL;
-}
-*/
-
 DWORD WINAPI async_operation_thread(LPVOID arg) {
+    (void)arg;
     if (config.cpu_affinity_strategy != 0) set_process_cpu_affinity_strategy(config.cpu_affinity_strategy);
     return 0;
 }
 
-typedef void *(__cdecl *map_archive_path_t)(er_wstring_local_t *path, uint64_t p2, uint64_t p3, uint64_t p4, uint64_t p5, uint64_t p6);
-typedef HANDLE (WINAPI *CreateFileW_t)(LPCWSTR lpFileName,
-                                       DWORD dwDesiredAccess,
-                                       DWORD dwShareMode,
-                                       LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-                                       DWORD dwCreationDisposition,
-                                       DWORD dwFlagsAndAttributes,
-                                        HANDLE hTemplateFile);
-typedef HANDLE (WINAPI *CreateFileA_t)(LPCSTR lpFileName,
-                                        DWORD dwDesiredAccess,
-                                        DWORD dwShareMode,
-                                        LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-                                        DWORD dwCreationDisposition,
-                                        DWORD dwFlagsAndAttributes,
-                                        HANDLE hTemplateFile);
-typedef HANDLE (WINAPI *CreateFile2_t)(LPCWSTR lpFileName, DWORD dwDesiredAccess,
-                                        DWORD dwShareMode, DWORD dwCreationDisposition,
-                                        LPCREATEFILE2_EXTENDED_PARAMETERS pCreateExParams);
-typedef BOOL (WINAPI *CopyFileW_t)(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, BOOL bFailIfExists);
-typedef BOOL (WINAPI *DeleteFileW_t)(LPCWSTR lpFileName);
-typedef BOOL (WINAPI *DeleteFileA_t)(LPCSTR lpFileName);
-typedef BOOL (WINAPI *CreateDirectoryW_t)(LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
-typedef BOOL (WINAPI *CreateDirectoryA_t)(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
-typedef BOOL (WINAPI *CreateDirectoryExW_t)(LPCWSTR lpTemplateDirectory, LPCWSTR lpNewDirectory, LPSECURITY_ATTRIBUTES lpSecurityAttributes);
-
-static map_archive_path_t old_map_archive_path = NULL;
-static CreateFileW_t old_CreateFileW = NULL;
-static CreateFileA_t old_CreateFileA = NULL;
-static CreateFile2_t old_CreateFile2 = NULL;
-static CopyFileW_t old_CopyFileW = NULL;
-static DeleteFileW_t old_DeleteFileW = NULL;
-static DeleteFileA_t old_DeleteFileA = NULL;
-static CreateDirectoryW_t old_CreateDirectoryW = NULL;
-static CreateDirectoryA_t old_CreateDirectoryA = NULL;
-static CreateDirectoryExW_t old_CreateDirectoryExW = NULL;
-
-typedef bool (__cdecl *SteamAPI_Init_t)(void);
-
-static SteamAPI_Init_t old_SteamAPI_Init = NULL;
-static void *steam_api_init_hook_target;
-
-static void warn_once_bool(bool *warned, const wchar_t *message) {
-    if (!*warned) {
-        ML_LOG_WARN(L"eldenring", L"%ls", message);
-        *warned = true;
-    }
-}
-
+/* Elden Ring resolves archive-relative virtual paths ("dataN:/...") through this
+ * function; rewrite the prefix to a loose on-disk path when a mod provides the
+ * file. This is ER-specific and unrelated to the Win32 file API hooks. */
 void *__cdecl map_archive_path(er_wstring_local_t *path, const uint64_t p2, const uint64_t p3, const uint64_t p4, const uint64_t p5, const uint64_t p6) {
     void *res = old_map_archive_path(path, p2, p3, p4, p5, p6);
     if (path == NULL) return res;
@@ -173,110 +92,8 @@ void *__cdecl map_archive_path(er_wstring_local_t *path, const uint64_t p2, cons
     return res;
 }
 
-static const wchar_t *route_replaced_file(const wchar_t *path, wchar_t **allocated) {
-    bool has_replaced = replaced_save_filename[0] != L'\0';
-    bool has_seamless_coop_replaced = replaced_seamless_coop_save_filename[0] != L'\0';
-    const wchar_t *registered;
-    wchar_t *full_path;
-    if (allocated != NULL) *allocated = NULL;
-    if (path == NULL || allocated == NULL) return NULL;
-    if (!has_replaced && !has_seamless_coop_replaced) {
-        return NULL;
-    }
-    size_t len = lstrlenW(path);
-    const wchar_t *replace = NULL;
-    if (has_replaced) {
-        if (str_ends_with(path, len, ORIGINAL_SAVE_FILENAME, ORIGINAL_SAVE_FILENAME_LEN)) {
-            replace = replaced_save_filename;
-        } else if (str_ends_with(path, len, ORIGINAL_SAVE_FILENAME_BAK, ORIGINAL_SAVE_FILENAME_BAK_LEN)) {
-            replace = replaced_save_filename_bak;
-        }
-    }
-    if (has_seamless_coop_replaced) {
-        if (str_ends_with(path, len, SEAMLESS_COOP_SAVE_FILENAME, SEAMLESS_COOP_SAVE_FILENAME_LEN)) {
-            replace = replaced_seamless_coop_save_filename;
-        } else if (str_ends_with(path, len, SEAMLESS_COOP_SAVE_FILENAME_BAK, SEAMLESS_COOP_SAVE_FILENAME_BAK_LEN)) {
-            replace = replaced_seamless_coop_save_filename_bak;
-        }
-    }
-    if (replace == NULL) return NULL;
-    registered = vfs_route_writable_path(path);
-    if (registered != NULL) return registered;
-    /* MAX_PATH of headroom: PathAppendW requires the destination buffer to
-     * hold at least MAX_PATH characters. */
-    full_path = yaer_mem_alloc(0, (MAX_PATH + len) * sizeof(wchar_t));
-    if (full_path == NULL) return NULL;
-    lstrcpyW(full_path, path);
-    PathRemoveFileSpecW(full_path);
-    PathAppendW(full_path, replace);
-    if (vfs_register_writable_path(path, full_path)) {
-        registered = vfs_route_writable_path(path);
-    }
-    if (registered != NULL) {
-        yaer_mem_free(full_path);
-        return registered;
-    }
-    *allocated = full_path;
-    return full_path;
-}
-
-HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
-                                const DWORD dwDesiredAccess,
-                                const DWORD dwShareMode,
-                                LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-                                const DWORD dwCreationDisposition,
-                                const DWORD dwFlagsAndAttributes,
-                                HANDLE hTemplateFile) {
-    /* CreateFileW(NULL, ...) fails gracefully; do not crash on it here. */
-    if (lpFileName == NULL) {
-        return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    }
-    const wchar_t *replace = mods_file_route_read(lpFileName, dwDesiredAccess, dwCreationDisposition);
-    wchar_t *allocated = NULL;
-    if (replace == NULL && lpFileName[0] != L'\\') replace = route_replaced_file(lpFileName, &allocated);
-    HANDLE h = old_CreateFileW(replace != NULL ? replace : lpFileName, dwDesiredAccess, dwShareMode,
-                               lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    yaer_mem_free(allocated);
-    return h;
-}
-
-HANDLE WINAPI CreateFileA_hooked(const LPCSTR lpFileName,
-                                 const DWORD dwDesiredAccess,
-                                 const DWORD dwShareMode,
-                                 LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-                                 const DWORD dwCreationDisposition,
-                                 const DWORD dwFlagsAndAttributes,
-                                 HANDLE hTemplateFile) {
-    const wchar_t *replace = mods_file_route_read_a(lpFileName, dwDesiredAccess, dwCreationDisposition);
-    if (replace == NULL) {
-        return old_CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-                               dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    }
-    return old_CreateFileW(replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-                           dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-}
-
-HANDLE WINAPI CreateFile2_hooked(const LPCWSTR lpFileName, const DWORD dwDesiredAccess,
-                                 const DWORD dwShareMode, const DWORD dwCreationDisposition,
-                                 LPCREATEFILE2_EXTENDED_PARAMETERS pCreateExParams) {
-    const wchar_t *replace = mods_file_route_read(lpFileName, dwDesiredAccess, dwCreationDisposition);
-    return old_CreateFile2(replace != NULL ? replace : lpFileName, dwDesiredAccess, dwShareMode,
-                           dwCreationDisposition, pCreateExParams);
-}
-
-BOOL WINAPI CopyFile_hooked(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, BOOL bFailIfExists) {
-    wchar_t *allocated_existing = NULL;
-    wchar_t *allocated_new = NULL;
-    const wchar_t *existing = route_replaced_file(lpExistingFileName, &allocated_existing);
-    if (existing == NULL) return old_CopyFileW(lpExistingFileName, lpNewFileName, bFailIfExists);
-    const wchar_t *new_path = route_replaced_file(lpNewFileName, &allocated_new);
-    BOOL res = old_CopyFileW(existing, new_path != NULL ? new_path : lpNewFileName, bFailIfExists);
-    yaer_mem_free(allocated_existing);
-    yaer_mem_free(allocated_new);
-    return res;
-}
-
 DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
+    (void)arg;
     uint8_t *addr = sig_scan(image_base, image_size, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 05 48 8B 40 58 C3 C3");
     if (!addr) return 1;
     addr += *(int32_t*)(addr + 3) + 7;
@@ -302,96 +119,22 @@ DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
     return 0;
 }
 
-static bool hook_eldenring_archive_position_resolver() {
+static bool hook_eldenring_archive_position_resolver(void) {
     uint8_t *addr = sig_scan(image_base, image_size, "48 83 7B 20 08 48 8D 4B 08 72 03 48 8B 09 4C 8B 4B 18 41 B8 05 00 00 00 4D 3B C8");
-    if (!addr) return false;
+    ml_hook_result_t result;
+    if (!addr) {
+        ML_LOG_WARN(L"eldenring", L"archive position resolver signature not found");
+        return false;
+    }
     addr += *(int32_t*)(addr - 4);
     while (*addr == 0xE9) {
         addr += *(int32_t*)(addr + 1) + 5;
     }
-    MH_STATUS status = MH_CreateHook(addr, (void*)&map_archive_path, (void**)&old_map_archive_path);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"failed to create archive position resolver hook: %d", status);
-        return false;
-    }
-    status = MH_EnableHook(addr);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"failed to enable archive position resolver hook: %d", status);
-        return false;
-    }
-    return true;
-}
-
-static void hook_eldenring_create_file() {
-    MH_STATUS status = MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"failed to create CreateFileW hook: %d", status);
-        return;
-    }
-    status = MH_EnableHook(CreateFileW);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"failed to enable CreateFileW hook: %d", status);
-    }
-    status = MH_CreateHook(CreateFileA, (void *)&CreateFileA_hooked, (void **)&old_CreateFileA);
-    if (status == MH_OK) status = MH_EnableHook(CreateFileA);
-    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateFileA hook: %d", status);
-    status = MH_CreateHook(CreateFile2, (void *)&CreateFile2_hooked, (void **)&old_CreateFile2);
-    if (status == MH_OK) status = MH_EnableHook(CreateFile2);
-    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateFile2 hook: %d", status);
-}
-
-BOOL WINAPI DeleteFileW_hooked(LPCWSTR lpFileName) {
-    wchar_t *allocated = NULL;
-    const wchar_t *replace = route_replaced_file(lpFileName, &allocated);
-    BOOL result = old_DeleteFileW(replace != NULL ? replace : lpFileName);
-    yaer_mem_free(allocated);
-    return result;
-}
-
-BOOL WINAPI DeleteFileA_hooked(LPCSTR lpFileName) {
-    return old_DeleteFileA(lpFileName);
-}
-
-BOOL WINAPI CreateDirectoryW_hooked(LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES attributes) {
-    return old_CreateDirectoryW(lpPathName, attributes);
-}
-
-BOOL WINAPI CreateDirectoryA_hooked(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES attributes) {
-    return old_CreateDirectoryA(lpPathName, attributes);
-}
-
-BOOL WINAPI CreateDirectoryExW_hooked(LPCWSTR template_path, LPCWSTR new_path, LPSECURITY_ATTRIBUTES attributes) {
-    return old_CreateDirectoryExW(template_path, new_path, attributes);
-}
-
-static void hook_eldenring_copy_file() {
-    MH_STATUS status = MH_CreateHook(CopyFileW, (void*)&CopyFile_hooked, (void**)&old_CopyFileW);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"failed to create CopyFileW hook: %d", status);
-        return;
-    }
-    status = MH_EnableHook(CopyFileW);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"failed to enable CopyFileW hook: %d", status);
-    }
-}
-
-static void hook_eldenring_writable_file_apis() {
-    MH_STATUS status = MH_CreateHook(DeleteFileW, (void *)&DeleteFileW_hooked, (void **)&old_DeleteFileW);
-    if (status == MH_OK) status = MH_EnableHook(DeleteFileW);
-    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install DeleteFileW hook: %d", status);
-    status = MH_CreateHook(DeleteFileA, (void *)&DeleteFileA_hooked, (void **)&old_DeleteFileA);
-    if (status == MH_OK) status = MH_EnableHook(DeleteFileA);
-    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install DeleteFileA hook: %d", status);
-    status = MH_CreateHook(CreateDirectoryW, (void *)&CreateDirectoryW_hooked, (void **)&old_CreateDirectoryW);
-    if (status == MH_OK) status = MH_EnableHook(CreateDirectoryW);
-    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateDirectoryW hook: %d", status);
-    status = MH_CreateHook(CreateDirectoryA, (void *)&CreateDirectoryA_hooked, (void **)&old_CreateDirectoryA);
-    if (status == MH_OK) status = MH_EnableHook(CreateDirectoryA);
-    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateDirectoryA hook: %d", status);
-    status = MH_CreateHook(CreateDirectoryExW, (void *)&CreateDirectoryExW_hooked, (void **)&old_CreateDirectoryExW);
-    if (status == MH_OK) status = MH_EnableHook(CreateDirectoryExW);
-    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateDirectoryExW hook: %d", status);
+    result = ml_hook_install(addr, (void *)&map_archive_path, (void **)&old_map_archive_path);
+    if (result == ML_HOOK_APPLIED) archive_resolver_hook_target = addr;
+    ml_log_write(result == ML_HOOK_APPLIED ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                 L"eldenring", L"archive position resolver hook %hs", ml_hook_result_name(result));
+    return result == ML_HOOK_APPLIED;
 }
 
 static BOOL CALLBACK eldenring_after_main_install_once(PINIT_ONCE init_once, PVOID parameter, PVOID *context) {
@@ -422,62 +165,54 @@ static bool __cdecl SteamAPI_Init_hooked(void) {
 
 static bool install_steamapi_deferred_hook(void) {
     HMODULE steam_api = LoadLibraryW(L"steam_api64.dll");
+    void *steam_api_init;
+    ml_hook_result_t result;
     if (steam_api == NULL) {
         ML_LOG_WARN(L"eldenring", L"could not load steam_api64.dll for deferred hooks");
         return false;
     }
-    void *steam_api_init = (void *)GetProcAddress(steam_api, "SteamAPI_Init");
-    if (steam_api_init == NULL) {
-        ML_LOG_WARN(L"eldenring", L"could not find SteamAPI_Init for deferred hooks");
-        return false;
-    }
-    MH_STATUS status = MH_CreateHook(steam_api_init, (void *)&SteamAPI_Init_hooked, (void **)&old_SteamAPI_Init);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"failed to create SteamAPI_Init deferred hook: %d", status);
-        return false;
-    }
-    status = MH_EnableHook(steam_api_init);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"failed to enable SteamAPI_Init deferred hook: %d", status);
-        MH_RemoveHook(steam_api_init);
-        return false;
-    }
-    steam_api_init_hook_target = steam_api_init;
-    er_log(L"deferred SteamAPI_Init hook enabled at %p", steam_api_init);
-    return true;
+    steam_api_init = (void *)GetProcAddress(steam_api, "SteamAPI_Init");
+    result = ml_hook_install(steam_api_init, (void *)&SteamAPI_Init_hooked, (void **)&old_SteamAPI_Init);
+    if (result == ML_HOOK_APPLIED) steam_api_init_hook_target = steam_api_init;
+    ml_log_write(result == ML_HOOK_APPLIED ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
+                 L"eldenring", L"deferred SteamAPI_Init hook %hs", ml_hook_result_name(result));
+    return result == ML_HOOK_APPLIED;
 }
 
-bool eldenring_install() {
-    if (config.replaced_save_filename[0] == L'.') {
-        lstrcpyW(replaced_save_filename, ORIGINAL_SAVE_FILENAME);
-        PathRemoveExtensionW(replaced_save_filename);
-        lstrcatW(replaced_save_filename, config.replaced_save_filename);
-    } else {
-        lstrcpyW(replaced_save_filename, config.replaced_save_filename);
+static void configure_save_mapping(const ml_game_descriptor_t *game) {
+    bool want_main = config.replaced_save_filename[0] != L'\0';
+    bool want_coop = config.replaced_seamless_coop_save_filename[0] != L'\0';
+    if (!want_main && !want_coop) {
+        ML_LOG_INFO(L"eldenring", L"save mapping NOT_REQUESTED");
+        return;
     }
-    if (config.replaced_save_filename[0] != L'\0') {
-        lstrcpyW(replaced_save_filename_bak, replaced_save_filename);
-        lstrcatW(replaced_save_filename_bak, L".bak");
+    if (!ml_save_mapping_init_root(game)) {
+        ML_LOG_WARN(L"eldenring", L"save mapping initialization failed");
+        return;
     }
+    /* ER0000.sl2 is the main save; ER0000.co2 is the Seamless Co-op save. */
+    if (want_main && !ml_save_mapping_add_extension(L".sl2", config.replaced_save_filename)) {
+        ML_LOG_WARN(L"eldenring", L"main save mapping registration failed");
+    }
+    if (want_coop && !ml_save_mapping_add_extension(L".co2", config.replaced_seamless_coop_save_filename)) {
+        ML_LOG_WARN(L"eldenring", L"seamless coop save mapping registration failed");
+    }
+}
 
-    if (config.replaced_seamless_coop_save_filename[0] == L'.') {
-        lstrcpyW(replaced_seamless_coop_save_filename, SEAMLESS_COOP_SAVE_FILENAME);
-        PathRemoveExtensionW(replaced_seamless_coop_save_filename);
-        lstrcatW(replaced_seamless_coop_save_filename, config.replaced_seamless_coop_save_filename);
-    } else {
-        lstrcpyW(replaced_seamless_coop_save_filename, config.replaced_seamless_coop_save_filename);
-    }
-    if (config.replaced_seamless_coop_save_filename[0] != L'\0') {
-        lstrcpyW(replaced_seamless_coop_save_filename_bak, replaced_seamless_coop_save_filename);
-        lstrcatW(replaced_seamless_coop_save_filename_bak, L".bak");
-    }
+bool eldenring_install(void) {
+    const ml_game_descriptor_t *game = ml_game_context_get();
+    bool needs_file_hooks;
+    int modcount;
+    if (game == NULL || game->id != ML_GAME_ELDEN_RING) return false;
 
     game_running = true;
-
     image_base = get_module_image_base(NULL, &image_size);
-    er_log(L"install start: image_base=%p image_size=%zu prevent_regulation_save_write=%d patch_mem=%d", image_base, image_size, config.prevent_regulation_save_write ? 1 : 0, config.patch_mem ? 1 : 0);
+    er_log(L"install start: image_base=%p image_size=%zu prevent_regulation_save_write=%d patch_mem=%d",
+           image_base, image_size, config.prevent_regulation_save_write ? 1 : 0, config.patch_mem ? 1 : 0);
 
-    if (ml_game_context_get()->runtime_ready_trigger == ML_RUNTIME_READY_STEAM_API_INIT) {
+    configure_save_mapping(game);
+
+    if (game->runtime_ready_trigger == ML_RUNTIME_READY_STEAM_API_INIT) {
         install_steamapi_deferred_hook();
     } else {
         er_log(L"runtime-ready trigger is unavailable");
@@ -488,28 +223,42 @@ bool eldenring_install() {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
     }
 
-    if (replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
-        hook_eldenring_copy_file();
-        hook_eldenring_writable_file_apis();
+    modcount = mods_count();
+    /* Route the game's file APIs through the shared Win32 VFS hooks when mods are
+     * loaded or a save file is being remapped. */
+    needs_file_hooks = modcount > 0 || config.replaced_save_filename[0] != L'\0' ||
+                       config.replaced_seamless_coop_save_filename[0] != L'\0';
+    if (needs_file_hooks && !ml_win32_file_hooks_install()) {
+        ML_LOG_WARN(L"eldenring", L"Win32 VFS hook installation failed");
     }
-    int modcount = mods_count();
-    if (modcount > 0 || replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {
-        hook_eldenring_create_file();
-    }
-    /* Do not hook if no mod is added, to improve game performance during loading. */
+    /* Do not hook the archive resolver if no mod is added, to improve game
+     * performance during loading. */
     if (modcount > 0) {
         if (!hook_eldenring_archive_position_resolver()) return false;
     }
     return true;
 }
 
-void eldenring_uninstall() {
+void eldenring_uninstall(void) {
     bool runtime_hook_removed = true;
     er_log(L"uninstall start");
     game_running = false;
 
     if (!ml_asset_hooks_uninstall()) {
         ML_LOG_WARN(L"eldenring", L"one or more asset hooks could not be removed");
+    }
+    ml_win32_file_hooks_uninstall();
+    ml_save_mapping_uninit();
+
+    if (archive_resolver_hook_target != NULL) {
+        MH_STATUS status = MH_RemoveHook(archive_resolver_hook_target);
+        if (status == MH_OK || status == MH_ERROR_NOT_CREATED) {
+            archive_resolver_hook_target = NULL;
+            old_map_archive_path = NULL;
+        } else {
+            ML_LOG_WARN(L"eldenring", L"failed to remove archive resolver hook at %p: %d",
+                        archive_resolver_hook_target, status);
+        }
     }
 
     if (steam_api_init_hook_target != NULL) {

@@ -30,6 +30,8 @@ static char *local_strndup_escape(const char *s, const size_t n) {
         return NULL;
 
     char *retval = LocalAlloc(0, n + 1);
+    if (retval == NULL)
+        return NULL;
     strncpy(retval, s, n);
     retval[n] = '\0';
 
@@ -66,6 +68,8 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
         return NULL;
 
     struct vdf_object *root_object = LocalAlloc(0, sizeof(struct vdf_object));
+    if (root_object == NULL)
+        return NULL;
     root_object->key = NULL;
     root_object->parent = NULL;
     root_object->type = VDF_TYPE_NONE;
@@ -94,10 +98,10 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
                     size_t chars = 0;
 
                     for (size_t i = 0; i < len; ++i) {
-                        if (isdigit(buf[i]))
+                        if (isdigit((unsigned char)buf[i]))
                             digits++;
 
-                        if (isalpha(buf[i]))
+                        if (isalpha((unsigned char)buf[i]))
                             chars++;
                     }
 
@@ -125,15 +129,25 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
                     buf = NULL;
 
                     if (o->parent && o->parent->type == VDF_TYPE_ARRAY) {
+                        struct vdf_object **grown;
+                        struct vdf_object *child;
+                        size_t new_len;
                         o = o->parent;
                         assert(o->type == VDF_TYPE_ARRAY);
 
-                        o->data.data_array.len++;
-                        o->data.data_array.data_value = LocalReAlloc(o->data.data_array.data_value, (sizeof(void *)) * (o->data.data_array.len + 1), LMEM_MOVEABLE);
-                        o->data.data_array.data_value[o->data.data_array.len] = LocalAlloc(0, sizeof(struct vdf_object)),
-                            o->data.data_array.data_value[o->data.data_array.len]->parent = o;
+                        new_len = o->data.data_array.len + 1;
+                        grown = LocalReAlloc(o->data.data_array.data_value, (sizeof(void *)) * (new_len + 1), LMEM_MOVEABLE);
+                        child = grown == NULL ? NULL : LocalAlloc(0, sizeof(struct vdf_object));
+                        if (grown != NULL) o->data.data_array.data_value = grown;
+                        if (child == NULL) {
+                            vdf_free_object(root_object);
+                            return NULL;
+                        }
+                        o->data.data_array.len = new_len;
+                        grown[new_len] = child;
+                        child->parent = o;
 
-                        o = o->data.data_array.data_value[o->data.data_array.len];
+                        o = child;
                         o->key = NULL;
                         o->type = VDF_TYPE_NONE;
                         o->conditional = NULL;
@@ -149,16 +163,28 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
                 assert(!buf);
                 assert(o->type == VDF_TYPE_NONE);
 
-                if (o->parent && o->parent->type == VDF_TYPE_ARRAY)
-                    o->parent->data.data_array.len++;
+                {
+                    /* Allocate both the slot array and the first child before
+                     * mutating `o` into an array, so a failed allocation leaves
+                     * `o` as VDF_TYPE_NONE and vdf_free_object stays safe. */
+                    struct vdf_object **arr = LocalAlloc(0, sizeof(void *) * 1);
+                    struct vdf_object *child = arr == NULL ? NULL : LocalAlloc(0, sizeof(struct vdf_object));
+                    if (child == NULL) {
+                        LocalFree(arr);
+                        vdf_free_object(root_object);
+                        return NULL;
+                    }
+                    if (o->parent && o->parent->type == VDF_TYPE_ARRAY)
+                        o->parent->data.data_array.len++;
 
-                o->type = VDF_TYPE_ARRAY;
-                o->data.data_array.len = 0;
-                o->data.data_array.data_value = LocalAlloc(0, (sizeof(void *)) * (o->data.data_array.len + 1));
-                o->data.data_array.data_value[o->data.data_array.len] = LocalAlloc(0, sizeof(struct vdf_object));
-                o->data.data_array.data_value[o->data.data_array.len]->parent = o;
+                    o->type = VDF_TYPE_ARRAY;
+                    o->data.data_array.len = 0;
+                    o->data.data_array.data_value = arr;
+                    arr[0] = child;
+                    child->parent = o;
 
-                o = o->data.data_array.data_value[o->data.data_array.len];
+                    o = child;
+                }
                 o->key = NULL;
                 o->type = VDF_TYPE_NONE;
                 o->conditional = NULL;
@@ -168,7 +194,12 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
                 assert(!buf);
 
                 o = o->parent;
-                assert(o);
+                if (o == NULL) {
+                    /* Unbalanced '}' in malformed input; assert() is a no-op in
+                     * release builds, so bail out instead of dereferencing NULL. */
+                    vdf_free_object(root_object);
+                    return NULL;
+                }
                 if (o->parent) {
                     o = o->parent;
                     assert(o->type == VDF_TYPE_ARRAY);
@@ -194,7 +225,14 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
 
             case CHAR_OPEN_ANGLED_BRACKET:
                 if (!buf) {
-                    struct vdf_object *prev = o->parent->data.data_array.data_value[o->parent->data.data_array.len - 1];
+                    struct vdf_object *prev;
+                    if (o->parent == NULL || o->parent->type != VDF_TYPE_ARRAY ||
+                        o->parent->data.data_array.len == 0) {
+                        /* Conditional with no preceding entry in malformed input. */
+                        vdf_free_object(root_object);
+                        return NULL;
+                    }
+                    prev = o->parent->data.data_array.data_value[o->parent->data.data_array.len - 1];
                     assert(!prev->conditional);
 
                     buf = tail + 1;
@@ -230,27 +268,39 @@ struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
 
 struct vdf_object *vdf_parse_file(const wchar_t *path) {
     struct vdf_object *o = NULL;
+    FILE *fd;
+    long file_size;
+
     if (!path)
-        return o;
+        return NULL;
 
-    FILE *fd = _wfopen(path, L"r");
+    /* Binary mode: text mode performs CRLF translation, so fread would return
+     * fewer bytes than ftell reported, leaving the tail uninitialized. */
+    fd = _wfopen(path, L"rb");
     if (!fd)
-        return o;
+        return NULL;
 
-    fseek(fd, 0L, SEEK_END);
-    const size_t file_size = ftell(fd);
+    if (fseek(fd, 0L, SEEK_END) != 0) {
+        fclose(fd);
+        return NULL;
+    }
+    file_size = ftell(fd);
     rewind(fd);
 
-    if (file_size) {
-        char *buffer = LocalAlloc(0, file_size);
-        fread(buffer, sizeof(*buffer), file_size, fd);
-
-        o = vdf_parse_buffer(buffer, file_size);
-        LocalFree(buffer);
+    if (file_size > 0) {
+        char *buffer = LocalAlloc(0, (size_t)file_size + 1);
+        if (buffer != NULL) {
+            /* Parse only the bytes actually read and NUL-terminate so the
+             * comment/conditional scanners in vdf_parse_buffer cannot run past
+             * the end of the buffer. */
+            size_t read = fread(buffer, 1, (size_t)file_size, fd);
+            buffer[read] = '\0';
+            o = vdf_parse_buffer(buffer, read);
+            LocalFree(buffer);
+        }
     }
 
     fclose(fd);
-
     return o;
 }
 
@@ -276,6 +326,8 @@ struct vdf_object *vdf_object_index_array_str(const struct vdf_object *o, const 
 
     for (size_t i = 0; i < o->data.data_array.len; ++i) {
         struct vdf_object *k = o->data.data_array.data_value[i];
+        if (k == NULL || k->key == NULL)
+            continue;
         if (!strcmp(k->key, str))
             return k;
     }

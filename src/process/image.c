@@ -17,11 +17,12 @@ void *get_module_image_base(const wchar_t *module_name, size_t *size) {
         return NULL;
     }
     PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)hModule;
-    if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE) {
+    if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE || dosHeader->e_lfanew <= 0) {
         return NULL;
     }
     const PIMAGE_NT_HEADERS ntHeader = (const PIMAGE_NT_HEADERS64)((DWORD_PTR)dosHeader + dosHeader->e_lfanew);
-    if (ntHeader->Signature != IMAGE_NT_SIGNATURE) {
+    if (ntHeader->Signature != IMAGE_NT_SIGNATURE ||
+        ntHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
         return NULL;
     }
     *size = ntHeader->OptionalHeader.SizeOfImage;

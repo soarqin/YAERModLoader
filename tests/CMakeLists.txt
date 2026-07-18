@@ -18,8 +18,6 @@ set(SMOKE_COMMON_LIBRARIES game_registry process klib)
 set(SMOKE_smoke_mimalloc_allocator_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/mimalloc_allocator.c)
 set(SMOKE_smoke_mimalloc_allocator_LIBRARIES mimalloc-static)
 set(SMOKE_smoke_path_convert_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/path_convert.c)
-set(SMOKE_smoke_filecache_mt_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/filecache.c)
-set(SMOKE_smoke_filecache_mt_LIBRARIES shlwapi)
 set(SMOKE_smoke_wwise_path_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/patches/wwise_path.c)
 set(SMOKE_smoke_hook_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/hook.c)
 set(SMOKE_smoke_hook_LIBRARIES minhook)
@@ -32,7 +30,7 @@ set(SMOKE_smoke_win32_hooks_SOURCES
     ${CMAKE_SOURCE_DIR}/src/modloader/hook.c
     ${CMAKE_SOURCE_DIR}/src/modloader/hook_batch.c
     ${CMAKE_SOURCE_DIR}/src/modloader/patches/win32_hooks.c)
-set(SMOKE_smoke_win32_hooks_LIBRARIES minhook)
+set(SMOKE_smoke_win32_hooks_LIBRARIES minhook shlwapi)
 set(SMOKE_smoke_win32_hooks_DEFINITIONS ML_WIN32_HOOKS_TEST)
 set(SMOKE_smoke_lifecycle_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/lifecycle.c)
 set(SMOKE_smoke_logo_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/patches/logo.c)
@@ -60,7 +58,9 @@ set(SMOKE_smoke_dl_device_SOURCES
     ${CMAKE_SOURCE_DIR}/src/modloader/dl_allocator.c
     ${CMAKE_SOURCE_DIR}/src/modloader/patches/dl_device.c)
 set(SMOKE_smoke_dl_device_LIBRARIES shlwapi miniz xxhash::headers)
-set(SMOKE_smoke_asset_hooks_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/patches/asset_hooks.c)
+set(SMOKE_smoke_asset_hooks_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/modloader/patches/asset_hooks.c
+    ${CMAKE_SOURCE_DIR}/src/modloader/patches/asset_sig.c)
 set(SMOKE_smoke_asset_hooks_LIBRARIES shlwapi)
 set(SMOKE_smoke_asset_hooks_DEFINITIONS ML_ASSET_HOOKS_TEST)
 set(SMOKE_smoke_xxh3_LIBRARIES xxhash)

@@ -27,9 +27,9 @@ typedef struct extdll_t {
 
 } extdll_t;
 
-extdll_t *extdlls = NULL;
-int extdll_count = 0;
-int extdll_capacity = 0;
+static extdll_t *extdlls = NULL;
+static int extdll_count = 0;
+static int extdll_capacity = 0;
 
 void extdlls_add(const char *name, const wchar_t *path) {
     if (extdll_count >= extdll_capacity) {

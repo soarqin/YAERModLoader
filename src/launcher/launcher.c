@@ -12,10 +12,6 @@
 #include "log.h"
 
 #include <getopt.h>
-/*
-#include <LzmaDec.h>
-#include <Alloc.h>
-*/
 #include <shlwapi.h>
 #include <psapi.h>
 #include <stdbool.h>
@@ -180,85 +176,6 @@ static bool inject_dll(HANDLE process, const wchar_t *dll_path) {
     return init_success;
 }
 
-/*
-bool decompress_embedded_dll_to(char *filepath) {
-    wchar_t exe_filename[MAX_PATH], target_filename[MAX_PATH];
-    DWORD size;
-    size_t len = 0, decompressed_len = 0, props_data_size = 0;
-    HANDLE f;
-    char buf[4];
-    Byte props[5];
-    Byte *data, *decompressed_data;
-    ELzmaStatus status;
-
-    GetModuleFileNameW(NULL, exe_filename, MAX_PATH);
-    f = CreateFileW(exe_filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (f == INVALID_HANDLE_VALUE) return false;
-    if (SetFilePointer(f, -4, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
-        goto fail1;
-    }
-    if (!ReadFile(f, buf, 4, &size, NULL) || size != 4) {
-        goto fail1;
-    }
-    if (memcmp(buf, "EMBD", 4) != 0) {
-        goto fail1;
-    }
-    if (SetFilePointer(f, -17, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
-        goto fail1;
-    }
-    if (!ReadFile(f, props, 5, &size, NULL) || size != 5) {
-        goto fail1;
-    }
-    if (!ReadFile(f, &len, 4, &size, NULL) || size != 4) {
-        goto fail1;
-    }
-    if (!ReadFile(f, &decompressed_len, 4, &size, NULL) || size != 4) {
-        goto fail1;
-    }
-    if (SetFilePointer(f, -17L - (long)len, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
-        goto fail1;
-    }
-    data = (Byte*)malloc(len);
-    if (data == NULL) {
-        goto fail1;
-    }
-    if (!ReadFile(f, data, len, &size, NULL) || size != len) {
-        goto fail2;
-    }
-    decompressed_data = (Byte*)malloc(decompressed_len);
-    if (decompressed_data == NULL) {
-        goto fail2;
-    }
-    if (LzmaDecode(decompressed_data, &decompressed_len, data, &len, props, 5, LZMA_FINISH_ANY, &status, &g_Alloc) != SZ_OK) {
-        goto fail3;
-    }
-
-    GetTempPathW(MAX_PATH, target_filename);
-    PathAppendW(target_filename, L"YAFSML.dll");
-    CloseHandle(f);
-    f = CreateFileW(target_filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (f == INVALID_HANDLE_VALUE) {
-        goto fail3;
-    }
-    if (!WriteFile(f, decompressed_data, decompressed_len, &size, NULL) || size != decompressed_len) {
-        goto fail3;
-    }
-    WideCharToMultiByte(CP_ACP, 0, target_filename, -1, filepath, MAX_PATH, NULL, NULL);
-
-    free(data);
-    CloseHandle(f);
-    return true;
-
-fail3:
-    free(decompressed_data);
-fail2:
-    free(data);
-fail1:
-    CloseHandle(f);
-    return false;
-}
-*/
-
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLine, int nShowCmd) {
     STARTUPINFOW si = {0};
     PROCESS_INFORMATION pi = {0};
@@ -289,16 +206,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
         launch_game = ml_launcher_select_game(NULL, config_game);
     }
     if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
-        /*if (decompress_embedded_dll_to(dll_path)) {
-            if (full_config_path[0] == L'\0') {
-                GetModuleFileNameW(hInstance, full_config_path, MAX_PATH);
-                PathRemoveFileSpecW(full_config_path);
-            }
-        } else*/ {
-            GetModuleFileNameW(hInstance, dll_path, MAX_PATH);
-            PathRemoveFileSpecW(dll_path);
-            PathAppendW(dll_path, L"YAFSML.dll");
-        }
+        GetModuleFileNameW(hInstance, dll_path, MAX_PATH);
+        PathRemoveFileSpecW(dll_path);
+        PathAppendW(dll_path, L"YAFSML.dll");
     } else {
         if (StrChrW(full_modengine_dll, L':') == NULL && full_modengine_dll[0] != L'\\' && full_modengine_dll[0] != L'/') {
             GetModuleFileNameW(hInstance, dll_path, MAX_PATH);

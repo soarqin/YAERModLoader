@@ -1,6 +1,7 @@
 #include "save_mapping.h"
 
 #include "common/allocator.h"
+#include "log.h"
 
 #include "modloader/vfs.h"
 
@@ -11,9 +12,17 @@
 #include <stdint.h>
 #include <wchar.h>
 
+typedef struct save_mapping_entry_s {
+    wchar_t extension[16];
+    wchar_t override_name[64];
+} save_mapping_entry_t;
+
+#define SAVE_MAPPING_MAX 8
+
 static SRWLOCK mapping_lock = SRWLOCK_INIT;
 static wchar_t *save_root;
-static wchar_t configured_name[64];
+static save_mapping_entry_t mappings[SAVE_MAPPING_MAX];
+static size_t mapping_count;
 
 static wchar_t *join_path(const wchar_t *left, const wchar_t *right) {
     size_t left_length;
@@ -145,14 +154,11 @@ static bool valid_override_name(const wchar_t *name) {
     return true;
 }
 
-bool ml_save_mapping_init(const ml_game_descriptor_t *game, const wchar_t *override_name) {
+bool ml_save_mapping_init_root(const ml_game_descriptor_t *game) {
     wchar_t *appdata;
     wchar_t *joined;
     wchar_t *canonical;
-    if (game == NULL || game->save_root_name == NULL || override_name == NULL || override_name[0] == L'\0') {
-        return false;
-    }
-    if (!valid_override_name(override_name)) return false;
+    if (game == NULL || game->save_root_name == NULL) return false;
     appdata = environment_value(L"APPDATA");
     joined = appdata == NULL ? NULL : join_path(appdata, game->save_root_name);
     canonical = joined == NULL ? NULL : canonicalize_path(joined);
@@ -163,10 +169,46 @@ bool ml_save_mapping_init(const ml_game_descriptor_t *game, const wchar_t *overr
     AcquireSRWLockExclusive(&mapping_lock);
     yaer_mem_free(save_root);
     save_root = canonical;
-    lstrcpynW(configured_name, override_name, 64);
-    configured_name[63] = L'\0';
+    mapping_count = 0;
     ReleaseSRWLockExclusive(&mapping_lock);
+    ML_LOG_INFO(L"save-mapping", L"save root resolved: %ls", canonical);
     return true;
+}
+
+bool ml_save_mapping_add_extension(const wchar_t *extension, const wchar_t *override_name) {
+    bool result = false;
+    if (extension == NULL || extension[0] != L'.' || wcslen(extension) >= 16 ||
+        override_name == NULL || override_name[0] == L'\0' || !valid_override_name(override_name)) {
+        ML_LOG_WARN(L"save-mapping", L"extension mapping rejected: extension=%ls override=%ls",
+                    extension == NULL ? L"<null>" : extension,
+                    override_name == NULL ? L"<null>" : override_name);
+        return false;
+    }
+    AcquireSRWLockExclusive(&mapping_lock);
+    if (save_root != NULL && mapping_count < SAVE_MAPPING_MAX) {
+        lstrcpynW(mappings[mapping_count].extension, extension, 16);
+        mappings[mapping_count].extension[15] = L'\0';
+        lstrcpynW(mappings[mapping_count].override_name, override_name, 64);
+        mappings[mapping_count].override_name[63] = L'\0';
+        mapping_count++;
+        result = true;
+    }
+    ReleaseSRWLockExclusive(&mapping_lock);
+    ML_LOG_INFO(L"save-mapping", L"extension mapping %ls -> %ls: %ls",
+                extension, override_name, result ? L"registered" : L"NOT registered (root unset or table full)");
+    return result;
+}
+
+bool ml_save_mapping_init(const ml_game_descriptor_t *game, const wchar_t *override_name) {
+    /* Convenience for the common single-extension (.sl2) case. Validate the
+     * override up front so a bad name is rejected without side effects, matching
+     * the original contract. */
+    if (game == NULL || override_name == NULL || override_name[0] == L'\0' ||
+        !valid_override_name(override_name)) {
+        return false;
+    }
+    if (!ml_save_mapping_init_root(game)) return false;
+    return ml_save_mapping_add_extension(L".sl2", override_name);
 }
 
 bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
@@ -175,24 +217,46 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
     wchar_t *target = NULL;
     wchar_t *target_name = NULL;
     wchar_t *root_snapshot;
-    wchar_t name_snapshot[64];
+    save_mapping_entry_t snapshot[SAVE_MAPPING_MAX];
+    size_t snapshot_count;
+    const wchar_t *override_name = NULL;
+    const wchar_t *logical_ext;
     const wchar_t *source_name;
     bool backup;
     const wchar_t *registered;
+    const wchar_t *raw_ext;
+    bool interesting;
 
     if (mapped_path != NULL) *mapped_path = NULL;
     if (path == NULL || mapped_path == NULL) return false;
+    /* Only log for paths that look like save files, so the hot CreateFile path
+     * (every asset open) is not spammed when debug logging is enabled. */
+    raw_ext = PathFindExtensionW(path);
+    interesting = raw_ext != NULL && (lstrcmpiW(raw_ext, L".sl2") == 0 ||
+                  lstrcmpiW(raw_ext, L".co2") == 0 || lstrcmpiW(raw_ext, L".bak") == 0);
     AcquireSRWLockShared(&mapping_lock);
     root_snapshot = save_root == NULL ? NULL : yaer_mem_strdup_w(save_root);
-    lstrcpynW(name_snapshot, configured_name, 64);
+    snapshot_count = mapping_count;
+    memcpy(snapshot, mappings, snapshot_count * sizeof(snapshot[0]));
     ReleaseSRWLockShared(&mapping_lock);
-    if (root_snapshot == NULL || name_snapshot[0] == L'\0') {
+    if (root_snapshot == NULL || snapshot_count == 0) {
+        if (interesting) {
+            ML_LOG_DEBUG(L"save-mapping", L"skip %ls: no save mapping configured (root=%ls, mappings=%zu)",
+                         path, root_snapshot == NULL ? L"<null>" : root_snapshot, snapshot_count);
+        }
         yaer_mem_free(root_snapshot);
         return false;
     }
     source = canonicalize_path(path);
     if (source == NULL || !path_is_under_root(source, root_snapshot) ||
         path_contains_reparse_point(source, root_snapshot)) {
+        if (interesting) {
+            ML_LOG_DEBUG(L"save-mapping",
+                         L"skip %ls: canonical=%ls root=%ls under_root=%d reparse=%d",
+                         path, source == NULL ? L"<null>" : source, root_snapshot,
+                         source != NULL && path_is_under_root(source, root_snapshot) ? 1 : 0,
+                         source != NULL && path_contains_reparse_point(source, root_snapshot) ? 1 : 0);
+        }
         yaer_mem_free(root_snapshot);
         yaer_mem_free(source);
         return false;
@@ -212,13 +276,23 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
         return true;
     }
     if (backup) PathRemoveExtensionW(logical_source);
-    if (lstrcmpiW(PathFindExtensionW(logical_source), L".sl2") != 0) {
+    logical_ext = PathFindExtensionW(logical_source);
+    for (size_t i = 0; i < snapshot_count; i++) {
+        if (lstrcmpiW(logical_ext, snapshot[i].extension) == 0) {
+            override_name = snapshot[i].override_name;
+            break;
+        }
+    }
+    if (override_name == NULL) {
+        if (interesting) {
+            ML_LOG_DEBUG(L"save-mapping", L"skip %ls: extension %ls not mapped", path, logical_ext);
+        }
         yaer_mem_free(logical_source);
         yaer_mem_free(source);
         return false;
     }
     source_name = PathFindFileNameW(logical_source);
-    target_name = build_override_name(source_name, name_snapshot);
+    target_name = build_override_name(source_name, override_name);
     if (target_name != NULL) {
         size_t directory_length = (size_t)(source_name - logical_source);
         wchar_t *directory = yaer_mem_alloc(0, (directory_length + 1) * sizeof(*directory));
@@ -253,9 +327,15 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
     AcquireSRWLockExclusive(&mapping_lock);
     registered = vfs_route_writable_path(path);
     if (registered == NULL) {
-        if (!PathFileExistsW(target) && PathFileExistsW(source)) {
+        BOOL target_exists = PathFileExistsW(target);
+        BOOL source_exists = PathFileExistsW(source);
+        if (!target_exists && source_exists) {
+            BOOL copied;
             vfs_recursion_guard_enter();
-            if (!CopyFileW(source, target, TRUE) && GetLastError() != ERROR_FILE_EXISTS) {
+            copied = CopyFileW(source, target, TRUE);
+            ML_LOG_INFO(L"save-mapping", L"seeded renamed save from original: %ls -> %ls copied=%d err=%lu",
+                        source, target, copied ? 1 : 0, copied ? 0 : GetLastError());
+            if (!copied && GetLastError() != ERROR_FILE_EXISTS) {
                 vfs_recursion_guard_leave();
                 ReleaseSRWLockExclusive(&mapping_lock);
                 yaer_mem_free(target);
@@ -269,6 +349,10 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
     }
     *mapped_path = registered;
     ReleaseSRWLockExclusive(&mapping_lock);
+    if (registered == NULL) {
+        ML_LOG_WARN(L"save-mapping", L"route %ls: target=%ls computed but writable registration returned NULL (falling back to original path)",
+                    path, target);
+    }
     yaer_mem_free(target);
     yaer_mem_free(logical_source);
     yaer_mem_free(source);
@@ -279,6 +363,6 @@ void ml_save_mapping_uninit(void) {
     AcquireSRWLockExclusive(&mapping_lock);
     yaer_mem_free(save_root);
     save_root = NULL;
-    configured_name[0] = L'\0';
+    mapping_count = 0;
     ReleaseSRWLockExclusive(&mapping_lock);
 }

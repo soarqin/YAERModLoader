@@ -75,7 +75,9 @@ static khash_t(singleton_slots) *singleton_derived_map = NULL;
 static khash_t(singleton_slots) *singleton_fd4_map = NULL;
 static khash_t(singleton_partial) *singleton_partial_map = NULL;
 static singleton_get_name_fn_t singleton_get_name = NULL;
-static bool singleton_fd4_finished = false;
+/* Guarded by singleton_fd4_lock for the finalize path; read on the fast path
+ * via Interlocked so the flag and the map it publishes stay in sync. */
+static volatile LONG singleton_fd4_finished = 0;
 
 static char *singleton_strdup_a(const char *s) {
     size_t len;
@@ -634,12 +636,13 @@ static void singleton_try_finish_fd4(void) {
     bool added = false;
     khiter_t k;
 
-    if (singleton_fd4_finished || singleton_get_name == NULL || singleton_partial_all_null()) {
+    if (InterlockedCompareExchange(&singleton_fd4_finished, 0, 0) != 0 ||
+        singleton_get_name == NULL || singleton_partial_all_null()) {
         return;
     }
 
     AcquireSRWLockExclusive(&singleton_fd4_lock);
-    if (singleton_fd4_finished) {
+    if (InterlockedCompareExchange(&singleton_fd4_finished, 0, 0) != 0) {
         ReleaseSRWLockExclusive(&singleton_fd4_lock);
         return;
     }
@@ -670,7 +673,7 @@ static void singleton_try_finish_fd4(void) {
     }
 
     if (added) {
-        singleton_fd4_finished = true;
+        InterlockedExchange(&singleton_fd4_finished, 1);
     }
     ReleaseSRWLockExclusive(&singleton_fd4_lock);
 }
@@ -699,6 +702,11 @@ static void **singleton_find_slot(const char *name) {
         return NULL;
     }
 
+    /* singleton_derived_map is built once inside InitOnce and never mutated
+     * afterwards, so it needs no lock. singleton_fd4_map is populated lazily by
+     * singleton_try_finish_fd4 under the exclusive lock (kh_put may rehash),
+     * so read it under the shared lock. The returned slot points into the
+     * game's .data and stays valid after the lock is released. */
     void **slot = singleton_map_get(singleton_derived_map, name);
     if (slot != NULL) {
         return slot;
@@ -706,7 +714,10 @@ static void **singleton_find_slot(const char *name) {
 
     singleton_try_finish_fd4();
 
-    return singleton_map_get(singleton_fd4_map, name);
+    AcquireSRWLockShared(&singleton_fd4_lock);
+    slot = singleton_map_get(singleton_fd4_map, name);
+    ReleaseSRWLockShared(&singleton_fd4_lock);
+    return slot;
 }
 
 void *singleton_find(const char *name) {

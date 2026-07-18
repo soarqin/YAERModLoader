@@ -164,7 +164,6 @@ int main(void) {
     EXPECT_NULL(vfs_lookup_domain(L"parts/domain-missing.bin", VFS_LOOKUP_VIRTUAL));
     EXPECT_NULL(vfs_lookup_domain(L"parts/domain-missing.bin", VFS_LOOKUP_WWISE));
     EXPECT_NOT_NULL(vfs_route_read_path(L"parts/test.bin", GENERIC_READ, OPEN_EXISTING));
-    EXPECT_NOT_NULL(vfs_route_read_path_a("parts/test.bin", GENERIC_READ, OPEN_EXISTING));
     EXPECT_NULL(vfs_route_read_path(L"parts/test.bin", GENERIC_WRITE, OPEN_EXISTING));
     EXPECT_NULL(vfs_route_read_path(L"parts/test.bin", GENERIC_READ, CREATE_ALWAYS));
     EXPECT_TRUE(vfs_register_writable_path(L"settings/test.ini", L"C:\\profile\\test.ini"));

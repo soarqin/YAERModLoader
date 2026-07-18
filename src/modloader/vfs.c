@@ -539,10 +539,6 @@ const wchar_t *vfs_uid_to_path(const wchar_t *uid) {
     return result;
 }
 
-const wchar_t *vfs_lookup_prefixed(const wchar_t *path, const wchar_t *game_root) {
-    return vfs_lookup_prefixed_domain(path, game_root, VFS_LOOKUP_VIRTUAL);
-}
-
 const wchar_t *vfs_lookup_prefixed_domain(const wchar_t *path, const wchar_t *game_root,
                                           vfs_lookup_domain_t domain) {
     const wchar_t *relative = vfs_strip_path_prefix(path, game_root);
@@ -648,31 +644,4 @@ const wchar_t *vfs_route_read_path_prefixed(const wchar_t *path, const wchar_t *
                                             DWORD desired_access, DWORD creation_disposition) {
     const wchar_t *relative = vfs_strip_path_prefix(path, game_root);
     return relative == NULL ? NULL : vfs_route_read_path(relative, desired_access, creation_disposition);
-}
-
-const wchar_t *vfs_route_read_path_a(const char *path, DWORD desired_access, DWORD creation_disposition) {
-    int length;
-    wchar_t *wide;
-    const wchar_t *result;
-    if (path == NULL) return NULL;
-    length = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
-    if (length <= 0) return NULL;
-    wide = yaer_mem_alloc(0, (size_t)length * sizeof(*wide));
-    if (wide == NULL) return NULL;
-    if (MultiByteToWideChar(CP_ACP, 0, path, -1, wide, length) == 0) {
-        yaer_mem_free(wide);
-        return NULL;
-    }
-    if (vfs_recursion_depth != 0 || vfs_is_package_path(wide)) {
-        yaer_mem_free(wide);
-        return NULL;
-    }
-    result = vfs_route_writable_path(wide);
-    if (result == NULL && (desired_access & (GENERIC_WRITE | DELETE)) == 0 &&
-        creation_disposition != CREATE_NEW && creation_disposition != CREATE_ALWAYS &&
-        creation_disposition != TRUNCATE_EXISTING) {
-        result = vfs_lookup_domain(wide, VFS_LOOKUP_DISK_ANSI);
-    }
-    yaer_mem_free(wide);
-    return result;
 }

@@ -154,6 +154,54 @@ int main(void) {
     RemoveDirectoryW(account);
     RemoveDirectoryW(save_root);
     RemoveDirectoryW(outside);
+
+    /* Elden Ring: dual-extension mapping (.sl2 main save + .co2 seamless coop). */
+    {
+        const ml_game_descriptor_t *er = ml_game_by_id(ML_GAME_ELDEN_RING);
+        wchar_t er_root[MAX_PATH];
+        wchar_t er_account[MAX_PATH];
+        wchar_t er_sl2[MAX_PATH];
+        wchar_t er_co2[MAX_PATH];
+        EXPECT_NOT_NULL(er);
+        lstrcpyW(er_root, root); PathAppendW(er_root, L"EldenRing");
+        EXPECT_TRUE(CreateDirectoryW(er_root, NULL));
+        lstrcpyW(er_account, er_root); PathAppendW(er_account, L"76561198000000000");
+        EXPECT_TRUE(CreateDirectoryW(er_account, NULL));
+        lstrcpyW(er_sl2, er_account); PathAppendW(er_sl2, L"ER0000.sl2");
+        EXPECT_TRUE(create_empty_file(er_sl2));
+        lstrcpyW(er_co2, er_account); PathAppendW(er_co2, L"ER0000.co2");
+        EXPECT_TRUE(create_empty_file(er_co2));
+
+        vfs_init();
+        EXPECT_TRUE(ml_save_mapping_init_root(er));
+        EXPECT_TRUE(ml_save_mapping_add_extension(L".sl2", L"ER-main.sl2"));
+        EXPECT_TRUE(ml_save_mapping_add_extension(L".co2", L"ER-coop.co2"));
+        /* invalid extension / override are rejected */
+        EXPECT_TRUE(!ml_save_mapping_add_extension(L"sl2", L"noleadingdot.sl2"));
+        EXPECT_TRUE(!ml_save_mapping_add_extension(L".bad", L"invalid?.bad"));
+
+        mapped = NULL;
+        EXPECT_TRUE(ml_save_mapping_route(er_sl2, &mapped));
+        EXPECT_NOT_NULL(mapped);
+        EXPECT_TRUE(wcsstr(mapped, L"ER-main.sl2") != NULL);
+        EXPECT_TRUE(PathFileExistsW(mapped));
+
+        mapped = NULL;
+        EXPECT_TRUE(ml_save_mapping_route(er_co2, &mapped));
+        EXPECT_NOT_NULL(mapped);
+        EXPECT_TRUE(wcsstr(mapped, L"ER-coop.co2") != NULL);
+        EXPECT_TRUE(PathFileExistsW(mapped));
+
+        DeleteFileW(vfs_route_writable_path(er_sl2));
+        DeleteFileW(vfs_route_writable_path(er_co2));
+        ml_save_mapping_uninit();
+        vfs_uninit();
+        DeleteFileW(er_sl2);
+        DeleteFileW(er_co2);
+        RemoveDirectoryW(er_account);
+        RemoveDirectoryW(er_root);
+    }
+
     RemoveDirectoryW(root);
     SetEnvironmentVariableW(L"APPDATA", old_length != 0 && old_length < MAX_PATH ? old_appdata : NULL);
     printf("smoke_save_mapping: all tests passed\n");

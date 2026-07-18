@@ -31,6 +31,7 @@ void set_process_cpu_affinity_strategy(const int strategy) {
     DWORD offset = 0;
     while (offset < len) {
         const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *info = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)(data + offset);
+        if (info->Size == 0) break; /* guard against a malformed zero-size entry looping forever */
         offset += info->Size;
         const uint64_t mask = info->Processor.GroupMask[0].Mask;
         const BYTE eff = info->Processor.EfficiencyClass;
@@ -43,7 +44,11 @@ void set_process_cpu_affinity_strategy(const int strategy) {
 
     uint64_t process_mask;
     uint64_t system_mask;
-    GetProcessAffinityMask(GetCurrentProcess(), &process_mask, &system_mask);
+    /* On failure system_mask would be uninitialized; default to all-ones so the
+     * `& system_mask` clamp below becomes a no-op rather than garbage. */
+    if (!GetProcessAffinityMask(GetCurrentProcess(), &process_mask, &system_mask)) {
+        system_mask = ~0ULL;
+    }
     switch (strategy) {
         case 1:
             SetProcessAffinityMask(GetCurrentProcess(), all_masks & ~1ULL & system_mask);

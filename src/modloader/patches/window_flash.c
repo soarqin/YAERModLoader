@@ -26,8 +26,15 @@ static ATOM WINAPI register_class_ex_w_hooked(const WNDCLASSEXW *window_class) {
 
     if (window_class == NULL) return old_register_class_ex_w(window_class);
 
-    if (black_background == NULL) black_background = CreateSolidBrush(RGB(0, 0, 0));
-    if (black_background == NULL) return old_register_class_ex_w(window_class);
+    if (black_background == NULL) {
+        /* RegisterClassExW may be called from multiple threads; publish the
+         * brush atomically so concurrent callers do not leak a GDI handle. */
+        HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
+        if (brush == NULL) return old_register_class_ex_w(window_class);
+        if (InterlockedCompareExchangePointer((PVOID volatile *)&black_background, brush, NULL) != NULL) {
+            DeleteObject(brush);
+        }
+    }
 
     ml_window_class_blacken(window_class, black_background, &black_class);
     return old_register_class_ex_w(&black_class);

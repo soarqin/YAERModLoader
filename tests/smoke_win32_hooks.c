@@ -49,12 +49,12 @@ wchar_t *ml_path_from_ansi(const char *path) {
 int main(void) {
     wchar_t root[MAX_PATH];
     wchar_t source[MAX_PATH];
-    wchar_t copy[MAX_PATH];
-    wchar_t moved[MAX_PATH];
     wchar_t directory[MAX_PATH];
     wchar_t read_route[MAX_PATH];
     wchar_t writable_route[MAX_PATH];
     wchar_t save_fail[MAX_PATH];
+    wchar_t copy[MAX_PATH];
+    wchar_t moved[MAX_PATH];
     HANDLE file;
     typedef HANDLE (WINAPI *create_file_w_t)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES,
                                              DWORD, DWORD, HANDLE);
@@ -65,10 +65,6 @@ int main(void) {
     EXPECT_TRUE(ml_win32_file_hooks_test_target("CreateFileW") != (void *)CreateFileW);
     EXPECT_TRUE(length != 0 && length < MAX_PATH);
     EXPECT_TRUE(GetTempFileNameW(root, L"mlh", 0, source) != 0);
-    EXPECT_TRUE(GetTempFileNameW(root, L"mlc", 0, copy) != 0);
-    EXPECT_TRUE(DeleteFileW(copy));
-    EXPECT_TRUE(GetTempFileNameW(root, L"mlm", 0, moved) != 0);
-    EXPECT_TRUE(DeleteFileW(moved));
     EXPECT_TRUE(GetTempFileNameW(root, L"mld", 0, directory) != 0);
     EXPECT_TRUE(DeleteFileW(directory));
     EXPECT_TRUE(GetTempFileNameW(root, L"mlr", 0, read_route) != 0);
@@ -77,6 +73,10 @@ int main(void) {
     EXPECT_TRUE(DeleteFileW(writable_route));
     EXPECT_TRUE(GetTempFileNameW(root, L"mls", 0, save_fail) != 0);
     EXPECT_TRUE(DeleteFileW(save_fail));
+    EXPECT_TRUE(GetTempFileNameW(root, L"mlc", 0, copy) != 0);
+    EXPECT_TRUE(DeleteFileW(copy));
+    EXPECT_TRUE(GetTempFileNameW(root, L"mlm", 0, moved) != 0);
+    EXPECT_TRUE(DeleteFileW(moved));
 
     ml_win32_file_hooks_test_init();
     route_target = source;
@@ -100,9 +100,13 @@ int main(void) {
     file = ml_win32_file_hooks_test_create_file_w(writable_route, GENERIC_WRITE, 0, OPEN_EXISTING, 0);
     EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
     CloseHandle(file);
+    /* When save routing reports "handled" but yields no target, the hook must
+     * fall back to the real API transparently rather than fabricating a
+     * failure/last-error. save_fail was deleted above, so the real CreateFileW
+     * fails with ERROR_FILE_NOT_FOUND — the genuine error, not ERROR_CANNOT_MAKE. */
     file = ml_win32_file_hooks_test_create_file_w(save_fail, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, 0);
     EXPECT_TRUE(file == INVALID_HANDLE_VALUE);
-    EXPECT_EQ(GetLastError(), ERROR_CANNOT_MAKE);
+    EXPECT_EQ(GetLastError(), ERROR_FILE_NOT_FOUND);
     recursion_active = true;
     file = ml_win32_file_hooks_test_create_file_w(read_route, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, 0);
     EXPECT_TRUE(file == INVALID_HANDLE_VALUE);
@@ -110,10 +114,12 @@ int main(void) {
     file = ml_win32_file_hooks_test_create_file_w(source, GENERIC_WRITE, 0, OPEN_EXISTING, 0);
     EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
     CloseHandle(file);
-    EXPECT_TRUE(ml_win32_file_hooks_test_copy_file_w(source, copy));
-    EXPECT_TRUE(ml_win32_file_hooks_test_move_file_ex_w(copy, moved));
     EXPECT_TRUE(ml_win32_file_hooks_test_create_directory_w(directory));
     EXPECT_TRUE(RemoveDirectoryW(directory));
+    /* Copy/move route save paths transparently; source is not a mapped save
+     * file here, so both fall through to the real API. */
+    EXPECT_TRUE(ml_win32_file_hooks_test_copy_file_w(source, copy));
+    EXPECT_TRUE(ml_win32_file_hooks_test_move_file_ex_w(copy, moved));
     EXPECT_TRUE(ml_win32_file_hooks_test_delete_file_w(moved));
     EXPECT_TRUE(ml_win32_file_hooks_test_delete_file_w(source));
 

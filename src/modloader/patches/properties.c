@@ -83,8 +83,8 @@ bool ml_properties_install(const ml_game_descriptor_t *game) {
     const IMAGE_SECTION_HEADER *rdata_section;
     uint8_t *text;
     uint8_t *rdata;
-    size_t text_size;
-    size_t rdata_size;
+    size_t text_size = 0;
+    size_t rdata_size = 0;
     const uint8_t *property_string;
     const uint8_t *property_init;
     ml_hook_result_t hook_result;

@@ -138,9 +138,17 @@ static bool hook_wwise_archive_position_resolver() {
         size_t call_offset = wwise_find_open_call(text_base, text_size);
         if (call_offset != SIZE_MAX) {
             int32_t displacement;
+            void *candidate;
             memcpy(&displacement, text_base + call_offset + 1, sizeof(displacement));
-            open_by_name = (ak_file_location_resolver_open_t)(text_base + call_offset + 5 + displacement);
-            ML_LOG_INFO(L"common", L"Wwise resolver found by signature fallback at %p", open_by_name);
+            candidate = text_base + call_offset + 5 + displacement;
+            /* A false-positive CALL match could resolve anywhere; only accept a
+             * target that lands inside .text before hooking it. */
+            if (pe_section_contains_va(image, text, candidate)) {
+                open_by_name = (ak_file_location_resolver_open_t)candidate;
+                ML_LOG_INFO(L"common", L"Wwise resolver found by signature fallback at %p", open_by_name);
+            } else {
+                ML_LOG_WARN(L"common", L"Wwise resolver fallback target %p rejected (outside .text)", candidate);
+            }
         }
     }
     if (open_by_name == NULL) {

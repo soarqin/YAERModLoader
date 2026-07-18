@@ -16,14 +16,11 @@
 extern "C" {
 #endif
 
-typedef struct mod_t mod_t;
-
 extern void mods_init();
 extern void mods_uninit();
 extern void mods_add(const char *name, const wchar_t *path);
 extern int mods_count();
 extern const wchar_t *mods_file_search(const wchar_t *path);
-extern const wchar_t *mods_file_search_prefixed(const wchar_t *path);
 extern const wchar_t *mods_file_search_prefixed_domain(const wchar_t *path, int domain);
 extern const wchar_t *mods_file_virtual_to_uid_prefixed(const wchar_t *path);
 extern const wchar_t *mods_file_route_read(const wchar_t *path, DWORD desired_access, DWORD creation_disposition);

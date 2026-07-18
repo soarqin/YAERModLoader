@@ -79,6 +79,6 @@ int main(void) {
     /* destroy */
     kh_destroy(wstr, h);
 
-    printf("smoke_filecache: all tests passed\n");
+    printf("smoke_khash_wstr: all tests passed\n");
     return 0;
 }

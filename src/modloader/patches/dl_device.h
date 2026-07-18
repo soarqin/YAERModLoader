@@ -120,8 +120,6 @@ bool ml_dl_string_clone_replace(const ml_dl_string_t *source, ml_stl_abi_t abi,
 void ml_dl_string_destroy(ml_dl_string_t *string, ml_stl_abi_t abi);
 const wchar_t *ml_dl_string_data(const ml_dl_string_t *string, ml_stl_abi_t abi);
 size_t ml_dl_vector_count(const ml_dl_vector_t *vector, ml_stl_abi_t abi, size_t item_size);
-bool ml_dl_device_seen(void *target);
-bool ml_dl_device_mark_seen(void *target);
 bool ml_bhd5_header_valid(const void *data, size_t size);
 bool ml_boot_boost_cache_key(const void *data, size_t size, uint64_t key[2]);
 wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, const uint64_t key[2]);

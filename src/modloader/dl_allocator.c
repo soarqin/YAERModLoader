@@ -10,7 +10,6 @@
 
 #include "process/image.h"
 #include "process/pe.h"
-#include "process/scanner.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -88,47 +87,4 @@ dl_allocator_t *dl_allocator_for_object(const void *object) {
 void dl_allocator_dealloc(dl_allocator_t *allocator, void *ptr) {
     if (allocator == NULL || allocator->vtable == NULL || allocator->vtable->free == NULL || ptr == NULL) return;
     allocator->vtable->free(allocator, ptr);
-}
-
-void **dl_allocator_table_first(void) {
-    size_t image_size = 0;
-    uint8_t *image_base = get_module_image_base(NULL, &image_size);
-    if (image_base == NULL || image_size < 18) return NULL;
-    uint8_t *addr = sig_scan(image_base, image_size, "48 89 05 ?? ?? ?? ?? 4C 8B C0 BA 08 00 00 00 8D 4A 08");
-    if (addr == NULL) return NULL;
-    return (void **)(addr + 7 + *(int32_t *)(addr + 3));
-}
-
-void **dl_allocator_table_last_er(void) {
-    enum { LAST_PATTERN_LEN = 29 };
-    size_t image_size = 0;
-    uint8_t *image_base = get_module_image_base(NULL, &image_size);
-    if (image_base == NULL || image_size < LAST_PATTERN_LEN) return NULL;
-    uint8_t *cursor = image_base;
-    size_t remaining = image_size;
-    void **last = NULL;
-    while (remaining >= LAST_PATTERN_LEN) {
-        uint8_t *addr = sig_scan(cursor, remaining, "48 89 3D ?? ?? ?? ?? C7 44 24 20 FF FF FF FF 45 33 C9 4C 8B C7 48 8D 15 ?? ?? ?? ??");
-        if (addr == NULL) break;
-        void **candidate = (void **)(addr + 7 + *(int32_t *)(addr + 3));
-        if (last == NULL || candidate > last) last = candidate;
-        remaining -= (size_t)(addr + 1 - cursor);
-        cursor = addr + 1;
-    }
-    return last;
-}
-
-bool dl_allocator_fill_table(dl_allocator_t *allocator) {
-    void **first = dl_allocator_table_first();
-    void **last = dl_allocator_table_last_er();
-    if (allocator == NULL || first == NULL || last == NULL || first > last) return false;
-
-    size_t count = (size_t)(last - first) + 1;
-    DWORD old_protect = 0;
-    if (!VirtualProtect(first, count * sizeof(void *), PAGE_READWRITE, &old_protect)) return false;
-    for (size_t i = 0; i < count; i++) {
-        first[i] = allocator;
-    }
-    VirtualProtect(first, count * sizeof(void *), old_protect, &old_protect);
-    return true;
 }

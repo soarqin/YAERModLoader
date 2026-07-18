@@ -62,6 +62,11 @@ uint8_t *sig_scan_without_mask(void *base, size_t data_size, const uint8_t *pat,
     ssize_t badchar[BM_DATA_MAX_LEN];
     uint8_t *data = base;
 
+    /* Guard against unsigned underflow in the `data_size - pat_size` loop
+       bound below: when the remaining data is smaller than the pattern the
+       subtraction wraps to a huge value and the scan reads out of bounds. */
+    if (data == NULL || pat_size == 0 || data_size < pat_size) return NULL;
+
     /* Fill the bad character array by calling
        the preprocessing function badCharHeuristic()
        for given pattern */
@@ -110,6 +115,10 @@ uint8_t *sig_scan_without_mask(void *base, size_t data_size, const uint8_t *pat,
 uint8_t *sig_scan_with_mask(void *base, size_t data_size, const uint8_t *pat, const uint8_t *mask, size_t pat_size) {
     ssize_t badchar[BM_DATA_MAX_LEN];
     uint8_t *data = base;
+
+    /* Guard against unsigned underflow in the `data_size - pat_size` loop
+       bound below (see sig_scan_without_mask). */
+    if (data == NULL || pat_size == 0 || data_size < pat_size) return NULL;
 
     /* Fill the bad character array by calling
        the preprocessing function badCharHeuristic()
@@ -284,6 +293,11 @@ uint8_t *sig_scan(void *base, size_t size, const char *pattern) {
     for (;;) {
         out_pattern = LocalAlloc(0, out_size);
         out_mask = LocalAlloc(0, out_size);
+        if (out_pattern == NULL || out_mask == NULL) {
+            LocalFree(out_pattern);
+            LocalFree(out_mask);
+            return NULL;
+        }
         pattern_size = sig_build_pattern_with_mask(pattern, out_pattern, out_mask, out_size);
         if (pattern_size == (size_t)-2) {
             LocalFree(out_pattern);

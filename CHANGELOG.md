@@ -6,6 +6,13 @@
 * Added the frozen VFS index, domain-specific lookup caches, Dantelion asset routing, BootBoost caching, explicit writable mappings, and long-path handling.
 * Avoided ordinary VFS queries when no mods are loaded and made VFS cache hits return stable values without string allocations.
 * Removed the built-in Elden Ring visual/input tweaks (`remove_chromatic_aberration`, `remove_vignette`, and `disable_mouse_camera_control`) and removed all project-owned extension DLLs from `src/extdlls` and release packages.
+* Fixed an out-of-bounds read in the signature scanner when the remaining data was smaller than the pattern (an unsigned underflow in the search bound); added a `smoke_scanner` regression test.
+* Fixed a data race on the FromSoftware FD4 singleton lookup table (unlocked read against a locked, rehashing insert) and validated the reflection pointer before use.
+* Hardened Steam library parsing: the VDF parser now reads in binary mode, validates `ftell`/`fread`, NUL-terminates its buffer, and bails out of malformed input instead of relying on `assert` (a no-op in release builds); library and install paths are now decoded as UTF-8 so non-ASCII Steam folders resolve correctly.
+* Migrated the Elden Ring adapter onto the shared Win32 VFS hooks and save-mapping used by Sekiro and Dark Souls III. Save-file remapping now runs through the common path (including reparse-point and canonicalization guards) and the Seamless Co-op save (`.co2`) is remapped alongside the main save (`.sl2`).
+* Proxy exports (dxgi/dinput8/winhttp) now forward through naked assembly stubs, so every argument is passed through unchanged regardless of build configuration instead of relying on tail-call optimization.
+* Removed dead code (the unused `filecache`, allocator-table, device-tracking, and VFS/mod routing helpers) and split the asset signature/crypto parsing into a separately testable `asset_sig` unit.
+* Miscellaneous robustness fixes: uninitialized reads on missing PE sections in the property hook, a GDI brush race in the window-flash hook, an unchecked process-affinity query, and stricter PE header validation.
 
 #### 0.6.1
 * Fixed possible crash

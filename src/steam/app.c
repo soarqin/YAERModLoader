@@ -14,6 +14,19 @@
 #include <windows.h>
 #include <stdio.h>
 
+/* Steam's VDF files are UTF-8. Convert explicitly instead of relying on
+ * printf's "%hs" (which uses the ANSI code page and corrupts non-ASCII
+ * library paths / install directories, e.g. non-Latin folder names). */
+static bool utf8_to_wide(const char *utf8, wchar_t *out, int out_count) {
+    if (utf8 == NULL || out == NULL || out_count <= 0) return false;
+    if (MultiByteToWideChar(CP_UTF8, 0, utf8, -1, out, out_count) == 0) {
+        out[0] = L'\0';
+        return false;
+    }
+    out[out_count - 1] = L'\0';
+    return true;
+}
+
 bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
     HKEY key;
     wchar_t steam_path[MAX_PATH];
@@ -37,12 +50,15 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
     if (library_folders == NULL) {
         return false;
     }
-    if (strcmp(library_folders->key, "libraryfolders") != 0 || library_folders->type != VDF_TYPE_ARRAY) {
+    if (library_folders->key == NULL ||
+        strcmp(library_folders->key, "libraryfolders") != 0 || library_folders->type != VDF_TYPE_ARRAY) {
         vdf_free_object(library_folders);
         return false;
     }
     for (int i = (int)vdf_object_get_array_length(library_folders) - 1; i >= 0; i--) {
         char app_id_str[16];
+        wchar_t library_root[MAX_PATH];
+        wchar_t install_dir[MAX_PATH];
         const struct vdf_object *sub = vdf_object_index_array(library_folders, i);
         if (sub == NULL || sub->type != VDF_TYPE_ARRAY) continue;
         const struct vdf_object *sub2 = vdf_object_index_array_str(sub, "path");
@@ -53,20 +69,22 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
         app_id_str[15] = '\0';
         sub3 = vdf_object_index_array_str(sub3, app_id_str);
         if (sub3 == NULL || (sub3->type != VDF_TYPE_STRING && sub3->type != VDF_TYPE_INT)) continue;
-        _snwprintf(library_path, MAX_PATH, L"%hs\\steamapps\\appmanifest_%u.acf", vdf_object_get_string(sub2), app_id);
+        if (!utf8_to_wide(vdf_object_get_string(sub2), library_root, MAX_PATH)) continue;
+        _snwprintf(library_path, MAX_PATH, L"%ls\\steamapps\\appmanifest_%u.acf", library_root, app_id);
         library_path[MAX_PATH - 1] = L'\0';
         struct vdf_object *acf = vdf_parse_file(library_path);
         if (acf == NULL) continue;
-        if (strcmp(acf->key, "AppState") != 0 || acf->type != VDF_TYPE_ARRAY) {
+        if (acf->key == NULL || strcmp(acf->key, "AppState") != 0 || acf->type != VDF_TYPE_ARRAY) {
             vdf_free_object(acf);
             continue;
         }
         sub3 = vdf_object_index_array_str(acf, "installdir");
-        if (sub3 == NULL || sub3->type != VDF_TYPE_STRING) {
+        if (sub3 == NULL || sub3->type != VDF_TYPE_STRING ||
+            !utf8_to_wide(vdf_object_get_string(sub3), install_dir, MAX_PATH)) {
             vdf_free_object(acf);
             continue;
         }
-        _snwprintf(path, MAX_PATH, L"%hs\\steamapps\\common\\%hs", vdf_object_get_string(sub2), vdf_object_get_string(sub3));
+        _snwprintf(path, MAX_PATH, L"%ls\\steamapps\\common\\%ls", library_root, install_dir);
         path[MAX_PATH - 1] = L'\0';
         vdf_free_object(acf);
         break;

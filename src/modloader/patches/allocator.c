@@ -187,7 +187,7 @@ bool ml_allocator_install_after_runtime(const ml_game_descriptor_t *game, bool h
     if (game->allocator_strategy == ML_ALLOCATOR_STRATEGY_ELDEN_RING && hook_cs_graphics) {
         void **graphics = rtti_find_vtable("CS::CSGraphicsImp");
         graphics_target = graphics == NULL ? NULL : graphics[0];
-        if (graphics_target == NULL) return false;
+        if (graphics_target == NULL) return heap_allocator_failed(game, L"graphics_init");
         roles[spec_count] = L"graphics_init";
         specs[spec_count++] = (ml_hook_spec_t){ graphics_target, allocator_noop, NULL };
     }

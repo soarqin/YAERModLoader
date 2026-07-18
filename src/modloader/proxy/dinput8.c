@@ -4,53 +4,53 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-struct dinput8_dll {
-    HMODULE dll;
-    FARPROC OriginalDirectInput8Create;
-    FARPROC OriginalDllCanUnloadNow;
-    FARPROC OriginalDllGetClassObject;
-    FARPROC OriginalDllRegisterServer;
-    FARPROC OriginalDllUnregisterServer;
-    FARPROC OriginalGetdfDIJoystick;
-} dinput8;
+static HMODULE dinput8_dll;
+
+/* Original entry points resolved at load time. Pure pass-through exports jump
+ * through these via naked stubs in proxy_stubs.asm; the COM entry points keep C
+ * wrappers because proxy/common.c dispatches them by host module name. */
+void *dinput8_orig_DirectInput8Create;
+void *dinput8_orig_DllCanUnloadNow;
+void *dinput8_orig_DllGetClassObject;
+void *dinput8_orig_DllRegisterServer;
+void *dinput8_orig_DllUnregisterServer;
+void *dinput8_orig_GetdfDIJoystick;
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-void *dinput8_FakeDirectInput8Create() { return (void *)dinput8.OriginalDirectInput8Create(); }
-void *dinput8_FakeDllRegisterServer() { return (void *)dinput8.OriginalDllRegisterServer(); }
-void *dinput8_FakeDllUnregisterServer() { return (void *)dinput8.OriginalDllUnregisterServer(); }
-void *dinput8_FakeGetdfDIJoystick() { return (void *)dinput8.OriginalGetdfDIJoystick(); }
-
 HRESULT dinput8_DllCanUnloadNow(void) {
     typedef HRESULT (STDAPICALLTYPE *function_t)(void);
-    return dinput8.OriginalDllCanUnloadNow == NULL ? E_NOINTERFACE : ((function_t)dinput8.OriginalDllCanUnloadNow)();
+    return dinput8_orig_DllCanUnloadNow == NULL ? E_NOINTERFACE : ((function_t)dinput8_orig_DllCanUnloadNow)();
 }
 
 HRESULT dinput8_DllGetClassObject(REFCLSID class_id, REFIID interface_id, void **object) {
     typedef HRESULT (STDAPICALLTYPE *function_t)(REFCLSID, REFIID, void **);
-    return dinput8.OriginalDllGetClassObject == NULL
+    return dinput8_orig_DllGetClassObject == NULL
         ? E_NOINTERFACE
-        : ((function_t)dinput8.OriginalDllGetClassObject)(class_id, interface_id, object);
+        : ((function_t)dinput8_orig_DllGetClassObject)(class_id, interface_id, object);
 }
 
 bool load_dinput8_proxy() {
     wchar_t path[MAX_PATH], syspath[MAX_PATH];
-    GetSystemDirectoryW(syspath, MAX_PATH);
+    if (GetSystemDirectoryW(syspath, MAX_PATH) == 0) {
+        ML_LOG_ERROR(L"proxy", L"cannot resolve system directory for dinput8.dll");
+        return false;
+    }
     _snwprintf(path, MAX_PATH, L"%ls\\dinput8.dll", syspath);
     path[MAX_PATH - 1] = L'\0';
-    dinput8.dll = LoadLibraryW(path);
-    if (!dinput8.dll) {
+    dinput8_dll = LoadLibraryW(path);
+    if (!dinput8_dll) {
         ML_LOG_ERROR(L"proxy", L"cannot load original dinput8.dll library");
         return false;
     }
-    dinput8.OriginalDirectInput8Create = GetProcAddress(dinput8.dll, "DirectInput8Create");
-    dinput8.OriginalDllCanUnloadNow = GetProcAddress(dinput8.dll, "DllCanUnloadNow");
-    dinput8.OriginalDllGetClassObject = GetProcAddress(dinput8.dll, "DllGetClassObject");
-    dinput8.OriginalDllRegisterServer = GetProcAddress(dinput8.dll, "DllRegisterServer");
-    dinput8.OriginalDllUnregisterServer = GetProcAddress(dinput8.dll, "DllUnregisterServer");
-    dinput8.OriginalGetdfDIJoystick = GetProcAddress(dinput8.dll, "GetdfDIJoystick");
+    dinput8_orig_DirectInput8Create = (void *)GetProcAddress(dinput8_dll, "DirectInput8Create");
+    dinput8_orig_DllCanUnloadNow = (void *)GetProcAddress(dinput8_dll, "DllCanUnloadNow");
+    dinput8_orig_DllGetClassObject = (void *)GetProcAddress(dinput8_dll, "DllGetClassObject");
+    dinput8_orig_DllRegisterServer = (void *)GetProcAddress(dinput8_dll, "DllRegisterServer");
+    dinput8_orig_DllUnregisterServer = (void *)GetProcAddress(dinput8_dll, "DllUnregisterServer");
+    dinput8_orig_GetdfDIJoystick = (void *)GetProcAddress(dinput8_dll, "GetdfDIJoystick");
     return true;
 }
 
