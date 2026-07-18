@@ -38,11 +38,14 @@ set(SMOKE_smoke_lifecycle_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/lifecycle.c)
 set(SMOKE_smoke_logo_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/patches/logo.c)
 set(SMOKE_smoke_dlrf_SOURCES ${CMAKE_SOURCE_DIR}/src/process/dlrf.c)
 set(SMOKE_smoke_rip_scan_SOURCES ${CMAKE_SOURCE_DIR}/src/process/rip_scan.c)
+set(SMOKE_smoke_mod_routing_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/mod.c)
+set(SMOKE_smoke_mod_routing_LIBRARIES shlwapi)
 
 foreach(SMOKE_TARGET smoke_vfs smoke_vfs_writable_mt smoke_vfs_generation_mt)
     set(SMOKE_${SMOKE_TARGET}_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/vfs.c)
     set(SMOKE_${SMOKE_TARGET}_LIBRARIES shlwapi)
 endforeach()
+set(SMOKE_smoke_vfs_DEFINITIONS ML_USE_TEST_ALLOCATOR)
 
 foreach(SMOKE_TARGET smoke_save_mapping smoke_save_mapping_mt)
     set(SMOKE_${SMOKE_TARGET}_SOURCES

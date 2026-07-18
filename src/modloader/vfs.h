@@ -39,8 +39,8 @@ size_t vfs_entry_count(void);
 uint64_t vfs_generation(void);
 void vfs_begin_lookup_reset(void);
 uint64_t vfs_reset_lookup_caches(void);
-bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid);
-bool vfs_virtual_to_uid_prefixed(const wchar_t *path, const wchar_t *game_root, wchar_t **uid);
+const wchar_t *vfs_virtual_to_uid(const wchar_t *path);
+const wchar_t *vfs_virtual_to_uid_prefixed(const wchar_t *path, const wchar_t *game_root);
 const wchar_t *vfs_uid_to_path(const wchar_t *uid);
 const wchar_t *vfs_route_read_path(const wchar_t *path, DWORD desired_access, DWORD creation_disposition);
 const wchar_t *vfs_route_read_path_prefixed(const wchar_t *path, const wchar_t *game_root,

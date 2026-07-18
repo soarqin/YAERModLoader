@@ -73,17 +73,21 @@ jobs:
           New-Item -ItemType Directory -Path $pkgDir -Force | Out-Null
 
           # Copy root-level files
-          Copy-Item "README.md"    "$pkgDir/"
-          Copy-Item "LICENSE"      "$pkgDir/"
-          Copy-Item "CHANGELOG.md" "$pkgDir/"
+          Copy-Item "README.md"                  "$pkgDir/"
+          Copy-Item "README.zhCN.md"             "$pkgDir/"
+          Copy-Item "LICENSE"                    "$pkgDir/"
+          Copy-Item "CHANGELOG.md"               "$pkgDir/"
           Copy-Item "build/bin/YAERModLoader.exe" "$pkgDir/"
           Copy-Item "build/bin/YAERModLoader.dll" "$pkgDir/"
           Copy-Item "src/YAERModLoader.ini"       "$pkgDir/"
+          Copy-Item "src/YAERModLoader.zhCN.ini"  "$pkgDir/"
 
-          # Copy entire dll/ output directory, then add er_param.ini & itemlot_rate.ini
+          # Copy the entire dll/ output directory, then add extension configuration files
           Copy-Item "build/bin/dll" "$pkgDir/" -Recurse
           Copy-Item "src/extdlls/er_param/er_param.ini" "$pkgDir/dll/"
+          Copy-Item "src/extdlls/almighty_kale/almighty_kale.ini" "$pkgDir/dll/"
           Copy-Item "src/extdlls/itemlot_rate/itemlot_rate.ini" "$pkgDir/dll/"
+          Copy-Item "src/extdlls/itemlot_rate/itemlot_rate.zhCN.ini" "$pkgDir/dll/"
 
           # Create zip archive
           $zipName = "YAERModLoader-$tag.zip"

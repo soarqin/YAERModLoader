@@ -2,51 +2,135 @@
 
 [中文说明](README.zhCN.md)
 
-## Introduction
-This is a mod loader for Elden Ring. It is inspred by [ModEngine](https://github.com/soulsmods/ModEngine2), and is designed to be simple and easy to use.
+YAERModLoader is a Windows mod loader for FromSoftware games. It provides a
+standalone launcher, proxy DLL support, ordered loose-file overrides, and
+external DLL loading.
 
-## Why Another Mod Loader?
-- [ModEngine](https://github.com/soulsmods/ModEngine2) is great, but it is not maintained anymore.
-- [me3](https://github.com/garyttierney/me3) is in development, but not so active.
-- I just need a simple codebase which generates minimal overhead (less than 100KB at present).
-- I may add new features eventually.
+## Supported games
 
-## Features
-- Load dlls on game start
-- Load mods like ModEngine
+| Game | Launcher target | Status |
+| --- | --- | --- |
+| Elden Ring | `eldenring` | Stable |
+| Sekiro: Shadows Die Twice | `sekiro` | Stable adapter; field validation is still required for some capabilities |
+| Dark Souls III | `darksouls3` | Experimental registry entry; game-specific hooks are not enabled yet |
 
-## Changelog
-Check [CHANGELOG.md](CHANGELOG.md) for details.
+Elden Ring remains the primary target. The `sekiro` target is selected with
+`--launch-target sekiro`. Without an explicit target, the launcher starts
+Elden Ring.
 
 ## Installation
-- You can download the latest release from the [release page](https://github.com/soarqin/YAERModLoader/releases), and choose one of the following methods to install the loader:
-  1. Start the loader individually (recommended)
-     1. Extract `YAERModLoader.exe`,  `YAERModLoader.dll` and `YAERModLoader.ini` to ANY folder.
-     2. Modify `YAERModLoader.ini` to fit your needs.
-     3. Run `YAERModLoader.exe` to start the game.
-     4. This is recommended because you can start the loader only when you need it and it won't pollute your game folder.
-  2. Load the loader with game automatically
-     1. Extract `YAERModLoader.dll` and `YAERModLoader.ini` to the game folder (where `eldenring.exe` is, You do not need `YAERModLoader.exe` here).
-     2. Rename `YAERModLoader.dll` to either `dxgi.dll`, `dinput8.dll` or `winhttp.dll`.
-     3. Modify `YAERModLoader.ini` to fit your needs.
-     4. Run the game [w/o EAC](https://steamcommunity.com/sharedfiles/filedetails/?id=2763986548):
-        - Create a text file `steam_appid.txt` in the same folder as `eldenring.exe`, put `1245620` in it, save and close, then **start the game with eldenring.exe**. 
-- You can also remove `YAERModLoader.ini` and put ModEngine2's `config_eldenring.toml` in the same folder as `YAERModLoader.dll` to use old config file as well.
-- You can add parameters to `YAERModLoader.exe` to change some behaviors:
-  - `-c` or `--config`: Specify the path of the config file.
-  - `-p` or `--game-path`: Specify the path of the game, you can set it to full-path of `eldenring.exe`, or its `Game` folder, or even the upper-level folder(normally `ELDEN RING`).
-  - `-d` or `--modengine-dll` or `--modloader-dll`: Specify the path of the replacement dll for loading. Note: `--modengine-dll` is just a compatibility option for ModEngine2.
-  - `-s` or `--suspend`: Inject the loader DLL, then leave the game suspended before its entry point for debugging.
+
+### Standalone launcher
+
+1. Extract `YAERModLoader.exe`, `YAERModLoader.dll`, and `YAERModLoader.ini`
+   into a directory of choice.
+2. Edit `YAERModLoader.ini` and enable the required DLLs or mods.
+3. Run `YAERModLoader.exe`.
+
+The launcher finds the game in its current directory, from an explicit path,
+or through the Steam library. It starts the game suspended, injects the loader
+DLL, and resumes the game unless `--suspend` is used.
+
+### Proxy DLL
+
+1. Put `YAERModLoader.dll` and `YAERModLoader.ini` in the game directory.
+2. Rename `YAERModLoader.dll` to `dxgi.dll`, `dinput8.dll`, or `winhttp.dll`.
+3. Start the game without Easy Anti-Cheat.
+
+For a direct `eldenring.exe` launch, create `steam_appid.txt` beside the game
+executable and put `1245620` in it. The corresponding Steam App ID is selected
+automatically for other launcher targets.
+
+## Configuration
+
+The complete template is `src/YAERModLoader.ini` and is copied into release
+packages as `YAERModLoader.ini`. Boolean values accept `true`, `yes`, `on`, or
+`1`; other values are false.
+
+### Global options
+
+These options are outside a section:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `debug` | `0` | Open a debug console. |
+| `log_level` | `info` | Minimum log level: `trace`, `debug`, `info`, `warn`, `error`, or `off`. |
+| `cpu_affinity` | `0` | Select the Elden Ring process CPU affinity strategy. Values `1`–`4` select the documented core subsets. |
+| `reset_achievements_on_new_game` | `0` | Reset Elden Ring achievements when a new game starts. |
+| `enable_ime` | `0` | Keep IME enabled for mods that need CJK text input. |
+
+### Game sections
+
+The section must match the current executable: `[elden_ring]` for Elden Ring,
+`[sekiro]` for Sekiro, or `[darksouls3]` for the experimental registry target.
+Dark Souls III currently stops before installing game-specific hooks.
+
+| Option | Elden Ring | Sekiro | Dark Souls III | Description |
+| --- | --- | --- | --- | --- |
+| `skip_intro` | Yes | Yes | No hooks | Skip the intro logo. |
+| `remove_chromatic_aberration` | Yes | No | No hooks | Remove chromatic aberration. |
+| `remove_vignette` | Yes | No | No hooks | Remove the vignette effect. |
+| `disable_mouse_camera_control` | Yes | No | No hooks | Disable mouse camera control. |
+| `prevent_regulation_save_write` | Yes | Yes | No hooks | Prevent raw modded or oversized regulation data from being written to saves. |
+| `patch_mem` | Yes | Yes | Partial | Use the mimalloc-backed Dantelion allocator. |
+| `patch_mem_heap_size` | Yes | Yes | Partial | Dedicated heap size in MB; `0` uses the default heap size. |
+| `patch_mem_hook_cs_graphics` | Yes | No | No hooks | Hook `CSGraphicsImp` as part of `patch_mem`. |
+| `boot_boost` | Yes | Yes | No hooks | Cache decrypted BHD headers to reduce archive startup time. |
+| `replace_save_filename` | Yes | Yes | No hooks | Replace the save filename; a leading dot replaces only the extension. |
+| `replace_seamless_coop_save_filename` | Yes | No | No hooks | Replace the Seamless Co-op `.co2` filename. |
+
+Options marked `No hooks` are still shown in the template for consistency;
+the current game adapter does not install the corresponding functionality.
+
+### DLLs and mods
+
+The `[dlls]` section loads external DLLs at game startup. Paths can be relative
+to the configuration file or absolute. `er_param` must be listed before
+`almighty_kale`, `itemlot_rate`, `autoloot`, or another extension that consumes
+the param API. Project-owned Elden Ring extensions are skipped for non-Elden
+Ring processes when applicable.
+
+The `[mods]` section lists directories containing loose-file overrides. Paths
+can be relative to the configuration file or absolute. When multiple mods
+contain the same file, the later declaration overrides the earlier one.
+
+Project extensions may have their own configuration files:
+
+- `dll/er_param.ini`: `world_map_cursor_speed`, a multiplier from `0.5` to `10.0`; `1.0` is the default.
+- `dll/almighty_kale.ini`: `auto_upgrade_weapons`, which defaults to `true` and controls the upgrade level shown by the merchant shops.
+- `dll/itemlot_rate.ini`: `include_weapons`, `include_arrows`, `include_armors`, `include_goods`, and the `[alter_count]` entries. Each alter-count entry uses `item_id=drop|loot|all,count`.
+
+### ModEngine2 TOML compatibility
+
+If `YAERModLoader.ini` is absent, the loader looks for the game-specific
+ModEngine2 file: `config_eldenring.toml`, `config_sekiro.toml`, or
+`config_darksouls3.toml`. The `-c` launcher option or `MODLOADER_CONFIG`
+environment variable can select another configuration path.
+
+## Launcher options
+
+```text
+-t, --launch-target <game>  Select eldenring, sekiro, or darksouls3.
+-p, --game-path <path>      Game executable or game directory.
+-c, --config <path>         Configuration file or directory.
+-d, --modloader-dll <path> Loader DLL to inject.
+    --modengine-dll <path> Compatibility alias for --modloader-dll.
+-s, --suspend               Leave the game suspended after injection.
+```
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## Credits
-- [ModEngine](https://github.com/soulsmods/ModEngine2): The original mod loader for Souls games.
-- [minhook](https://github.com/TsudaKageyu/minhook): Used to hook functions in the game.
-- [klib](https://github.com/attractivechaos/klib): The library used to handle hash tables.
-- [inih](https://github.com/benhoyt/inih): The library used to parse ini files.
-- [toml-c](https://github.com/arp242/toml-c): The library used to parse toml files, for ModEngine config file compatibility.
-- [wingetopt](https://github.com/alex85k/wingetopt): The library used to parse command line arguments.
-- [mimalloc](https://github.com/microsoft/mimalloc): The allocator used by the main loader DLL.
-- [libofdf](https://github.com/Jan200101/libofdf): The library used to parse Valve's VDF files, for locating game folder.
-- [LZMA SDK](https://7-zip.org/sdk.html): The library used to embed dll as compressed data, the SDK is in public domain.
-- [Glorious Merchant Mod](https://github.com/ThomasJClark/elden-ring-glorious-merchant): the almighty_kale extdll is a 1:1 C port of its functionality.
-- exe LOGO from [logowik](https://logowik.com/elden-ring-logo-vector-svg-pdf-ai-eps-cdr-free-download-12207.html)
+
+- [ModEngine](https://github.com/soulsmods/ModEngine2): original Souls mod loader.
+- [minhook](https://github.com/TsudaKageyu/minhook): function hooking.
+- [klib](https://github.com/attractivechaos/klib): hash tables.
+- [inih](https://github.com/benhoyt/inih): INI parsing.
+- [toml-c](https://github.com/arp242/toml-c): ModEngine2 TOML compatibility.
+- [wingetopt](https://github.com/alex85k/wingetopt): command-line parsing.
+- [mimalloc](https://github.com/microsoft/mimalloc): loader allocator.
+- [libofdf](https://github.com/Jan200101/libofdf): Steam library discovery.
+- [LZMA SDK](https://7-zip.org/sdk.html): public-domain compression SDK.
+- [Glorious Merchant Mod](https://github.com/ThomasJClark/elden-ring-glorious-merchant): `almighty_kale` behavior reference.

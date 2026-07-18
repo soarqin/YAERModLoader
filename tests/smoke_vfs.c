@@ -7,12 +7,44 @@
 #include "test_common.h"
 #include "modloader/vfs.h"
 
+static volatile LONG64 allocation_count;
+
+void *yaer_mem_alloc(UINT flags, size_t size) {
+    void *result = LocalAlloc(flags, size);
+    if (result != NULL) InterlockedIncrement64(&allocation_count);
+    return result;
+}
+
+void *yaer_mem_realloc(void *ptr, size_t size, UINT flags) {
+    void *result = LocalReAlloc(ptr, size, flags);
+    if (result != NULL) InterlockedIncrement64(&allocation_count);
+    return result;
+}
+
+void yaer_mem_free(void *ptr) {
+    LocalFree(ptr);
+}
+
+char *yaer_mem_strdup_a(const char *str) {
+    char *result = StrDupA(str);
+    if (result != NULL) InterlockedIncrement64(&allocation_count);
+    return result;
+}
+
+wchar_t *yaer_mem_strdup_w(const wchar_t *str) {
+    wchar_t *result = StrDupW(str);
+    if (result != NULL) InterlockedIncrement64(&allocation_count);
+    return result;
+}
+
 int main(void) {
     wchar_t root[MAX_PATH];
     wchar_t first[MAX_PATH];
     wchar_t second[MAX_PATH];
+    wchar_t late[MAX_PATH];
     wchar_t path[MAX_PATH];
     wchar_t hks_path[MAX_PATH];
+    wchar_t late_path[MAX_PATH];
     wchar_t *normalized = NULL;
     HANDLE file;
 
@@ -22,8 +54,10 @@ int main(void) {
     EXPECT_TRUE(CreateDirectoryW(root, NULL));
     lstrcpyW(first, root); PathAppendW(first, L"first");
     lstrcpyW(second, root); PathAppendW(second, L"second");
+    lstrcpyW(late, root); PathAppendW(late, L"late");
     EXPECT_TRUE(CreateDirectoryW(first, NULL));
     EXPECT_TRUE(CreateDirectoryW(second, NULL));
+    EXPECT_TRUE(CreateDirectoryW(late, NULL));
     lstrcpyW(path, first); PathAppendW(path, L"parts"); EXPECT_TRUE(CreateDirectoryW(path, NULL));
     PathAppendW(path, L"test.bin");
     file = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, 0, NULL); EXPECT_TRUE(file != INVALID_HANDLE_VALUE); CloseHandle(file);
@@ -73,39 +107,47 @@ int main(void) {
     EXPECT_NOT_NULL(vfs_lookup(L"parts/test.bin"));
     EXPECT_NOT_NULL(vfs_lookup(L"data0:/parts/test.bin"));
     {
-        wchar_t *uncached_uid = NULL;
-        EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &uncached_uid));
+        const wchar_t *uncached_uid = vfs_virtual_to_uid(L"parts/test.bin");
+        EXPECT_NOT_NULL(uncached_uid);
         EXPECT_TRUE(wcscmp(uncached_uid, L"\\\\me3??0") == 0);
         EXPECT_STREQ_W(vfs_uid_to_path(uncached_uid), vfs_lookup(L"parts/test.bin"));
-        LocalFree(uncached_uid);
     }
+    lstrcpyW(late_path, late); PathAppendW(late_path, L"parts");
+    EXPECT_TRUE(CreateDirectoryW(late_path, NULL));
+    PathAppendW(late_path, L"late.bin");
+    file = CreateFileW(late_path, GENERIC_WRITE, 0, NULL, CREATE_NEW, 0, NULL);
+    EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
+    CloseHandle(file);
+    EXPECT_NULL(vfs_virtual_to_uid(L"parts/late.bin"));
+    EXPECT_TRUE(vfs_add_package(late));
+    EXPECT_NOT_NULL(vfs_virtual_to_uid(L"parts/late.bin"));
     EXPECT_EQ(vfs_generation(), 0);
     EXPECT_EQ(vfs_reset_lookup_caches(), 1);
     EXPECT_EQ(vfs_generation(), 1);
     EXPECT_TRUE(wcsncmp(vfs_lookup(L"parts/test.bin"), second, wcslen(second)) == 0);
     {
         wchar_t absolute[MAX_PATH];
-        wchar_t *prefixed_uid = NULL;
+        const wchar_t *prefixed_uid;
         lstrcpyW(absolute, root); PathAppendW(absolute, L"parts/test.bin");
         EXPECT_STREQ_W(vfs_lookup_prefixed_domain(absolute, root, VFS_LOOKUP_DISK_WIDE),
                        vfs_lookup(L"parts/test.bin"));
-        EXPECT_TRUE(vfs_virtual_to_uid_prefixed(absolute, root, &prefixed_uid));
+        prefixed_uid = vfs_virtual_to_uid_prefixed(absolute, root);
+        EXPECT_NOT_NULL(prefixed_uid);
         EXPECT_STREQ_W(vfs_uid_to_path(prefixed_uid), vfs_lookup(L"parts/test.bin"));
-        LocalFree(prefixed_uid);
         lstrcpyW(absolute, root); lstrcatW(absolute, L"-outside\\parts\\test.bin");
         EXPECT_NULL(vfs_lookup_prefixed_domain(absolute, root, VFS_LOOKUP_DISK_WIDE));
-        EXPECT_TRUE(!vfs_virtual_to_uid_prefixed(absolute, root, &prefixed_uid));
+        EXPECT_NULL(vfs_virtual_to_uid_prefixed(absolute, root));
     }
     {
         static const wchar_t game_root[] = L"D:\\Steam\\steamapps\\common\\ELDEN RING\\Game";
         static const wchar_t request[] = L"d:/steam/steamapps/common/elden ring/game/action/script/modules/convergence/Update.hks";
         const wchar_t *override = vfs_lookup(L"action/script/modules/convergence/Update.hks");
-        wchar_t *uid = NULL;
+        const wchar_t *uid;
         EXPECT_NOT_NULL(override);
         EXPECT_STREQ_W(vfs_lookup_prefixed_domain(request, game_root, VFS_LOOKUP_DISK_WIDE), override);
-        EXPECT_TRUE(vfs_virtual_to_uid_prefixed(request, game_root, &uid));
+        uid = vfs_virtual_to_uid_prefixed(request, game_root);
+        EXPECT_NOT_NULL(uid);
         EXPECT_STREQ_W(vfs_uid_to_path(uid), override);
-        LocalFree(uid);
         EXPECT_STREQ_W(vfs_route_read_path_prefixed(request, game_root, GENERIC_READ, OPEN_EXISTING), override);
         EXPECT_NULL(vfs_route_read_path_prefixed(
             L"d:/steam/steamapps/common/elden ring/game-old/action/script/modules/convergence/Update.hks",
@@ -115,6 +157,9 @@ int main(void) {
     EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_DISK_WIDE), vfs_lookup(L"parts/test.bin"));
     EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_DISK_ANSI), vfs_lookup(L"parts/test.bin"));
     EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_WWISE), vfs_lookup(L"parts/test.bin"));
+    InterlockedExchange64(&allocation_count, 0);
+    EXPECT_NOT_NULL(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_WWISE));
+    EXPECT_EQ(allocation_count, 0);
     EXPECT_NULL(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_DOMAIN_COUNT));
     EXPECT_NULL(vfs_lookup_domain(L"parts/domain-missing.bin", VFS_LOOKUP_VIRTUAL));
     EXPECT_NULL(vfs_lookup_domain(L"parts/domain-missing.bin", VFS_LOOKUP_WWISE));
@@ -127,6 +172,9 @@ int main(void) {
     EXPECT_TRUE(!vfs_register_writable_path(L"settings/empty.ini", L""));
     EXPECT_TRUE(vfs_has_writable_paths());
     EXPECT_STREQ_W(vfs_route_writable_path(L"settings/test.ini"), L"C:\\profile\\test.ini");
+    InterlockedExchange64(&allocation_count, 0);
+    EXPECT_STREQ_W(vfs_route_writable_path(L"settings/test.ini"), L"C:\\profile\\test.ini");
+    EXPECT_EQ(allocation_count, 0);
     EXPECT_TRUE(vfs_register_writable_path(L"SETTINGS\\test.ini", L"C:\\profile\\test.ini"));
     EXPECT_TRUE(!vfs_register_writable_path(L"settings/test.ini", L"C:\\other\\test.ini"));
     EXPECT_STREQ_W(vfs_route_read_path(L"settings/test.ini", GENERIC_WRITE, CREATE_ALWAYS), L"C:\\profile\\test.ini");
@@ -135,19 +183,20 @@ int main(void) {
     vfs_recursion_guard_leave();
     EXPECT_NULL(vfs_lookup(L"parts/missing.bin"));
     {
-        wchar_t *uid = NULL;
-        wchar_t *cached_uid = NULL;
-        EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &uid));
-        EXPECT_TRUE(wcscmp(uid, L"\\\\me3??0") == 0);
+        const wchar_t *uid = vfs_virtual_to_uid(L"parts/test.bin");
+        const wchar_t *cached_uid;
         EXPECT_NOT_NULL(uid);
-        EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &cached_uid));
+        EXPECT_TRUE(wcscmp(uid, L"\\\\me3??0") == 0);
+        InterlockedExchange64(&allocation_count, 0);
+        cached_uid = vfs_virtual_to_uid(L"parts/test.bin");
+        EXPECT_NOT_NULL(cached_uid);
         EXPECT_STREQ_W(cached_uid, uid);
-        EXPECT_TRUE(cached_uid != uid);
-        LocalFree(cached_uid);
-        EXPECT_TRUE(!vfs_virtual_to_uid(L"parts/uid-missing.bin", &cached_uid));
-        EXPECT_NULL(cached_uid);
-        EXPECT_TRUE(!vfs_virtual_to_uid(L"parts/uid-missing.bin", &cached_uid));
-        EXPECT_NULL(cached_uid);
+        EXPECT_TRUE(cached_uid == uid);
+        EXPECT_EQ(allocation_count, 0);
+        EXPECT_NULL(vfs_virtual_to_uid(L"parts/uid-missing.bin"));
+        InterlockedExchange64(&allocation_count, 0);
+        EXPECT_NULL(vfs_virtual_to_uid(L"parts/uid-missing.bin"));
+        EXPECT_EQ(allocation_count, 0);
         EXPECT_STREQ_W(vfs_uid_to_path(uid), vfs_lookup(L"parts/test.bin"));
         EXPECT_STREQ_W(vfs_lookup(uid), vfs_lookup(L"parts/test.bin"));
         vfs_begin_lookup_reset();
@@ -155,17 +204,17 @@ int main(void) {
         EXPECT_STREQ_W(vfs_uid_to_path(uid), vfs_lookup(L"parts/test.bin"));
         EXPECT_EQ(vfs_reset_lookup_caches(), 2);
         EXPECT_EQ(vfs_generation(), 2);
-        EXPECT_TRUE(vfs_virtual_to_uid(L"parts/test.bin", &cached_uid));
+        cached_uid = vfs_virtual_to_uid(L"parts/test.bin");
+        EXPECT_NOT_NULL(cached_uid);
         EXPECT_TRUE(wcscmp(cached_uid, uid) == 0);
-        LocalFree(cached_uid);
         EXPECT_NULL(vfs_uid_to_path(L"\\\\me3??ffffffff"));
         EXPECT_NULL(vfs_uid_to_path(L"\\\\me3??-2"));
         EXPECT_NULL(vfs_uid_to_path(L"\\\\me3?? 2"));
-        LocalFree(uid);
     }
     vfs_uninit();
 
     DeleteFileW(path);
+    DeleteFileW(late_path);
     DeleteFileW(hks_path);
     lstrcpyW(hks_path, second); PathAppendW(hks_path, L"action\\script\\modules\\convergence"); RemoveDirectoryW(hks_path);
     lstrcpyW(hks_path, second); PathAppendW(hks_path, L"action\\script\\modules"); RemoveDirectoryW(hks_path);
@@ -174,7 +223,8 @@ int main(void) {
     lstrcpyW(path, first); PathAppendW(path, L"parts\\test.bin"); DeleteFileW(path);
     lstrcpyW(path, second); PathAppendW(path, L"parts"); RemoveDirectoryW(path);
     lstrcpyW(path, first); PathAppendW(path, L"parts"); RemoveDirectoryW(path);
-    RemoveDirectoryW(second); RemoveDirectoryW(first); RemoveDirectoryW(root);
+    lstrcpyW(path, late); PathAppendW(path, L"parts"); RemoveDirectoryW(path);
+    RemoveDirectoryW(late); RemoveDirectoryW(second); RemoveDirectoryW(first); RemoveDirectoryW(root);
     printf("smoke_vfs: all tests passed\n");
     return 0;
 }

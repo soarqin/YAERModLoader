@@ -76,9 +76,8 @@ const wchar_t *mods_file_search_prefixed_domain(const wchar_t *path, int domain)
     return mod_count <= 0 ? NULL : vfs_lookup_prefixed_domain(path, game_folder, (vfs_lookup_domain_t)domain);
 }
 
-bool mods_file_virtual_to_uid_prefixed(const wchar_t *path, wchar_t **uid) {
-    if (uid != NULL) *uid = NULL;
-    return mod_count > 0 && vfs_virtual_to_uid_prefixed(path, game_folder, uid);
+const wchar_t *mods_file_virtual_to_uid_prefixed(const wchar_t *path) {
+    return mod_count > 0 ? vfs_virtual_to_uid_prefixed(path, game_folder) : NULL;
 }
 
 const wchar_t *mods_file_route_read(const wchar_t *path, DWORD desired_access, DWORD creation_disposition) {
@@ -91,18 +90,19 @@ const wchar_t *mods_file_route_read(const wchar_t *path, DWORD desired_access, D
 
 const wchar_t *mods_file_route_read_a(const char *path, DWORD desired_access, DWORD creation_disposition) {
     int length;
+    wchar_t stack_path[MAX_PATH];
     wchar_t *wide;
     const wchar_t *result;
-    if (path == NULL) return NULL;
+    if (mod_count <= 0 || path == NULL) return NULL;
     length = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
     if (length <= 0) return NULL;
-    wide = yaer_mem_alloc(0, (size_t)length * sizeof(*wide));
+    wide = length <= MAX_PATH ? stack_path : yaer_mem_alloc(0, (size_t)length * sizeof(*wide));
     if (wide == NULL) return NULL;
     if (MultiByteToWideChar(CP_ACP, 0, path, -1, wide, length) == 0) {
-        yaer_mem_free(wide);
+        if (wide != stack_path) yaer_mem_free(wide);
         return NULL;
     }
     result = mods_file_route_read(wide, desired_access, creation_disposition);
-    yaer_mem_free(wide);
+    if (wide != stack_path) yaer_mem_free(wide);
     return result;
 }

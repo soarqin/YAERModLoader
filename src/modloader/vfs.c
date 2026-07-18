@@ -27,6 +27,7 @@
 typedef struct vfs_entry_s {
     wchar_t *key;
     wchar_t *path;
+    wchar_t *uid;
 } vfs_entry_t;
 
 typedef struct vfs_writable_entry_s {
@@ -40,6 +41,7 @@ KHASH_INIT(vfs_lookup_cache, const wchar_t *, const wchar_t *, 1, kh_wstr_hash_f
 static khash_t(vfs_index) *index;
 static khash_t(vfs_lookup_cache) *lookup_caches[VFS_LOOKUP_DOMAIN_COUNT];
 static khash_t(vfs_lookup_cache) *uid_cache;
+static khash_t(vfs_lookup_cache) *writable_cache;
 static vfs_entry_t *entries;
 static size_t entry_count;
 static size_t entry_capacity;
@@ -169,7 +171,17 @@ static bool vfs_insert(const wchar_t *relative, const wchar_t *physical) {
     }
     kh_key(index, slot) = key;
     kh_value(index, slot) = entry_count;
-    entries[entry_count++] = (vfs_entry_t){ key, path };
+    int uid_length = _scwprintf(L"\\\\me3??%zx", entry_count);
+    wchar_t *uid = uid_length < 0 ? NULL : yaer_mem_alloc(0, ((size_t)uid_length + 1) * sizeof(*uid));
+    if (uid == NULL) {
+        kh_del(vfs_index, index, slot);
+        yaer_mem_free(key);
+        yaer_mem_free(path);
+        return false;
+    }
+    _snwprintf(uid, (size_t)uid_length + 1, L"\\\\me3??%zx", entry_count);
+    entries[entry_count] = (vfs_entry_t){ key, path, uid };
+    entry_count++;
     return true;
 }
 
@@ -223,6 +235,7 @@ void vfs_init(void) {
         lookup_caches[i] = kh_init(vfs_lookup_cache);
     }
     uid_cache = kh_init(vfs_lookup_cache);
+    writable_cache = kh_init(vfs_lookup_cache);
     entries = NULL;
     entry_count = 0;
     entry_capacity = 0;
@@ -239,6 +252,7 @@ void vfs_uninit(void) {
         for (size_t i = 0; i < entry_count; i++) {
             yaer_mem_free(entries[i].key);
             yaer_mem_free(entries[i].path);
+            yaer_mem_free(entries[i].uid);
         }
         yaer_mem_free(entries);
     }
@@ -254,13 +268,17 @@ void vfs_uninit(void) {
     }
     if (uid_cache != NULL) {
         for (khiter_t slot = kh_begin(uid_cache); slot != kh_end(uid_cache); slot++) {
-            if (kh_exist(uid_cache, slot)) {
-                yaer_mem_free((void *)kh_key(uid_cache, slot));
-                yaer_mem_free((void *)kh_value(uid_cache, slot));
-            }
+            if (kh_exist(uid_cache, slot)) yaer_mem_free((void *)kh_key(uid_cache, slot));
         }
         kh_destroy(vfs_lookup_cache, uid_cache);
         uid_cache = NULL;
+    }
+    if (writable_cache != NULL) {
+        for (khiter_t slot = kh_begin(writable_cache); slot != kh_end(writable_cache); slot++) {
+            if (kh_exist(writable_cache, slot)) yaer_mem_free((void *)kh_key(writable_cache, slot));
+        }
+        kh_destroy(vfs_lookup_cache, writable_cache);
+        writable_cache = NULL;
     }
     if (index != NULL) kh_destroy(vfs_index, index);
     for (size_t i = 0; i < writable_count; i++) {
@@ -278,6 +296,14 @@ void vfs_uninit(void) {
     writable_entries = NULL;
     writable_count = 0;
     writable_capacity = 0;
+}
+
+static void clear_writable_cache_locked(void) {
+    if (writable_cache == NULL) return;
+    for (khiter_t slot = kh_begin(writable_cache); slot != kh_end(writable_cache); slot++) {
+        if (kh_exist(writable_cache, slot)) yaer_mem_free((void *)kh_key(writable_cache, slot));
+    }
+    kh_clear(vfs_lookup_cache, writable_cache);
 }
 
 bool vfs_add_package(const wchar_t *path) {
@@ -323,6 +349,7 @@ bool vfs_register_writable_path(const wchar_t *virtual_path, const wchar_t *phys
         writable_capacity = capacity;
     }
     writable_entries[writable_count++] = (vfs_writable_entry_t){ key, path };
+    clear_writable_cache_locked();
     ReleaseSRWLockExclusive(&writable_lock);
     return true;
 }
@@ -410,10 +437,7 @@ static void clear_lookup_cache_locked(void) {
     }
     if (uid_cache != NULL) {
         for (khiter_t slot = kh_begin(uid_cache); slot != kh_end(uid_cache); slot++) {
-            if (kh_exist(uid_cache, slot)) {
-                yaer_mem_free((void *)kh_key(uid_cache, slot));
-                yaer_mem_free((void *)kh_value(uid_cache, slot));
-            }
+            if (kh_exist(uid_cache, slot)) yaer_mem_free((void *)kh_key(uid_cache, slot));
         }
         kh_clear(vfs_lookup_cache, uid_cache);
     }
@@ -438,72 +462,60 @@ uint64_t vfs_reset_lookup_caches(void) {
     return next;
 }
 
-bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
+const wchar_t *vfs_virtual_to_uid(const wchar_t *path) {
     wchar_t *key;
-    khiter_t slot;
-    int length;
-    wchar_t *result;
     wchar_t *cache_key;
+    khiter_t slot;
+    const wchar_t *result;
+    uint64_t lookup_generation;
     int ret;
-    if (uid == NULL) return false;
-    *uid = NULL;
-    AcquireSRWLockShared(&lookup_cache_lock);
-    if (path == NULL || index == NULL || uid_cache == NULL) {
+    if (path == NULL || index == NULL || uid_cache == NULL) return NULL;
+    lookup_generation = vfs_generation();
+    if (lookup_generation != 0) {
+        AcquireSRWLockShared(&lookup_cache_lock);
+        slot = kh_get(vfs_lookup_cache, uid_cache, path);
+        if (slot != kh_end(uid_cache)) {
+            result = kh_value(uid_cache, slot);
+            ReleaseSRWLockShared(&lookup_cache_lock);
+            return result;
+        }
         ReleaseSRWLockShared(&lookup_cache_lock);
-        return false;
     }
-    slot = kh_get(vfs_lookup_cache, uid_cache, path);
-    if (slot != kh_end(uid_cache)) {
-        const wchar_t *cached = kh_value(uid_cache, slot);
-        if (cached != NULL) *uid = yaer_mem_strdup_w(cached);
-        ReleaseSRWLockShared(&lookup_cache_lock);
-        return *uid != NULL;
-    }
-    ReleaseSRWLockShared(&lookup_cache_lock);
 
-    if (!vfs_normalize_path(path, &key)) return false;
+    if (!vfs_normalize_path(path, &key)) return NULL;
     slot = kh_get(vfs_index, index, key);
     yaer_mem_free(key);
-    result = NULL;
-    if (slot != kh_end(index)) {
-        length = _scwprintf(L"\\\\me3??%zx", (size_t)kh_value(index, slot));
-        if (length < 0) return false;
-        result = yaer_mem_alloc(0, ((size_t)length + 1) * sizeof(*result));
-        if (result == NULL) return false;
-        _snwprintf(result, (size_t)length + 1, L"\\\\me3??%zx", (size_t)kh_value(index, slot));
-    }
+    result = slot == kh_end(index) ? NULL : entries[kh_value(index, slot)].uid;
+    if (lookup_generation == 0) return result;
     cache_key = yaer_mem_strdup_w(path);
-    if (cache_key == NULL) {
-        *uid = result;
-        return result != NULL;
-    }
+    if (cache_key == NULL) return result;
     AcquireSRWLockExclusive(&lookup_cache_lock);
+    if (vfs_generation() != lookup_generation) {
+        ReleaseSRWLockExclusive(&lookup_cache_lock);
+        yaer_mem_free(cache_key);
+        return result;
+    }
     slot = kh_get(vfs_lookup_cache, uid_cache, cache_key);
     if (slot != kh_end(uid_cache)) {
-        const wchar_t *cached = kh_value(uid_cache, slot);
-        if (cached != NULL) *uid = yaer_mem_strdup_w(cached);
+        result = kh_value(uid_cache, slot);
         yaer_mem_free(cache_key);
-        yaer_mem_free(result);
     } else {
         slot = kh_put(vfs_lookup_cache, uid_cache, cache_key, &ret);
         if (ret < 0) {
             yaer_mem_free(cache_key);
-            *uid = result;
         } else {
             kh_value(uid_cache, slot) = result;
-            if (result != NULL) *uid = yaer_mem_strdup_w(result);
         }
     }
     ReleaseSRWLockExclusive(&lookup_cache_lock);
-    return *uid != NULL;
+    return result;
 }
 
-bool vfs_virtual_to_uid_prefixed(const wchar_t *path, const wchar_t *game_root, wchar_t **uid) {
+const wchar_t *vfs_virtual_to_uid_prefixed(const wchar_t *path, const wchar_t *game_root) {
     const wchar_t *relative;
-    if (uid != NULL) *uid = NULL;
-    if (path == NULL || game_root == NULL || uid == NULL) return false;
+    if (path == NULL || game_root == NULL) return NULL;
     relative = vfs_strip_path_prefix(path, game_root);
-    return relative != NULL && vfs_virtual_to_uid(relative, uid);
+    return relative == NULL ? NULL : vfs_virtual_to_uid(relative);
 }
 
 const wchar_t *vfs_uid_to_path(const wchar_t *uid) {
@@ -562,16 +574,48 @@ static bool vfs_is_package_path(const wchar_t *path) {
 
 const wchar_t *vfs_route_writable_path(const wchar_t *path) {
     wchar_t *key;
+    wchar_t *cache_key;
+    khiter_t slot;
+    int ret;
     const wchar_t *result = NULL;
-    if (path == NULL || vfs_recursion_depth != 0 || !vfs_normalize_path(path, &key)) return NULL;
+    if (path == NULL || vfs_recursion_depth != 0 || writable_cache == NULL) return NULL;
     AcquireSRWLockShared(&writable_lock);
+    slot = kh_get(vfs_lookup_cache, writable_cache, path);
+    if (slot != kh_end(writable_cache)) {
+        result = kh_value(writable_cache, slot);
+        ReleaseSRWLockShared(&writable_lock);
+        return result;
+    }
+    ReleaseSRWLockShared(&writable_lock);
+
+    if (!vfs_normalize_path(path, &key)) return NULL;
+    cache_key = yaer_mem_strdup_w(path);
+    if (cache_key == NULL) {
+        yaer_mem_free(key);
+        return NULL;
+    }
+    AcquireSRWLockExclusive(&writable_lock);
+    slot = kh_get(vfs_lookup_cache, writable_cache, cache_key);
+    if (slot != kh_end(writable_cache)) {
+        result = kh_value(writable_cache, slot);
+        yaer_mem_free(cache_key);
+        ReleaseSRWLockExclusive(&writable_lock);
+        yaer_mem_free(key);
+        return result;
+    }
     for (size_t i = 0; i < writable_count; i++) {
         if (wcscmp(key, writable_entries[i].key) == 0) {
             result = writable_entries[i].path;
             break;
         }
     }
-    ReleaseSRWLockShared(&writable_lock);
+    slot = kh_put(vfs_lookup_cache, writable_cache, cache_key, &ret);
+    if (ret < 0) {
+        yaer_mem_free(cache_key);
+    } else {
+        kh_value(writable_cache, slot) = result;
+    }
+    ReleaseSRWLockExclusive(&writable_lock);
     yaer_mem_free(key);
     return result;
 }

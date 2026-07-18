@@ -1,14 +1,20 @@
-# me3 repo info
+# me3 Repository Reference
 
-## Original repo
+This file records the exact me3 baselines used for behavior comparisons and
+ports. Do not infer the baseline from another local checkout.
 
-* repo url: https://github.com/garyttierney/me3
-* branch: main
-* Synced commit id: 266adf1
-  * Update this if changes in new commits are synced in
+## Original Repository
 
-## My fork for performance fix
+- Repository: https://github.com/garyttierney/me3
+- Branch: `main`
+- Synced commit: `266adf1`
 
-* repo url: https://github.com/soarqin/me3
-* branch: perf/input-path-override-cache
-* Synced commit id: 1cf225d
+Update the commit only when changes from a newer me3 revision are synchronized.
+
+## Performance Fork
+
+- Repository: https://github.com/soarqin/me3
+- Branch: `perf/input-path-override-cache`
+- Synced commit: `1cf225d`
+
+The VFS dictionary cache follows this fork's stable cached-object optimization.

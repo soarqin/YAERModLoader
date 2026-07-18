@@ -20,11 +20,10 @@ static DWORD WINAPI lookup_worker(LPVOID parameter) {
         const wchar_t *found = vfs_lookup(lookup_path);
         if (found == NULL || wcscmp(found, expected) != 0) InterlockedIncrement(&failures);
         {
-            wchar_t *uid = NULL;
-            if (vfs_virtual_to_uid(lookup_path, &uid)) {
+            const wchar_t *uid = vfs_virtual_to_uid(lookup_path);
+            if (uid != NULL) {
                 const wchar_t *uid_path = vfs_uid_to_path(uid);
                 if (uid_path == NULL || wcscmp(uid_path, expected) != 0) InterlockedIncrement(&failures);
-                LocalFree(uid);
             }
         }
     }

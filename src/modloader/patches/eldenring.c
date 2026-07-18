@@ -173,41 +173,50 @@ void *__cdecl map_archive_path(er_wstring_local_t *path, const uint64_t p2, cons
     return res;
 }
 
-wchar_t *check_replace_file(const wchar_t *lpFileName) {
+static const wchar_t *route_replaced_file(const wchar_t *path, wchar_t **allocated) {
     bool has_replaced = replaced_save_filename[0] != L'\0';
     bool has_seamless_coop_replaced = replaced_seamless_coop_save_filename[0] != L'\0';
+    const wchar_t *registered;
+    wchar_t *full_path;
+    if (allocated != NULL) *allocated = NULL;
+    if (path == NULL || allocated == NULL) return NULL;
     if (!has_replaced && !has_seamless_coop_replaced) {
         return NULL;
     }
-    size_t len = lstrlenW(lpFileName);
+    size_t len = lstrlenW(path);
     const wchar_t *replace = NULL;
     if (has_replaced) {
-        if (str_ends_with(lpFileName, len, ORIGINAL_SAVE_FILENAME, ORIGINAL_SAVE_FILENAME_LEN)) {
+        if (str_ends_with(path, len, ORIGINAL_SAVE_FILENAME, ORIGINAL_SAVE_FILENAME_LEN)) {
             replace = replaced_save_filename;
-        } else if (str_ends_with(lpFileName, len, ORIGINAL_SAVE_FILENAME_BAK, ORIGINAL_SAVE_FILENAME_BAK_LEN)) {
+        } else if (str_ends_with(path, len, ORIGINAL_SAVE_FILENAME_BAK, ORIGINAL_SAVE_FILENAME_BAK_LEN)) {
             replace = replaced_save_filename_bak;
         }
     }
     if (has_seamless_coop_replaced) {
-        if (str_ends_with(lpFileName, len, SEAMLESS_COOP_SAVE_FILENAME, SEAMLESS_COOP_SAVE_FILENAME_LEN)) {
+        if (str_ends_with(path, len, SEAMLESS_COOP_SAVE_FILENAME, SEAMLESS_COOP_SAVE_FILENAME_LEN)) {
             replace = replaced_seamless_coop_save_filename;
-        } else if (str_ends_with(lpFileName, len, SEAMLESS_COOP_SAVE_FILENAME_BAK, SEAMLESS_COOP_SAVE_FILENAME_BAK_LEN)) {
+        } else if (str_ends_with(path, len, SEAMLESS_COOP_SAVE_FILENAME_BAK, SEAMLESS_COOP_SAVE_FILENAME_BAK_LEN)) {
             replace = replaced_seamless_coop_save_filename_bak;
         }
     }
-    if (replace == NULL) {
-        return NULL;
-    }
+    if (replace == NULL) return NULL;
+    registered = vfs_route_writable_path(path);
+    if (registered != NULL) return registered;
     /* MAX_PATH of headroom: PathAppendW requires the destination buffer to
      * hold at least MAX_PATH characters. */
-    wchar_t *full_path = yaer_mem_alloc(0, (MAX_PATH + len) * sizeof(wchar_t));
-    if (full_path == NULL) {
-        return NULL;
-    }
-    lstrcpyW(full_path, lpFileName);
+    full_path = yaer_mem_alloc(0, (MAX_PATH + len) * sizeof(wchar_t));
+    if (full_path == NULL) return NULL;
+    lstrcpyW(full_path, path);
     PathRemoveFileSpecW(full_path);
     PathAppendW(full_path, replace);
-    vfs_register_writable_path(lpFileName, full_path);
+    if (vfs_register_writable_path(path, full_path)) {
+        registered = vfs_route_writable_path(path);
+    }
+    if (registered != NULL) {
+        yaer_mem_free(full_path);
+        return registered;
+    }
+    *allocated = full_path;
     return full_path;
 }
 
@@ -222,20 +231,12 @@ HANDLE WINAPI CreateFile_hooked(const LPCWSTR lpFileName,
     if (lpFileName == NULL) {
         return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     }
-    const wchar_t *replace = vfs_route_writable_path(lpFileName);
-    if (replace == NULL) replace = mods_file_route_read(lpFileName, dwDesiredAccess, dwCreationDisposition);
-    if (replace != NULL) {
-        return old_CreateFileW(replace, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    }
-    if (lpFileName[0] == L'\\') {
-        return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    }
-    wchar_t *full_path = check_replace_file(lpFileName);
-    if (full_path == NULL) {
-        return old_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    }
-    HANDLE h = old_CreateFileW(full_path, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    yaer_mem_free(full_path);
+    const wchar_t *replace = mods_file_route_read(lpFileName, dwDesiredAccess, dwCreationDisposition);
+    wchar_t *allocated = NULL;
+    if (replace == NULL && lpFileName[0] != L'\\') replace = route_replaced_file(lpFileName, &allocated);
+    HANDLE h = old_CreateFileW(replace != NULL ? replace : lpFileName, dwDesiredAccess, dwShareMode,
+                               lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    yaer_mem_free(allocated);
     return h;
 }
 
@@ -264,19 +265,14 @@ HANDLE WINAPI CreateFile2_hooked(const LPCWSTR lpFileName, const DWORD dwDesired
 }
 
 BOOL WINAPI CopyFile_hooked(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, BOOL bFailIfExists) {
-    wchar_t *new_existing_filename = check_replace_file(lpExistingFileName);
-    if (new_existing_filename == NULL) {
-        return old_CopyFileW(lpExistingFileName, lpNewFileName, bFailIfExists);
-    }
-    wchar_t *new_new_filename = check_replace_file(lpNewFileName);
-    if (new_new_filename == NULL) {
-        BOOL res = old_CopyFileW(new_existing_filename, lpNewFileName, bFailIfExists);
-        yaer_mem_free(new_existing_filename);
-        return res;
-    }
-    BOOL res = old_CopyFileW(new_existing_filename, new_new_filename, bFailIfExists);
-    yaer_mem_free(new_existing_filename);
-    yaer_mem_free(new_new_filename);
+    wchar_t *allocated_existing = NULL;
+    wchar_t *allocated_new = NULL;
+    const wchar_t *existing = route_replaced_file(lpExistingFileName, &allocated_existing);
+    if (existing == NULL) return old_CopyFileW(lpExistingFileName, lpNewFileName, bFailIfExists);
+    const wchar_t *new_path = route_replaced_file(lpNewFileName, &allocated_new);
+    BOOL res = old_CopyFileW(existing, new_path != NULL ? new_path : lpNewFileName, bFailIfExists);
+    yaer_mem_free(allocated_existing);
+    yaer_mem_free(allocated_new);
     return res;
 }
 
@@ -411,9 +407,9 @@ static void hook_eldenring_create_file() {
 }
 
 BOOL WINAPI DeleteFileW_hooked(LPCWSTR lpFileName) {
-    const wchar_t *replace = vfs_route_writable_path(lpFileName);
-    wchar_t *allocated = replace == NULL ? check_replace_file(lpFileName) : NULL;
-    BOOL result = old_DeleteFileW(replace != NULL ? replace : (allocated != NULL ? allocated : lpFileName));
+    wchar_t *allocated = NULL;
+    const wchar_t *replace = route_replaced_file(lpFileName, &allocated);
+    BOOL result = old_DeleteFileW(replace != NULL ? replace : lpFileName);
     yaer_mem_free(allocated);
     return result;
 }
@@ -423,8 +419,7 @@ BOOL WINAPI DeleteFileA_hooked(LPCSTR lpFileName) {
 }
 
 BOOL WINAPI CreateDirectoryW_hooked(LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES attributes) {
-    const wchar_t *replace = vfs_route_writable_path(lpPathName);
-    return old_CreateDirectoryW(replace != NULL ? replace : lpPathName, attributes);
+    return old_CreateDirectoryW(lpPathName, attributes);
 }
 
 BOOL WINAPI CreateDirectoryA_hooked(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES attributes) {
@@ -432,8 +427,7 @@ BOOL WINAPI CreateDirectoryA_hooked(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES att
 }
 
 BOOL WINAPI CreateDirectoryExW_hooked(LPCWSTR template_path, LPCWSTR new_path, LPSECURITY_ATTRIBUTES attributes) {
-    const wchar_t *replace = vfs_route_writable_path(new_path);
-    return old_CreateDirectoryExW(template_path, replace != NULL ? replace : new_path, attributes);
+    return old_CreateDirectoryExW(template_path, new_path, attributes);
 }
 
 static void hook_eldenring_copy_file() {

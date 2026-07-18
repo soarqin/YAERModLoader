@@ -1,3 +1,9 @@
+#### Unreleased
+* Added complete English and Chinese `YAERModLoader.ini` templates and documented all loader options, game sections, launcher arguments, and extension configuration files. Distribution packages now include both templates, both README files, all built extension DLLs, and their available configuration files.
+* Added launcher and adapter coverage for Sekiro, plus game-target selection through `--launch-target`; Sekiro still requires field validation for some capabilities, while Dark Souls III remains experimental and does not install game-specific hooks.
+* Added the frozen VFS index, domain-specific lookup caches, Dantelion asset routing, BootBoost caching, explicit writable mappings, and long-path handling.
+* Avoided ordinary VFS queries when no mods are loaded and made VFS cache hits return stable values without string allocations.
+
 #### 0.6.1
 * Fixed possible crash
 

@@ -8,7 +8,7 @@
 #include <shlwapi.h>
 
 #include <stddef.h>
-#ifdef ML_USE_WIN32_ALLOCATOR
+#if defined(ML_USE_WIN32_ALLOCATOR) && !defined(ML_USE_TEST_ALLOCATOR)
 #define yaer_mem_alloc LocalAlloc
 #define yaer_mem_realloc LocalReAlloc
 #define yaer_mem_free LocalFree

@@ -537,17 +537,18 @@ static bool make_override_path(const ml_msvc2015_string_t *path, ml_msvc2015_str
                                const wchar_t *route) {
     ml_dl_device_manager_guard_t guard = { 0 };
     wchar_t *expanded = NULL;
-    wchar_t *uid = NULL;
+    const wchar_t *uid = NULL;
     bool result = false;
     const wchar_t *raw = ml_dl_string_data(path);
     if (raw == NULL || device_manager == NULL || !ml_dl_device_manager_lock(device_manager, &guard)) return false;
     if (vfs_uid_to_path(raw) == NULL && ml_dl_device_expand_path(device_manager, raw, &expanded)) {
-        if (mods_file_virtual_to_uid_prefixed(expanded, &uid) || vfs_virtual_to_uid(expanded, &uid)) {
+        uid = mods_file_virtual_to_uid_prefixed(expanded);
+        if (uid == NULL) uid = vfs_virtual_to_uid(expanded);
+        if (uid != NULL) {
             result = ml_dl_string_clone_replace(path, uid, replacement);
             if (result) log_override_once(route, raw, expanded, vfs_uid_to_path(uid));
         }
     }
-    yaer_mem_free(uid);
     yaer_mem_free(expanded);
     ml_dl_device_manager_unlock(&guard);
     return result;

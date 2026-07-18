@@ -1,46 +1,126 @@
-## 介绍
-这是一个适用于《艾尔登法环》的模组加载器。它受到了[ModEngine](https://github.com/soulsmods/ModEngine2)启发，旨在设计上简单易用。
+# Yet Another Elden Ring Mod Loader
 
 [README in English](README.md)
 
-## 为什么重造轮子？
-- [ModEngine](https://github.com/soulsmods/ModEngine2)很棒，但已经不再维护。
-- [me3](https://github.com/garyttierney/me3)正在开发中，但活跃度不高。
-- 我需要一个简单的代码库，生成的可执行文件尽可能小（目前不到100KB）。
-- 我可能会时不时突发灵感添加新功能。
+YAERModLoader 是面向 Windows 的 FromSoftware 游戏模组加载器，提供独立
+启动器、代理 DLL、按声明顺序生效的散文件覆盖，以及外部 DLL 加载。
 
-## 功能
-- 在游戏启动时加载dll
-- 类似ModEngine的模组加载
+## 支持的游戏
+
+| 游戏 | 启动目标 | 状态 |
+| --- | --- | --- |
+| Elden Ring | `eldenring` | 稳定支持 |
+| Sekiro: Shadows Die Twice | `sekiro` | 稳定适配器，部分能力仍需现场验证 |
+| Dark Souls III | `darksouls3` | 实验性注册项，游戏专用 Hook 尚未启用 |
+
+Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；未指定
+启动目标时默认启动 Elden Ring。
 
 ## 安装
-- 你可以从[发布页面](https://github.com/soarqin/YAERModLoader/releases)下载最新版本，然后选择以下方法之一安装加载器：
-    1. 单独启动加载器（推荐）
-        1. 将`YAERModLoader.exe`和`YAERModLoader.ini`解压到任意你喜欢的文件夹(这里不需要`YAERModLoader.dll`)。
-        2. 修改`YAERModLoader.ini`以满足你的需求。
-        3. 运行`YAERModLoader.exe`启动游戏。
-        4. 这是推荐的方式，因为你可以在需要时单独启动加载器，而且不会污染游戏文件夹。
-    2. 自动启动加载器
-        1. 将`YAERModLoader.dll`和`YAERModLoader.ini`解压到游戏文件夹(即`eldenring.exe`所在的文件夹，这里不需要`YAERModLoader.exe`)。
-        2. 将`YAERModLoader.dll`重命名为`dxgi.dll`、`dinput8.dll`或`winhttp.dll`中的任何一个。
-        3. 修改`YAERModLoader.ini`以适应你的需求。
-        4. 以不加载小蓝熊方式启动游戏：
-            - 在`eldenring.exe`所在目录创建一个文本文件`steam_appid.txt`，在里面写上数字`1245620`，保存并关闭，然后**用 eldenring.exe 启动游戏**。
-- 你也可以删除`YAERModLoader.ini`，并将ModEngine2的`config_eldenring.toml`放在`YAERModLoader.dll`所在的文件夹，以使用旧的配置文件。
-- 你可以给`YAERModLoader.exe`添加参数以改变一些启动行为：
-    - `-c`或`--config`：指定配置文件的路径。
-    - `-p`或`--game-path`：指定游戏的路径，可以设置为`eldenring.exe`的完整路径，或其所在`Game`文件夹，甚至是上一级文件夹（通常是`ELDEN RING`）。
-    - `-d`或`--modengine-dll`或`--modloader-dll`：指定用于加载的替换dll的路径。注意：`--modengine-dll`只是为了兼容ModEngine2。
-    - `-s` 或 `--suspend`：注入加载器 DLL 后，将游戏挂起在入口点执行之前，仅用于调试。
+
+### 独立启动器
+
+1. 将 `YAERModLoader.exe`、`YAERModLoader.dll` 和 `YAERModLoader.ini` 解压到任意目录。
+2. 修改 `YAERModLoader.ini`，启用所需的 DLL 或模组。
+3. 运行 `YAERModLoader.exe`。
+
+启动器会依次尝试当前目录、显式路径和 Steam 库定位游戏。启动游戏后，启动器
+会先保持主进程挂起，注入加载器 DLL；除非指定 `--suspend`，否则随后恢复游戏。
+
+### 代理 DLL
+
+1. 将 `YAERModLoader.dll` 和 `YAERModLoader.ini` 放入游戏目录。
+2. 将 `YAERModLoader.dll` 重命名为 `dxgi.dll`、`dinput8.dll` 或 `winhttp.dll`。
+3. 在不加载 Easy Anti-Cheat 的情况下启动游戏。
+
+直接运行 `eldenring.exe` 时，可在游戏可执行文件旁创建 `steam_appid.txt`，写入
+`1245620`。其他启动目标会自动使用对应的 Steam App ID。
+
+## 配置
+
+完整模板位于 `src/YAERModLoader.ini`，发布包中的文件名为
+`YAERModLoader.ini`。布尔值支持 `true`、`yes`、`on` 和 `1`；其他值均视为 false。
+
+### 全局选项
+
+以下选项位于所有 section 之外：
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `debug` | `0` | 打开调试控制台。 |
+| `log_level` | `info` | 最低日志级别：`trace`、`debug`、`info`、`warn`、`error` 或 `off`。 |
+| `cpu_affinity` | `0` | 选择 Elden Ring 进程的 CPU 亲和性策略。`1`–`4` 对应模板中的核心子集。 |
+| `reset_achievements_on_new_game` | `0` | Elden Ring 开始新游戏时重置成就。 |
+| `enable_ime` | `0` | 为需要 CJK 文本输入的模组保持 IME 启用。 |
+
+### 游戏 section
+
+section 名称必须与当前可执行文件匹配：Elden Ring 使用 `[elden_ring]`，Sekiro
+使用 `[sekiro]`，Dark Souls III 实验性注册目标使用 `[darksouls3]`。Dark Souls III
+当前会在安装游戏专用 Hook 前停止。
+
+| 选项 | Elden Ring | Sekiro | Dark Souls III | 说明 |
+| --- | --- | --- | --- | --- |
+| `skip_intro` | 支持 | 支持 | 无 Hook | 跳过开场 Logo。 |
+| `remove_chromatic_aberration` | 支持 | 不支持 | 无 Hook | 移除色差。 |
+| `remove_vignette` | 支持 | 不支持 | 无 Hook | 移除暗角效果。 |
+| `disable_mouse_camera_control` | 支持 | 不支持 | 无 Hook | 禁用鼠标控制镜头。 |
+| `prevent_regulation_save_write` | 支持 | 支持 | 无 Hook | 阻止原始、修改后或过大的 regulation 数据写入存档。 |
+| `patch_mem` | 支持 | 支持 | 部分 | 使用基于 mimalloc 的 Dantelion 分配器。 |
+| `patch_mem_heap_size` | 支持 | 支持 | 部分 | 专用堆大小，单位为 MB；`0` 使用默认大小。 |
+| `patch_mem_hook_cs_graphics` | 支持 | 不支持 | 无 Hook | 作为 `patch_mem` 的一部分 Hook `CSGraphicsImp`。 |
+| `boot_boost` | 支持 | 支持 | 无 Hook | 缓存解密后的 BHD 标头，减少归档启动时间。 |
+| `replace_save_filename` | 支持 | 支持 | 无 Hook | 替换存档文件名；以点号开头时只替换扩展名。 |
+| `replace_seamless_coop_save_filename` | 支持 | 不支持 | 无 Hook | 替换 Seamless Co-op 的 `.co2` 存档文件名。 |
+
+标记为「无 Hook」的选项仍保留在模板中，以保持配置结构一致；当前游戏适配器不会安装对应功能。
+
+### DLL 与模组
+
+`[dlls]` section 用于在游戏启动时加载外部 DLL。路径可以是相对于配置文件的路径，
+也可以是绝对路径。`er_param` 必须列在 `almighty_kale`、`itemlot_rate`、`autoloot`
+或其他使用参数 API 的扩展之前。适用时，项目自带的 Elden Ring 扩展会在非 Elden
+Ring 进程中跳过。
+
+`[mods]` section 用于声明包含散文件覆盖的目录。路径可以是相对路径或绝对路径；多个
+模组包含同名文件时，后声明的模组覆盖先声明的模组。
+
+项目扩展可能有独立配置文件：
+
+- `dll/er_param.ini`：`world_map_cursor_speed`，范围为 `0.5` 到 `10.0` 的倍率，默认值为 `1.0`。
+- `dll/almighty_kale.ini`：`auto_upgrade_weapons`，默认值为 `true`，控制商店显示的武器强化等级。
+- `dll/itemlot_rate.ini`：`include_weapons`、`include_arrows`、`include_armors`、`include_goods` 和 `[alter_count]` 条目。数量条目格式为 `item_id=drop|loot|all,count`。
+
+### ModEngine2 TOML 兼容
+
+未找到 `YAERModLoader.ini` 时，加载器会查找对应游戏的 ModEngine2 文件：
+`config_eldenring.toml`、`config_sekiro.toml` 或 `config_darksouls3.toml`。
+启动器的 `-c` 选项或 `MODLOADER_CONFIG` 环境变量可指定其他配置路径。
+
+## 启动器选项
+
+```text
+-t, --launch-target <game>  选择 eldenring、sekiro 或 darksouls3。
+-p, --game-path <path>      指定游戏可执行文件或游戏目录。
+-c, --config <path>         指定配置文件或配置目录。
+-d, --modloader-dll <path> 指定要注入的加载器 DLL。
+    --modengine-dll <path> --modloader-dll 的兼容别名。
+-s, --suspend               注入后保持游戏挂起。
+```
+
+## 更新记录
+
+详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 鸣谢
-- [ModEngine](https://github.com/soulsmods/ModEngine2): 魂系游戏的原始模组加载器。
-- [minhook](https://github.com/TsudaKageyu/minhook): 用于在游戏中挂钩函数。
-- [uthash](https://github.com/troydhanson/uthash): 用于处理哈希表的库。
-- [inih](https://github.com/benhoyt/inih): 用于解析ini文件的库。
-- [toml-c](https://github.com/arp242/toml-c): 用于解析toml文件的库，以兼容ModEngine的配置文件。
-- [wingetopt](https://github.com/alex85k/wingetopt): 用于解析命令行参数的库。
-- [mimalloc](https://github.com/microsoft/mimalloc): 主加载器 DLL 使用的内存分配器。
-- [libofdf](https://github.com/Jan200101/libofdf): 用于解析Valve的VDF文件的库，用于定位游戏所在文件夹。
-- [LZMA SDK](https://7-zip.org/sdk.html): 用于将dll嵌入为压缩数据的库，该SDK在公共领域中。
-- exe LOGO来自[logowik](https://logowik.com/elden-ring-logo-vector-svg-pdf-ai-eps-cdr-free-download-12207.html)
+
+- [ModEngine](https://github.com/soulsmods/ModEngine2)：原始 Souls 游戏模组加载器。
+- [minhook](https://github.com/TsudaKageyu/minhook)：函数 Hook。
+- [klib](https://github.com/attractivechaos/klib)：哈希表。
+- [inih](https://github.com/benhoyt/inih)：INI 解析。
+- [toml-c](https://github.com/arp242/toml-c)：ModEngine2 TOML 兼容。
+- [wingetopt](https://github.com/alex85k/wingetopt)：命令行解析。
+- [mimalloc](https://github.com/microsoft/mimalloc)：加载器分配器。
+- [libofdf](https://github.com/Jan200101/libofdf)：Steam 库定位。
+- [LZMA SDK](https://7-zip.org/sdk.html)：公有领域压缩 SDK。
+- [Glorious Merchant Mod](https://github.com/ThomasJClark/elden-ring-glorious-merchant)：`almighty_kale` 功能参考。
