@@ -82,13 +82,6 @@ jobs:
           Copy-Item "src/YAERModLoader.ini"       "$pkgDir/"
           Copy-Item "src/YAERModLoader.zhCN.ini"  "$pkgDir/"
 
-          # Copy the entire dll/ output directory, then add extension configuration files
-          Copy-Item "build/bin/dll" "$pkgDir/" -Recurse
-          Copy-Item "src/extdlls/er_param/er_param.ini" "$pkgDir/dll/"
-          Copy-Item "src/extdlls/almighty_kale/almighty_kale.ini" "$pkgDir/dll/"
-          Copy-Item "src/extdlls/itemlot_rate/itemlot_rate.ini" "$pkgDir/dll/"
-          Copy-Item "src/extdlls/itemlot_rate/itemlot_rate.zhCN.ini" "$pkgDir/dll/"
-
           # Create zip archive
           $zipName = "YAERModLoader-$tag.zip"
           Compress-Archive -Path "$pkgDir/*" -DestinationPath $zipName -Force

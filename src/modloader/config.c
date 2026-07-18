@@ -29,9 +29,6 @@ config_t config = {
     .enable_ime = false,
     .log_level = ML_LOG_LEVEL_INFO,
     .skip_intro = true,
-    .remove_chromatic_aberration = false,
-    .remove_vignette = false,
-    .disable_mouse_camera_control = false,
     .prevent_regulation_save_write = true,
     .patch_mem = true,
     .patch_mem_heap_size = 0,
@@ -90,12 +87,6 @@ static int ini_read_cb(void *user, const char *section,
     } else if (is_current_game_section(section)) {
         if (lstrcmpA(name, "skip_intro") == 0) {
             config.skip_intro = value_to_bool(value);
-        } else if (lstrcmpA(name, "remove_chromatic_aberration") == 0) {
-            config.remove_chromatic_aberration = value_to_bool(value);
-        } else if (lstrcmpA(name, "remove_vignette") == 0) {
-            config.remove_vignette = value_to_bool(value);
-        } else if (lstrcmpA(name, "disable_mouse_camera_control") == 0) {
-            config.disable_mouse_camera_control = value_to_bool(value);
         } else if (lstrcmpA(name, "prevent_regulation_save_write") == 0) {
             config.prevent_regulation_save_write = value_to_bool(value);
         } else if (lstrcmpA(name, "patch_mem") == 0) {

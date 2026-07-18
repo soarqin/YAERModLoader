@@ -12,7 +12,6 @@
 
 #include "config.h"
 #include "log.h"
-
 #include "game/game.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -31,14 +30,6 @@ typedef struct extdll_t {
 extdll_t *extdlls = NULL;
 int extdll_count = 0;
 int extdll_capacity = 0;
-
-static bool is_elden_ring_extension(const char *name) {
-    return lstrcmpA(name, "er_param") == 0 ||
-           lstrcmpA(name, "almighty_kale") == 0 ||
-           lstrcmpA(name, "itemlot_rate") == 0 ||
-           lstrcmpA(name, "no_dup_loot") == 0 ||
-           lstrcmpA(name, "autoloot") == 0;
-}
 
 void extdlls_add(const char *name, const wchar_t *path) {
     if (extdll_count >= extdll_capacity) {
@@ -59,18 +50,13 @@ int extdlls_count() {
 }
 
 void extdlls_load_all() {
-    const ml_game_descriptor_t *game = ml_game_context_get();
-    if (game == NULL) {
+    if (ml_game_context_get() == NULL) {
         ML_LOG_WARN(L"extdll", L"external DLLs are disabled because the game context is unavailable");
         return;
     }
     for (int i = 0; i < extdll_count; i++) {
         HMODULE dll;
         const wchar_t *path = extdlls[i].base_path;
-        if (game->id != ML_GAME_ELDEN_RING && is_elden_ring_extension(extdlls[i].name)) {
-            ML_LOG_INFO(L"extdll", L"skipped external DLL %hs outside Elden Ring", extdlls[i].name);
-            continue;
-        }
         if (StrChrW(path, L':') == NULL && path[0] != L'\\' && path[0] != L'/') {
             wchar_t full_path[MAX_PATH];
             config_full_path(full_path, path);

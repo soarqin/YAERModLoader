@@ -2,13 +2,11 @@
 
 ## What this repo is
 
-A Windows-only C11 mod loader for FromSoftware games (`YAERModLoader`). Elden Ring is stable, Sekiro has a stable adapter with remaining field validation, and Dark Souls III is an experimental registry target without complete game-specific hooks. Produces two primary artifacts:
+A Windows-only C11 mod loader for FromSoftware games (`YAERModLoader`). Elden Ring is stable, Sekiro has a stable adapter with remaining field validation, and Dark Souls III is an experimental registry target without complete game-specific hooks. Produces two artifacts:
 - `YAERModLoader.exe` — standalone launcher (`modloader_launcher`, WIN32 subsystem)
 - `YAERModLoader.dll` — injected DLL (`modloader_dll`, proxy for `dxgi.dll` / `dinput8.dll` / `winhttp.dll`)
 
 When comparing or porting behavior from me3, use `docs/me3-repo.md` as the source of truth for the repository, branch, and synced commit. Do not infer the comparison baseline from whichever me3 working tree happens to be checked out. The cache dictionary system intentionally follows the performance optimization in the documented me3 fork; treat it as the project's chosen me3 implementation, not as a parity difference from the original repository.
-
-Optional extension DLLs live under `src/extdlls/` (e.g. `autoloot`, `no_dup_loot`, `itemlot_rate`, `almighty_kale`). Each subdirectory with source files is auto-discovered and built as a separate shared library.
 
 ## Build system
 
@@ -45,8 +43,7 @@ Or build the `RUN_TESTS` target in Visual Studio.
 ## Build prerequisites
 
 - MSVC (Visual Studio with C/C++ workload)
-- NASM — required for `src/extdlls/autoloot/` (`.asm` file). CMake finds it via `CMAKE_ASM_NASM_COMPILER`. Install via scoop: `scoop install nasm`.
-- Python + lxml — only needed to regenerate `src/extdlls/er_param/include/er_param/param_defs.h` from XML definitions (see codegen below).
+- NASM — required for `src/modloader/patches/properties_hook.asm`. CMake finds it via `CMAKE_ASM_NASM_COMPILER`. Install via scoop: `scoop install nasm`.
 
 ## Source layout
 
@@ -58,11 +55,8 @@ src/
     patches/      Shared host capabilities plus Elden Ring and Sekiro adapters
     proxy/        Proxy DLL stubs for dxgi/dinput8/winhttp
   launcher/       Standalone EXE: injects the DLL into the game process
-  steam/          Steam API helpers (locate game folder via VDF; ISteamApps::GetCurrentGameLanguage)
+  steam/          Steam API helpers (locate game folder via VDF; achievement reset support)
   process/        PE image utilities, signature scanner
-  extdlls/        Optional extension DLLs (auto-discovered by CMake glob)
-    er_param/     Param provider DLL (param table access, pointers, wstring, cursor_speed; also exposes `from/` C struct headers + runtime pointer accessors via API v2)
-    almighty_kale/ 1:1 C port of Glorious Merchant (free shops, gesture unlocks, Kalé-alive patch)
 deps/
   klib/           khash.h (header-only, INTERFACE target `klib` / alias `klib::headers`)
   minhook/        Function hooking
@@ -71,7 +65,7 @@ deps/
   getopt/         wingetopt — command-line argument parsing
   lzma/           LZMA SDK (currently commented out in launcher link)
 tests/
-  smoke_*.c       Smoke and host tests for VFS, hooks, lifecycle, ABI, allocators, config routing, saves, extensions, and binary analysis
+  smoke_*.c       Smoke and host tests for VFS, hooks, lifecycle, ABI, allocators, config routing, saves, and binary analysis
   test_common.h   Minimal assert macros (EXPECT_TRUE, EXPECT_EQ, EXPECT_STREQ_W, etc.)
 ```
 
@@ -79,7 +73,7 @@ tests/
 
 **Language:** C11 only. No C++. Headers use `#ifdef __cplusplus extern "C"` guards for potential C++ consumers.
 
-**Memory:** The main loader DLL uses mimalloc. The launcher and extension DLLs use the C runtime allocator. Shared source keeps the existing `LocalAlloc`/`LocalFree` call sites; `src/common/allocator.h`, force-included by each target, maps them to the target allocator. Tests use standard `calloc`/`malloc` via the `kcalloc`/`kmalloc` macros redefined at the top of each test file.
+**Memory:** The main loader DLL uses mimalloc. The launcher uses the C runtime allocator. Shared source keeps the existing `LocalAlloc`/`LocalFree` call sites; `src/common/allocator.h`, force-included by each target, maps them to the target allocator. Tests use standard `calloc`/`malloc` via the `kcalloc`/`kmalloc` macros redefined at the top of each test file.
 
 **Hash tables:** `khash.h` (klib) is the only hash table. Two instantiation patterns in use:
 - `KHASH_INIT(wstr, ...)` with `kh_wstr_hash_func`/`kh_wstr_hash_equal` — wide-string keys, defined in `src/common/khash_wstr.h`
@@ -87,13 +81,9 @@ tests/
 
 Always `#define kcalloc/kmalloc/krealloc/kfree` before `#include "khash.h"` in production files.
 
-**Extension DLLs:** Project-owned ER extensions initialize from `DllMain` and share direct process/scanner/MinHook helpers from `src/common/ext_shared.*`; they do not depend on a modloader-specific extension ABI. Param-consuming extdlls obtain the provider through `er_param_api_get()` and must list `er_param` before themselves in the `[dlls]` ini section (load order dependency; no build-time runtime dependency system). External ModEngine extensions continue to use `modengine_ext_init`.
+**Extension DLLs:** Project-owned extension DLLs have been split out of this repository. External ModEngine extensions continue to use `modengine_ext_init` through the `[dlls]` configuration section.
 
-**er_param API v2:** `er_param_api_t` (in `src/extdlls/er_param/include/er_param/er_param_api.h`) is at `api_version = 2`. New function pointers are appended after `off_param_loaded` so existing field offsets are preserved for already-compiled consumers. The v2 additions expose scanned runtime addresses/pointers (`get_msg_repository`, `get_game_data_man`, `get_lookup_shop_menu`, `get_lookup_shop_lineup`, `get_msg_repository_lookup_entry`, `get_ezstate_enter_state`, `get_get_event_flag`, `get_get_sell_value`, `get_get_max_repository_num`, `get_open_regular_shop`) plus the `from/` C struct headers (`include/er_param/from/ezstate.h`, `talk_commands.h`, `messages.h`, `game_data.h`) matching the in-game layouts. `almighty_kale` is the primary consumer.
-
-**Signature scanning:** Game function addresses are found at runtime via byte-pattern scanning (`sig_scan` or `ml_ext_sig_scan`). Patterns use `??` for wildcard bytes. Offsets in comments (e.g. `/* 0x5B8 for version < 1.12 */`) track version-specific differences.
-
-**Param definitions codegen:** `src/extdlls/er_param/include/er_param/param_defs.h` and `src/extdlls/er_param/include/er_param/defs/*.h` are generated by `src/extdlls/er_param/param_to_c.py` from Elden Ring XML definition files (not in repo). Run the script manually when param structs need updating; it reads from `ER/Defs/` and `ER/Meta/` relative to the script's working directory (`src/extdlls/er_param/`).
+**Signature scanning:** Game function addresses are found at runtime via byte-pattern scanning (`sig_scan`). Patterns use `??` for wildcard bytes. Offsets in comments (e.g. `/* 0x5B8 for version < 1.12 */`) track version-specific differences.
 
 **Version string:** Defined once in `src/CMakeLists.txt` as `YAERMODLOADER_VERSION`. Update there only.
 
@@ -101,7 +91,7 @@ Always `#define kcalloc/kmalloc/krealloc/kfree` before `#include "khash.h"` in p
 
 ## Tests
 
-Tests are lightweight smoke and host tests rather than in-game integration tests. They cover VFS routing and concurrency, Win32 Hook behavior, save mapping, lifecycle and rollback, ABI layouts, allocators, extensions, and binary-analysis helpers. No mocking framework is used; failures print to stderr and return non-zero.
+Tests are lightweight smoke and host tests rather than in-game integration tests. They cover VFS routing and concurrency, Win32 Hook behavior, save mapping, lifecycle and rollback, ABI layouts, allocators, and binary-analysis helpers. No mocking framework is used; failures print to stderr and return non-zero.
 
 Tests are only built when `BUILD_TESTING=ON` is passed to CMake. Test executables are discovered from `tests/smoke_*.c`; tests that need production sources, libraries, or compile definitions must also be mapped in `tests/CMakeLists.txt`.
 
@@ -126,8 +116,7 @@ The workflow will fail fast if the version in `src/CMakeLists.txt` or `CHANGELOG
 ## What to avoid
 
 - Do not add C++ source files; the project is intentionally C11-only.
-- Do not introduce direct `LocalAlloc`/`LocalFree` calls in new production code. Use `mi_*` in the main loader DLL and `malloc`/`free` in the launcher or extension DLLs; shared code continues to use the target-specific mappings in `src/common/allocator.h`.
-- Do not edit `src/extdlls/er_param/include/er_param/defs/*.h` or `src/extdlls/er_param/include/er_param/param_defs.h` by hand; they are generated.
+- Do not introduce direct `LocalAlloc`/`LocalFree` calls in new production code. Use `mi_*` in the main loader DLL and `malloc`/`free` in the launcher; shared code continues to use the target-specific mappings in `src/common/allocator.h`.
 - Do not add new dependencies without a corresponding `deps/` subdirectory and CMakeLists entry.
 - The `tools/` subdirectory is commented out in the root CMakeLists (`# add_subdirectory(tools)`); do not uncomment without understanding why.
 - The LZMA embed step in `src/CMakeLists.txt` is also commented out; leave it unless intentionally re-enabling DLL embedding.

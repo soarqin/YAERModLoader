@@ -302,72 +302,6 @@ DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
     return 0;
 }
 
-static bool patch_eldenring_remove_chromatic_aberration() {
-    static const uint8_t new_bytes[] = { 0x66, 0x0f, 0xef, 0xc9 };
-    uint8_t *addr = sig_scan(image_base, image_size, "0F 11 ?? 60 ?? 8D ?? 80 00 00 00 0F 10 ?? A0 00 00 00 0F 11 ?? F0 ?? 8D ?? B0 00 00 00 0F 10 ?? 0F 11 ?? 0F 10 ?? 10");
-    if (!addr) return false;
-    DWORD old_protect;
-    VirtualProtect(addr + 0x2F, 4, PAGE_EXECUTE_READWRITE, &old_protect);
-    memcpy(addr + 0x2F, new_bytes, 4);
-    VirtualProtect(addr + 0x2F, 4, old_protect, &old_protect);
-    return true;
-}
-
-static bool patch_eldenring_remove_vignette() {
-    static const uint8_t new_bytes[] = { 0xf3, 0x0f, 0x5c, 0xc0, 0x90 };
-    uint8_t *addr = sig_scan(image_base, image_size, "F3 0F 10 ?? 50 F3 0F 59 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? F3 ?? 0F 5C ?? F3 ?? 0F 59 ?? ?? 8D ?? ?? A0 00 00 00");
-    if (!addr) return false;
-    DWORD old_protect;
-    VirtualProtect(addr + 0x17, 5, PAGE_EXECUTE_READWRITE, &old_protect);
-    memcpy(addr + 0x17, new_bytes, 5);
-    VirtualProtect(addr + 0x17, 5, old_protect, &old_protect);
-    return true;
-}
-
-float (*old_get_mouse_delta_h)(void*);
-float patch_get_mouse_delta_h(void *p)
-{
-    return 0.0f;
-}
-
-float (*old_get_mouse_delta_v)(void*);
-float patch_get_mouse_delta_v(void *p)
-{
-    return 0.0f;
-}
-
-static bool patch_eldenring_disable_mouse_camera_control() {
-    uint8_t *addr = sig_scan(image_base, image_size, "48 8D 4D ?? E8 ?? ?? ?? ?? 0F 28 F0 48 8D 4D ?? E8 ?? ?? ?? ?? F3 0F 11 45 07 F3 0F 11 75 0B");
-    if (!addr) return false;
-
-    uint8_t *jmp = addr + 4;
-    uint8_t *real_addr = jmp + *(int32_t*)(jmp + 1) + 5;
-    MH_STATUS status = MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_h, (void**)&old_get_mouse_delta_h);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"disable_mouse_camera_control failed to create horizontal hook: %d", status);
-        return false;
-    }
-    status = MH_EnableHook(real_addr);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"disable_mouse_camera_control failed to enable horizontal hook: %d", status);
-        return false;
-    }
-
-    jmp = addr + 0x10;
-    real_addr = jmp + *(int32_t*)(jmp + 1) + 5;
-    status = MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_v, (void**)&old_get_mouse_delta_v);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"disable_mouse_camera_control failed to create vertical hook: %d", status);
-        return false;
-    }
-    status = MH_EnableHook(real_addr);
-    if (status != MH_OK) {
-        ML_LOG_WARN(L"eldenring", L"disable_mouse_camera_control failed to enable vertical hook: %d", status);
-        return false;
-    }
-    return true;
-}
-
 static bool hook_eldenring_archive_position_resolver() {
     uint8_t *addr = sig_scan(image_base, image_size, "48 83 7B 20 08 48 8D 4B 08 72 03 48 8B 09 4C 8B 4B 18 41 B8 05 00 00 00 4D 3B C8");
     if (!addr) return false;
@@ -552,18 +486,6 @@ bool eldenring_install() {
     async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
     if (config.reset_achievements_on_new_game) {
         reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
-    }
-
-    if (config.remove_chromatic_aberration) {
-        patch_eldenring_remove_chromatic_aberration();
-    }
-
-    if (config.remove_vignette) {
-        patch_eldenring_remove_vignette();
-    }
-
-    if (config.disable_mouse_camera_control) {
-        patch_eldenring_disable_mouse_camera_control();
     }
 
     if (replaced_save_filename[0] != L'\0' || replaced_seamless_coop_save_filename[0] != L'\0') {

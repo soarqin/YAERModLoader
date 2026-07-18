@@ -3,7 +3,8 @@
 [README in English](README.md)
 
 YAERModLoader 是面向 Windows 的 FromSoftware 游戏模组加载器，提供独立
-启动器、代理 DLL、按声明顺序生效的散文件覆盖，以及外部 DLL 加载。
+启动器、代理 DLL、按声明顺序生效的散文件覆盖，以及兼容 ModEngine 的外部
+DLL 加载。
 
 ## 支持的游戏
 
@@ -21,7 +22,7 @@ Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；
 ### 独立启动器
 
 1. 将 `YAERModLoader.exe`、`YAERModLoader.dll` 和 `YAERModLoader.ini` 解压到任意目录。
-2. 修改 `YAERModLoader.ini`，启用所需的 DLL 或模组。
+2. 修改 `YAERModLoader.ini`，启用所需的外部 DLL 或模组。
 3. 运行 `YAERModLoader.exe`。
 
 启动器会依次尝试当前目录、显式路径和 Steam 库定位游戏。启动游戏后，启动器
@@ -62,9 +63,6 @@ section 名称必须与当前可执行文件匹配：Elden Ring 使用 `[elden_r
 | 选项 | Elden Ring | Sekiro | Dark Souls III | 说明 |
 | --- | --- | --- | --- | --- |
 | `skip_intro` | 支持 | 支持 | 无 Hook | 跳过开场 Logo。 |
-| `remove_chromatic_aberration` | 支持 | 不支持 | 无 Hook | 移除色差。 |
-| `remove_vignette` | 支持 | 不支持 | 无 Hook | 移除暗角效果。 |
-| `disable_mouse_camera_control` | 支持 | 不支持 | 无 Hook | 禁用鼠标控制镜头。 |
 | `prevent_regulation_save_write` | 支持 | 支持 | 无 Hook | 阻止原始、修改后或过大的 regulation 数据写入存档。 |
 | `patch_mem` | 支持 | 支持 | 部分 | 使用基于 mimalloc 的 Dantelion 分配器。 |
 | `patch_mem_heap_size` | 支持 | 支持 | 部分 | 专用堆大小，单位为 MB；`0` 使用默认大小。 |
@@ -78,18 +76,10 @@ section 名称必须与当前可执行文件匹配：Elden Ring 使用 `[elden_r
 ### DLL 与模组
 
 `[dlls]` section 用于在游戏启动时加载外部 DLL。路径可以是相对于配置文件的路径，
-也可以是绝对路径。`er_param` 必须列在 `almighty_kale`、`itemlot_rate`、`autoloot`
-或其他使用参数 API 的扩展之前。适用时，项目自带的 Elden Ring 扩展会在非 Elden
-Ring 进程中跳过。
+也可以是绝对路径。项目自带的扩展 DLL 已不再随此仓库发布。
 
 `[mods]` section 用于声明包含散文件覆盖的目录。路径可以是相对路径或绝对路径；多个
 模组包含同名文件时，后声明的模组覆盖先声明的模组。
-
-项目扩展可能有独立配置文件：
-
-- `dll/er_param.ini`：`world_map_cursor_speed`，范围为 `0.5` 到 `10.0` 的倍率，默认值为 `1.0`。
-- `dll/almighty_kale.ini`：`auto_upgrade_weapons`，默认值为 `true`，控制商店显示的武器强化等级。
-- `dll/itemlot_rate.ini`：`include_weapons`、`include_arrows`、`include_armors`、`include_goods` 和 `[alter_count]` 条目。数量条目格式为 `item_id=drop|loot|all,count`。
 
 ### ModEngine2 TOML 兼容
 
@@ -123,4 +113,3 @@ Ring 进程中跳过。
 - [mimalloc](https://github.com/microsoft/mimalloc)：加载器分配器。
 - [libofdf](https://github.com/Jan200101/libofdf)：Steam 库定位。
 - [LZMA SDK](https://7-zip.org/sdk.html)：公有领域压缩 SDK。
-- [Glorious Merchant Mod](https://github.com/ThomasJClark/elden-ring-glorious-merchant)：`almighty_kale` 功能参考。

@@ -27,9 +27,6 @@ typedef struct {
 
     /* GAME */
     bool skip_intro;
-    bool remove_chromatic_aberration;
-    bool remove_vignette;
-    bool disable_mouse_camera_control;
     bool prevent_regulation_save_write;
     bool patch_mem;
     uint32_t patch_mem_heap_size;

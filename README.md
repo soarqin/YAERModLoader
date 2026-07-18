@@ -4,7 +4,7 @@
 
 YAERModLoader is a Windows mod loader for FromSoftware games. It provides a
 standalone launcher, proxy DLL support, ordered loose-file overrides, and
-external DLL loading.
+external ModEngine-compatible DLL loading.
 
 ## Supported games
 
@@ -24,7 +24,7 @@ Elden Ring.
 
 1. Extract `YAERModLoader.exe`, `YAERModLoader.dll`, and `YAERModLoader.ini`
    into a directory of choice.
-2. Edit `YAERModLoader.ini` and enable the required DLLs or mods.
+2. Edit `YAERModLoader.ini` and enable the required external DLLs or mods.
 3. Run `YAERModLoader.exe`.
 
 The launcher finds the game in its current directory, from an explicit path,
@@ -68,9 +68,6 @@ Dark Souls III currently stops before installing game-specific hooks.
 | Option | Elden Ring | Sekiro | Dark Souls III | Description |
 | --- | --- | --- | --- | --- |
 | `skip_intro` | Yes | Yes | No hooks | Skip the intro logo. |
-| `remove_chromatic_aberration` | Yes | No | No hooks | Remove chromatic aberration. |
-| `remove_vignette` | Yes | No | No hooks | Remove the vignette effect. |
-| `disable_mouse_camera_control` | Yes | No | No hooks | Disable mouse camera control. |
 | `prevent_regulation_save_write` | Yes | Yes | No hooks | Prevent raw modded or oversized regulation data from being written to saves. |
 | `patch_mem` | Yes | Yes | Partial | Use the mimalloc-backed Dantelion allocator. |
 | `patch_mem_heap_size` | Yes | Yes | Partial | Dedicated heap size in MB; `0` uses the default heap size. |
@@ -85,20 +82,12 @@ the current game adapter does not install the corresponding functionality.
 ### DLLs and mods
 
 The `[dlls]` section loads external DLLs at game startup. Paths can be relative
-to the configuration file or absolute. `er_param` must be listed before
-`almighty_kale`, `itemlot_rate`, `autoloot`, or another extension that consumes
-the param API. Project-owned Elden Ring extensions are skipped for non-Elden
-Ring processes when applicable.
+to the configuration file or absolute. Project-owned extension DLLs are no
+longer shipped with this repository.
 
 The `[mods]` section lists directories containing loose-file overrides. Paths
 can be relative to the configuration file or absolute. When multiple mods
 contain the same file, the later declaration overrides the earlier one.
-
-Project extensions may have their own configuration files:
-
-- `dll/er_param.ini`: `world_map_cursor_speed`, a multiplier from `0.5` to `10.0`; `1.0` is the default.
-- `dll/almighty_kale.ini`: `auto_upgrade_weapons`, which defaults to `true` and controls the upgrade level shown by the merchant shops.
-- `dll/itemlot_rate.ini`: `include_weapons`, `include_arrows`, `include_armors`, `include_goods`, and the `[alter_count]` entries. Each alter-count entry uses `item_id=drop|loot|all,count`.
 
 ### ModEngine2 TOML compatibility
 
@@ -133,4 +122,3 @@ See [CHANGELOG.md](CHANGELOG.md).
 - [mimalloc](https://github.com/microsoft/mimalloc): loader allocator.
 - [libofdf](https://github.com/Jan200101/libofdf): Steam library discovery.
 - [LZMA SDK](https://7-zip.org/sdk.html): public-domain compression SDK.
-- [Glorious Merchant Mod](https://github.com/ThomasJClark/elden-ring-glorious-merchant): `almighty_kale` behavior reference.
