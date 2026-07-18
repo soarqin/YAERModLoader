@@ -15,7 +15,7 @@ int main(void) {
     source.style = CS_HREDRAW | CS_VREDRAW;
     source.hInstance = (HINSTANCE)(uintptr_t)0x5678;
     source.hbrBackground = (HBRUSH)(uintptr_t)0x9abc;
-    source.lpszClassName = L"YAERModLoaderWindowFlashTest";
+    source.lpszClassName = L"YAFSMLWindowFlashTest";
     expected = source;
     expected.hbrBackground = black_background;
 

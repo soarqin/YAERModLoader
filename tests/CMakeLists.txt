@@ -40,6 +40,8 @@ set(SMOKE_smoke_dlrf_SOURCES ${CMAKE_SOURCE_DIR}/src/process/dlrf.c)
 set(SMOKE_smoke_rip_scan_SOURCES ${CMAKE_SOURCE_DIR}/src/process/rip_scan.c)
 set(SMOKE_smoke_mod_routing_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/mod.c)
 set(SMOKE_smoke_mod_routing_LIBRARIES shlwapi)
+set(SMOKE_smoke_launcher_game_SOURCES ${CMAKE_SOURCE_DIR}/src/launcher/launch_config.c)
+set(SMOKE_smoke_launcher_game_LIBRARIES inih shlwapi)
 
 foreach(SMOKE_TARGET smoke_vfs smoke_vfs_writable_mt smoke_vfs_generation_mt)
     set(SMOKE_${SMOKE_TARGET}_SOURCES ${CMAKE_SOURCE_DIR}/src/modloader/vfs.c)

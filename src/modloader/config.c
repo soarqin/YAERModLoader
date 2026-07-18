@@ -201,7 +201,7 @@ bool config_load_toml(FILE *f) {
 #endif
 
 void config_init(void *module) {
-    GetEnvironmentVariableW(L"MODLOADER_CONFIG", env_config_path, MAX_PATH);
+    GetEnvironmentVariableW(L"YAFSML_CONFIG", env_config_path, MAX_PATH);
     GetModuleFileNameW(module, modloader_module_path, MAX_PATH);
     PathRemoveFileSpecW(modloader_module_path);
     PathRemoveBackslashW(modloader_module_path);
@@ -215,7 +215,7 @@ void config_load() {
         ? game->modengine_config_name : L"config_eldenring.toml";
     if (env_config_path[0] == L'\0') {
         lstrcpyW(config_path, modloader_module_path);
-        PathAppendW(config_path, L"YAERModLoader.ini");
+        PathAppendW(config_path, L"YAFSML.ini");
 #if !defined(ML_STRIP_MODENGINE_CONFIG)
         if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
             lstrcpyW(config_path, modloader_module_path);
@@ -228,7 +228,7 @@ void config_load() {
             PathAppendW(config_path, env_config_path);
         } else if (PathIsDirectoryW(env_config_path)) {
             lstrcpyW(config_path, env_config_path);
-            PathAppendW(config_path, L"YAERModLoader.ini");
+            PathAppendW(config_path, L"YAFSML.ini");
 #if !defined(ML_STRIP_MODENGINE_CONFIG)
             if (!PathFileExistsW(config_path) || PathIsDirectoryW(config_path)) {
                 lstrcpyW(config_path, env_config_path);

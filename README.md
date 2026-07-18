@@ -1,8 +1,8 @@
-# Yet Another Elden Ring Mod Loader
+# YAFSML
 
 [中文说明](README.zhCN.md)
 
-YAERModLoader is a Windows mod loader for FromSoftware games. It provides a
+YAFSML (Yet Another FromSoftware Mod Loader) is a Windows mod loader for FromSoftware games. It provides a
 standalone launcher, proxy DLL support, ordered loose-file overrides, and
 external ModEngine-compatible DLL loading.
 
@@ -11,21 +11,22 @@ external ModEngine-compatible DLL loading.
 | Game | Launcher target | Status |
 | --- | --- | --- |
 | Elden Ring | `eldenring` | Stable |
-| Sekiro: Shadows Die Twice | `sekiro` | Stable adapter; field validation is still required for some capabilities |
-| Dark Souls III | `darksouls3` | Experimental adapter; Arxan neutralization is not included |
+| Sekiro: Shadows Die Twice | `sekiro` | Stable |
+| Dark Souls III | `darksouls3` | Experimental adapter; dearxan is not required or scheduled |
 
 Elden Ring remains the primary target. The `sekiro` target is selected with
-`--launch-target sekiro`. Without an explicit target, the launcher starts
-Elden Ring.
+`--launch-target sekiro`. When `--launch-target` is omitted, the launcher reads
+the top-level `game=...` value from `YAFSML.ini`; if the value is absent, it
+starts Elden Ring. An explicit `--launch-target` always takes precedence.
 
 ## Installation
 
 ### Standalone launcher
 
-1. Extract `YAERModLoader.exe`, `YAERModLoader.dll`, and `YAERModLoader.ini`
+1. Extract `YAFSML.exe`, `YAFSML.dll`, and `YAFSML.ini`
    into a directory of choice.
-2. Edit `YAERModLoader.ini` and enable the required external DLLs or mods.
-3. Run `YAERModLoader.exe`.
+2. Edit `YAFSML.ini` and enable the required external DLLs or mods.
+3. Run `YAFSML.exe`.
 
 The launcher finds the game in its current directory, from an explicit path,
 or through the Steam library. It starts the game suspended, injects the loader
@@ -33,8 +34,8 @@ DLL, and resumes the game unless `--suspend` is used.
 
 ### Proxy DLL
 
-1. Put `YAERModLoader.dll` and `YAERModLoader.ini` in the game directory.
-2. Rename `YAERModLoader.dll` to `dxgi.dll`, `dinput8.dll`, or `winhttp.dll`.
+1. Put `YAFSML.dll` and `YAFSML.ini` in the game directory.
+2. Rename `YAFSML.dll` to `dxgi.dll`, `dinput8.dll`, or `winhttp.dll`.
 3. Start the game without Easy Anti-Cheat.
 
 For a direct `eldenring.exe` launch, create `steam_appid.txt` beside the game
@@ -43,8 +44,8 @@ automatically for other launcher targets.
 
 ## Configuration
 
-The complete template is `src/YAERModLoader.ini` and is copied into release
-packages as `YAERModLoader.ini`. Boolean values accept `true`, `yes`, `on`, or
+The complete template is `src/YAFSML.ini` and is copied into release
+packages as `YAFSML.ini`. Boolean values accept `true`, `yes`, `on`, or
 `1`; other values are false.
 
 ### Global options
@@ -54,6 +55,7 @@ These options are outside a section:
 | Option | Default | Description |
 | --- | --- | --- |
 | `debug` | `0` | Open a debug console. |
+| `game` | `eldenring` | Select the standalone launcher's game when `--launch-target` is omitted. Accepted values include `eldenring`, `sekiro`, `darksouls3`, and their aliases. |
 | `log_level` | `info` | Minimum log level: `trace`, `debug`, `info`, `warn`, `error`, or `off`. |
 | `cpu_affinity` | `0` | Select the Elden Ring process CPU affinity strategy. Values `1`–`4` select the documented core subsets. |
 | `reset_achievements_on_new_game` | `0` | Reset Elden Ring achievements when a new game starts. |
@@ -63,9 +65,8 @@ These options are outside a section:
 
 The section must match the current executable: `[elden_ring]` for Elden Ring,
 `[sekiro]` for Sekiro, or `[darksouls3]` for the experimental adapter. Dark
-Souls III installs the shared host capabilities but does not include dearxan or
-any equivalent Arxan neutralization, so individual hooks may be blocked or
-restored by the game and must be confirmed in the status log.
+Souls III installs the shared host capabilities without dearxan. Arxan
+neutralization is not required and is not currently scheduled.
 
 | Option | Elden Ring | Sekiro | Dark Souls III | Description |
 | --- | --- | --- | --- | --- |
@@ -78,8 +79,8 @@ restored by the game and must be confirmed in the status log.
 | `replace_save_filename` | Yes | Yes | Experimental | Replace the save filename; a leading dot replaces only the extension. |
 | `replace_seamless_coop_save_filename` | Yes | No | No | Replace the Seamless Co-op `.co2` filename. |
 
-Dark Souls III capabilities are experimental until their signatures and at
-least one real hook installation are validated against a supported game build.
+Dark Souls III remains experimental pending broader long-running stability
+validation.
 
 ### DLLs and mods
 
@@ -93,9 +94,9 @@ contain the same file, the later declaration overrides the earlier one.
 
 ### ModEngine2 TOML compatibility
 
-If `YAERModLoader.ini` is absent, the loader looks for the game-specific
+If `YAFSML.ini` is absent, the loader looks for the game-specific
 ModEngine2 file: `config_eldenring.toml`, `config_sekiro.toml`, or
-`config_darksouls3.toml`. The `-c` launcher option or `MODLOADER_CONFIG`
+`config_darksouls3.toml`. The `-c` launcher option or `YAFSML_CONFIG`
 environment variable can select another configuration path.
 
 ## Launcher options
@@ -108,6 +109,8 @@ environment variable can select another configuration path.
     --modengine-dll <path> Compatibility alias for --modloader-dll.
 -s, --suspend               Leave the game suspended after injection.
 ```
+
+`--launch-target` overrides the top-level `game=...` setting in `YAFSML.ini`.
 
 ## Changelog
 

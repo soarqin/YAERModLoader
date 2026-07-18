@@ -14,7 +14,7 @@ add_global_options(C_STANDARD 11)
 
 include(ProjectMacros)
 
-project(YAERModLoader)
+project(YAFSML)
 
 add_subdirectory(deps)
 # add_subdirectory(tools)

@@ -8,6 +8,7 @@
 
 #include "steam/app.h"
 #include "game/game.h"
+#include "launcher/launch_config.h"
 #include "log.h"
 
 #include <getopt.h>
@@ -25,6 +26,7 @@ static wchar_t full_config_path[MAX_PATH] = L"";
 static wchar_t full_modengine_dll[MAX_PATH] = L"";
 static bool suspend = false;
 static const ml_game_descriptor_t *launch_game = NULL;
+static bool launch_game_explicit = false;
 
 bool parse_args(const int argc, wchar_t *argv[]) {
     const struct option options[] = {
@@ -45,6 +47,7 @@ bool parse_args(const int argc, wchar_t *argv[]) {
                     ML_LOG_ERROR(L"launcher", L"unsupported launch target: %ls", optarg);
                     return false;
                 }
+                launch_game_explicit = true;
                 break;
             case 'p':
                 lstrcpynW(full_game_path, optarg, MAX_PATH);
@@ -157,7 +160,7 @@ static bool inject_dll(HANDLE process, const wchar_t *dll_path) {
     const HMODULE remote_module = find_remote_module(process, PathFindFileNameW(dll_path));
     const HMODULE local_module = LoadLibraryExW(dll_path, NULL, DONT_RESOLVE_DLL_REFERENCES);
     const FARPROC local_init = local_module != NULL
-        ? GetProcAddress(local_module, "YAERModLoaderInit") : NULL;
+        ? GetProcAddress(local_module, "YAFSMLInit") : NULL;
     if (remote_module == NULL || local_init == NULL) {
         if (local_module != NULL) FreeLibrary(local_module);
         return false;
@@ -231,7 +234,7 @@ bool decompress_embedded_dll_to(char *filepath) {
     }
 
     GetTempPathW(MAX_PATH, target_filename);
-    PathAppendW(target_filename, L"YAERModLoader.dll");
+    PathAppendW(target_filename, L"YAFSML.dll");
     CloseHandle(f);
     f = CreateFileW(target_filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (f == INVALID_HANDLE_VALUE) {
@@ -261,9 +264,30 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
     PROCESS_INFORMATION pi = {0};
     wchar_t dll_path[MAX_PATH];
     wchar_t game_folder[MAX_PATH];
+    wchar_t launcher_dir[MAX_PATH];
+    wchar_t config_path[MAX_PATH];
 
-    launch_game = ml_game_by_id(ML_GAME_ELDEN_RING);
     if (!parse_args(__argc, __wargv)) return -1;
+    if (!launch_game_explicit) {
+        const ml_game_descriptor_t *config_game = NULL;
+        wchar_t invalid_key[64];
+        ml_launcher_game_config_result_t config_result;
+        if (GetModuleFileNameW(hInstance, launcher_dir, MAX_PATH) == 0) return -1;
+        PathRemoveFileSpecW(launcher_dir);
+        if (!ml_launcher_resolve_config_path(config_path, launcher_dir,
+                                              full_config_path[0] != L'\0' ? full_config_path : NULL)) {
+            return -1;
+        }
+        config_result = PathFileExistsW(config_path) && !PathIsDirectoryW(config_path)
+            ? ml_launcher_game_from_ini_file(config_path, &config_game,
+                                             invalid_key, sizeof(invalid_key) / sizeof(invalid_key[0]))
+            : ML_LAUNCHER_GAME_CONFIG_NOT_SPECIFIED;
+        if (config_result == ML_LAUNCHER_GAME_CONFIG_INVALID) {
+            ML_LOG_ERROR(L"launcher", L"unsupported game in `%ls`: %ls", config_path, invalid_key);
+            return -1;
+        }
+        launch_game = ml_launcher_select_game(NULL, config_game);
+    }
     if (full_modengine_dll[0] == L'\0' || !PathFileExistsW(full_modengine_dll) || PathIsDirectoryW(full_modengine_dll)) {
         /*if (decompress_embedded_dll_to(dll_path)) {
             if (full_config_path[0] == L'\0') {
@@ -273,7 +297,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
         } else*/ {
             GetModuleFileNameW(hInstance, dll_path, MAX_PATH);
             PathRemoveFileSpecW(dll_path);
-            PathAppendW(dll_path, L"YAERModLoader.dll");
+            PathAppendW(dll_path, L"YAFSML.dll");
         }
     } else {
         if (StrChrW(full_modengine_dll, L':') == NULL && full_modengine_dll[0] != L'\\' && full_modengine_dll[0] != L'/') {
@@ -302,7 +326,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
     }
     lstrcpyW(game_folder, full_game_path);
     PathRemoveFileSpecW(game_folder);
-    if (full_config_path[0] != L'\0') SetEnvironmentVariableW(L"MODLOADER_CONFIG", full_config_path);
+    if (full_config_path[0] != L'\0') SetEnvironmentVariableW(L"YAFSML_CONFIG", full_config_path);
     {
         /* set SteamAppId here, to make sure the game can be launched w/o EAC */
         wchar_t app_id_str[16];
@@ -316,9 +340,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
         wchar_t game_key[32];
         MultiByteToWideChar(CP_ACP, 0, launch_game->key, -1, game_key, 32);
         game_key[31] = L'\0';
-        SetEnvironmentVariableW(L"MODLOADER_GAME", game_key);
+        SetEnvironmentVariableW(L"YAFSML_GAME", game_key);
     }
-    SetEnvironmentVariableW(L"MODLOADER_REMOTE_INIT", L"1");
+    SetEnvironmentVariableW(L"YAFSML_REMOTE_INIT", L"1");
     si.cb = sizeof(si);
     BOOL success = CreateProcessW(full_game_path, NULL, NULL, NULL, FALSE,
                                   CREATE_SUSPENDED, NULL, game_folder, &si, &pi);

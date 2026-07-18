@@ -20,7 +20,7 @@ bool ml_game_context_init(void) {
     current_game = ml_game_detect_current_process();
     if (current_game == NULL) return false;
 
-    length = GetEnvironmentVariableW(L"MODLOADER_GAME", expected, 32);
+    length = GetEnvironmentVariableW(L"YAFSML_GAME", expected, 32);
     if (length != 0 && (length >= 32 || ml_game_by_key(expected) != current_game)) {
         current_game = NULL;
         return false;

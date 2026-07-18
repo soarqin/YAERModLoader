@@ -1,8 +1,8 @@
-# Yet Another Elden Ring Mod Loader
+# YAFSML
 
 [README in English](README.md)
 
-YAERModLoader 是面向 Windows 的 FromSoftware 游戏模组加载器，提供独立
+YAFSML（Yet Another FromSoftware Mod Loader）是面向 Windows 的 FromSoftware 游戏模组加载器，提供独立
 启动器、代理 DLL、按声明顺序生效的散文件覆盖，以及兼容 ModEngine 的外部
 DLL 加载。
 
@@ -11,27 +11,28 @@ DLL 加载。
 | 游戏 | 启动目标 | 状态 |
 | --- | --- | --- |
 | Elden Ring | `eldenring` | 稳定支持 |
-| Sekiro: Shadows Die Twice | `sekiro` | 稳定适配器，部分能力仍需现场验证 |
+| Sekiro: Shadows Die Twice | `sekiro` | 稳定支持 |
 | Dark Souls III | `darksouls3` | 实验性适配器，不包含 Arxan 中和 |
 
 Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；未指定
-启动目标时默认启动 Elden Ring。
+`--launch-target` 时，启动器读取 `YAFSML.ini` 顶层的 `game=...`。未配置该值时
+默认启动 Elden Ring；显式启动目标始终优先。
 
 ## 安装
 
 ### 独立启动器
 
-1. 将 `YAERModLoader.exe`、`YAERModLoader.dll` 和 `YAERModLoader.ini` 解压到任意目录。
-2. 修改 `YAERModLoader.ini`，启用所需的外部 DLL 或模组。
-3. 运行 `YAERModLoader.exe`。
+1. 将 `YAFSML.exe`、`YAFSML.dll` 和 `YAFSML.ini` 解压到任意目录。
+2. 修改 `YAFSML.ini`，启用所需的外部 DLL 或模组。
+3. 运行 `YAFSML.exe`。
 
 启动器会依次尝试当前目录、显式路径和 Steam 库定位游戏。启动游戏后，启动器
 会先保持主进程挂起，注入加载器 DLL；除非指定 `--suspend`，否则随后恢复游戏。
 
 ### 代理 DLL
 
-1. 将 `YAERModLoader.dll` 和 `YAERModLoader.ini` 放入游戏目录。
-2. 将 `YAERModLoader.dll` 重命名为 `dxgi.dll`、`dinput8.dll` 或 `winhttp.dll`。
+1. 将 `YAFSML.dll` 和 `YAFSML.ini` 放入游戏目录。
+2. 将 `YAFSML.dll` 重命名为 `dxgi.dll`、`dinput8.dll` 或 `winhttp.dll`。
 3. 在不加载 Easy Anti-Cheat 的情况下启动游戏。
 
 直接运行 `eldenring.exe` 时，可在游戏可执行文件旁创建 `steam_appid.txt`，写入
@@ -39,8 +40,8 @@ Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；
 
 ## 配置
 
-完整模板位于 `src/YAERModLoader.ini`，发布包中的文件名为
-`YAERModLoader.ini`。布尔值支持 `true`、`yes`、`on` 和 `1`；其他值均视为 false。
+完整模板位于 `src/YAFSML.ini`，发布包中的文件名为
+`YAFSML.ini`。布尔值支持 `true`、`yes`、`on` 和 `1`；其他值均视为 false。
 
 ### 全局选项
 
@@ -49,6 +50,7 @@ Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `debug` | `0` | 打开调试控制台。 |
+| `game` | `eldenring` | 未指定 `--launch-target` 时选择独立启动器的游戏。可用值包括 `eldenring`、`sekiro`、`darksouls3` 及其别名。 |
 | `log_level` | `info` | 最低日志级别：`trace`、`debug`、`info`、`warn`、`error` 或 `off`。 |
 | `cpu_affinity` | `0` | 选择 Elden Ring 进程的 CPU 亲和性策略。`1`–`4` 对应模板中的核心子集。 |
 | `reset_achievements_on_new_game` | `0` | Elden Ring 开始新游戏时重置成就。 |
@@ -58,8 +60,7 @@ Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；
 
 section 名称必须与当前可执行文件匹配：Elden Ring 使用 `[elden_ring]`，Sekiro
 使用 `[sekiro]`，Dark Souls III 实验性适配器使用 `[darksouls3]`。Dark Souls III
-会安装共享 Host 能力，但不包含 dearxan 或等效 Arxan 中和；游戏可能阻止或恢复
-部分 Hook，实际状态必须以日志为准。
+会安装共享 Host 能力。dearxan 不是必要条件，当前也未安排实现。
 
 | 选项 | Elden Ring | Sekiro | Dark Souls III | 说明 |
 | --- | --- | --- | --- | --- |
@@ -72,7 +73,7 @@ section 名称必须与当前可执行文件匹配：Elden Ring 使用 `[elden_r
 | `replace_save_filename` | 支持 | 支持 | 实验性 | 替换存档文件名；以点号开头时只替换扩展名。 |
 | `replace_seamless_coop_save_filename` | 支持 | 不支持 | 不支持 | 替换 Seamless Co-op 的 `.co2` 存档文件名。 |
 
-Dark Souls III 能力在完成目标版本签名验证和至少一次实际 Hook 安装验证前均保持实验性。
+Dark Souls III 在完成更广泛的长期稳定性验证前保持实验性。
 
 ### DLL 与模组
 
@@ -84,9 +85,9 @@ Dark Souls III 能力在完成目标版本签名验证和至少一次实际 Hook
 
 ### ModEngine2 TOML 兼容
 
-未找到 `YAERModLoader.ini` 时，加载器会查找对应游戏的 ModEngine2 文件：
+未找到 `YAFSML.ini` 时，加载器会查找对应游戏的 ModEngine2 文件：
 `config_eldenring.toml`、`config_sekiro.toml` 或 `config_darksouls3.toml`。
-启动器的 `-c` 选项或 `MODLOADER_CONFIG` 环境变量可指定其他配置路径。
+启动器的 `-c` 选项或 `YAFSML_CONFIG` 环境变量可指定其他配置路径。
 
 ## 启动器选项
 
@@ -98,6 +99,8 @@ Dark Souls III 能力在完成目标版本签名验证和至少一次实际 Hook
     --modengine-dll <path> --modloader-dll 的兼容别名。
 -s, --suspend               注入后保持游戏挂起。
 ```
+
+`--launch-target` 会覆盖 `YAFSML.ini` 顶层的 `game=...` 设置。
 
 ## 更新记录
 

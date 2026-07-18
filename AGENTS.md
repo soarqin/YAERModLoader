@@ -1,10 +1,10 @@
-# AGENTS.md — YAERModLoader
+# AGENTS.md — YAFSML
 
 ## What this repo is
 
-A Windows-only C11 mod loader for FromSoftware games (`YAERModLoader`). Elden Ring is stable, Sekiro has a stable adapter with remaining field validation, and Dark Souls III is an experimental registry target without complete game-specific hooks. Produces two artifacts:
-- `YAERModLoader.exe` — standalone launcher (`modloader_launcher`, WIN32 subsystem)
-- `YAERModLoader.dll` — injected DLL (`modloader_dll`, proxy for `dxgi.dll` / `dinput8.dll` / `winhttp.dll`)
+A Windows-only C11 mod loader for FromSoftware games (`YAFSML`). Elden Ring and Sekiro are stable; Dark Souls III is experimental. Produces two artifacts:
+- `YAFSML.exe` — standalone launcher (`modloader_launcher`, WIN32 subsystem)
+- `YAFSML.dll` — injected DLL (`modloader_dll`, proxy for `dxgi.dll` / `dinput8.dll` / `winhttp.dll`)
 
 When comparing or porting behavior from me3, use `docs/me3-repo.md` as the source of truth for the repository, branch, and synced commit. Do not infer the comparison baseline from whichever me3 working tree happens to be checked out. The cache dictionary system intentionally follows the performance optimization in the documented me3 fork; treat it as the project's chosen me3 implementation, not as a parity difference from the original repository.
 
@@ -52,7 +52,7 @@ src/
   common/         khash_wstr.h — wide-string hash table adapter (shared header, no .c)
   game/           Game registry, descriptors, aliases, and current-process context
   modloader/      Core DLL: config, mod loading, file cache, game hooks, proxy stubs
-    patches/      Shared host capabilities plus Elden Ring and Sekiro adapters
+    patches/      Shared host capabilities plus Elden Ring, Sekiro, and Dark Souls III adapters
     proxy/        Proxy DLL stubs for dxgi/dinput8/winhttp
   launcher/       Standalone EXE: injects the DLL into the game process
   steam/          Steam API helpers (locate game folder via VDF; achievement reset support)
@@ -85,7 +85,7 @@ Always `#define kcalloc/kmalloc/krealloc/kfree` before `#include "khash.h"` in p
 
 **Signature scanning:** Game function addresses are found at runtime via byte-pattern scanning (`sig_scan`). Patterns use `??` for wildcard bytes. Offsets in comments (e.g. `/* 0x5B8 for version < 1.12 */`) track version-specific differences.
 
-**Version string:** Defined once in `src/CMakeLists.txt` as `YAERMODLOADER_VERSION`. Update there only.
+**Version string:** Defined once in `src/CMakeLists.txt` as `YAFSML_VERSION`. Update there only.
 
 **Unicode:** All file paths use `wchar_t`. MSVC `/utf-8` flag is set globally. Non-MSVC targets require `-municode` linker flag (already set in CMakeLists).
 
@@ -100,7 +100,7 @@ Tests are only built when `BUILD_TESTING=ON` is passed to CMake. Test executable
 Releases are automated via `.github/workflows/release.yml`. Before tagging a release:
 
 1. **Update `CHANGELOG.md`** — add a new `#### X.Y.Z` section at the top listing all changes since the previous release.
-2. **Update `src/CMakeLists.txt`** — change the `YAERMODLOADER_VERSION` value to match.
+2. **Update `src/CMakeLists.txt`** — change the `YAFSML_VERSION` value to match.
 3. **Verify consistency** — the tag, `src/CMakeLists.txt`, and `CHANGELOG.md` must all carry the same version string.
 4. **Tag and push** — use the format `vX.Y.Z` (e.g. `v0.5.0`). Pushing the tag triggers the workflow.
 

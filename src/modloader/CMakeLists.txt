@@ -1,5 +1,5 @@
 enable_language(ASM_NASM)
-project(modloader LANGUAGES C ASM_NASM VERSION "${YAERMODLOADER_VERSION}")
+project(modloader LANGUAGES C ASM_NASM VERSION "${YAFSML_VERSION}")
 
 set(CMAKE_ASM_NASM_OBJECT_FORMAT win64)
 
@@ -7,14 +7,14 @@ option(ML_STRIP_MODENGINE_CONFIG_SUPPORT "Strip ModEngine config support" OFF)
 
 # dll target
 generate_version_info(dll_res_files
-    NAME "YAERModLoader"
+    NAME "YAFSML"
     VERSION_MAJOR ${PROJECT_VERSION_MAJOR}
     VERSION_MINOR ${PROJECT_VERSION_MINOR}
     VERSION_PATCH ${PROJECT_VERSION_PATCH}
     VERSION_REVISION ${PROJECT_VERSION_TWEAK}
-    ORIGINAL_FILENAME "YAERModLoader.dll"
+    ORIGINAL_FILENAME "YAFSML.dll"
     COMPANY_NAME "Soar Qin"
-    FILE_DESCRIPTION "Yet Another Elden Ring Mod Loader")
+    FILE_DESCRIPTION "Yet Another FromSoftware Mod Loader")
 
 add_project(modloader_dll SHARED
     modloader.c
@@ -56,7 +56,7 @@ add_project(modloader_dll SHARED
 
     LANGUAGES C ASM_NASM
 
-    INLINE_TARGET OUTPUT_NAME "YAERModLoader" NO_PREFIX FOLDER app
+    INLINE_TARGET OUTPUT_NAME "YAFSML" NO_PREFIX FOLDER app
 )
 
 target_include_directories(modloader_dll PRIVATE ..)

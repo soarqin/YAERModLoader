@@ -45,7 +45,7 @@ static void modloader_init(void) {
     extdlls_load_all();
 }
 
-__declspec(dllexport) DWORD WINAPI YAERModLoaderInit(LPVOID parameter) {
+__declspec(dllexport) DWORD WINAPI YAFSMLInit(LPVOID parameter) {
     UNREFERENCED_PARAMETER(parameter);
     if (MH_Initialize() != MH_OK) return 0;
     modloader_init();
@@ -66,7 +66,7 @@ BOOL APIENTRY DllMain(const HMODULE module, const DWORD ul_reason_for_call, LPVO
             module_instance = module;
             {
                 wchar_t remote_init[2];
-                if (GetEnvironmentVariableW(L"MODLOADER_REMOTE_INIT", remote_init, 2) != 0) break;
+                if (GetEnvironmentVariableW(L"YAFSML_REMOTE_INIT", remote_init, 2) != 0) break;
             }
             {
                 if (MH_Initialize() != MH_OK) break;
