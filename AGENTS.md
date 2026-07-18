@@ -2,7 +2,7 @@
 
 ## What this repo is
 
-A Windows-only C11 mod loader for Elden Ring (`YAERModLoader`). Produces two primary artifacts:
+A Windows-only C11 mod loader for FromSoftware games (`YAERModLoader`). Elden Ring is stable, Sekiro has a stable adapter with remaining field validation, and Dark Souls III is an experimental registry target without complete game-specific hooks. Produces two primary artifacts:
 - `YAERModLoader.exe` — standalone launcher (`modloader_launcher`, WIN32 subsystem)
 - `YAERModLoader.dll` — injected DLL (`modloader_dll`, proxy for `dxgi.dll` / `dinput8.dll` / `winhttp.dll`)
 
@@ -53,8 +53,9 @@ Or build the `RUN_TESTS` target in Visual Studio.
 ```
 src/
   common/         khash_wstr.h — wide-string hash table adapter (shared header, no .c)
+  game/           Game registry, descriptors, aliases, and current-process context
   modloader/      Core DLL: config, mod loading, file cache, game hooks, proxy stubs
-    patches/      Game-specific patches (common + eldenring)
+    patches/      Shared host capabilities plus Elden Ring and Sekiro adapters
     proxy/        Proxy DLL stubs for dxgi/dinput8/winhttp
   launcher/       Standalone EXE: injects the DLL into the game process
   steam/          Steam API helpers (locate game folder via VDF; ISteamApps::GetCurrentGameLanguage)
@@ -70,10 +71,8 @@ deps/
   getopt/         wingetopt — command-line argument parsing
   lzma/           LZMA SDK (currently commented out in launcher link)
 tests/
-  smoke_filecache.c   Tests khash wstr table used by filecache
-  smoke_no_dup_loot.c Tests khash int map used by no_dup_loot
-  smoke_param.c       Tests khash wstr table used by param lookup
-  test_common.h       Minimal assert macros (EXPECT_TRUE, EXPECT_EQ, EXPECT_STREQ_W, etc.)
+  smoke_*.c       Smoke and host tests for VFS, hooks, lifecycle, ABI, allocators, config routing, saves, extensions, and binary analysis
+  test_common.h   Minimal assert macros (EXPECT_TRUE, EXPECT_EQ, EXPECT_STREQ_W, etc.)
 ```
 
 ## Key conventions
@@ -102,9 +101,9 @@ Always `#define kcalloc/kmalloc/krealloc/kfree` before `#include "khash.h"` in p
 
 ## Tests
 
-Tests are smoke tests only — they test the hash table logic in isolation, not the full DLL. They compile against `klib` headers and `src/common/`. No mocking framework; failures print to stderr and return non-zero.
+Tests are lightweight smoke and host tests rather than in-game integration tests. They cover VFS routing and concurrency, Win32 Hook behavior, save mapping, lifecycle and rollback, ABI layouts, allocators, extensions, and binary-analysis helpers. No mocking framework is used; failures print to stderr and return non-zero.
 
-Tests are only built when `BUILD_TESTING=ON` is passed to CMake. Each test file is conditionally compiled only if the `.c` file exists (CMake checks `if(EXISTS ...)`), so adding a new test file is enough — no CMakeLists edit needed.
+Tests are only built when `BUILD_TESTING=ON` is passed to CMake. Test executables are discovered from `tests/smoke_*.c`; tests that need production sources, libraries, or compile definitions must also be mapped in `tests/CMakeLists.txt`.
 
 ## Release process
 
