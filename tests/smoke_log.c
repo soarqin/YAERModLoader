@@ -19,12 +19,6 @@ int main(void) {
     EXPECT_TRUE(ml_log_enabled(ML_LOG_LEVEL_ERROR));
     ml_log_set_level(ML_LOG_LEVEL_OFF);
     EXPECT_TRUE(!ml_log_enabled(ML_LOG_LEVEL_ERROR));
-    ml_log_set_level(ML_LOG_LEVEL_INFO);
-    EXPECT_TRUE(ml_log_fwprintf(stderr, L"WARNING: compatibility warning\n") > 0);
-    EXPECT_TRUE(ml_log_fwprintf(stderr, L"DEBUG: hidden debug line\n") == 0);
-    EXPECT_TRUE(ml_log_fprintf(stderr, "WARNING: narrow compatibility warning\n") > 0);
-    EXPECT_TRUE(ml_log_fprintf(stderr, "DEBUG: hidden narrow debug line\n") == 0);
-
     printf("smoke_log: all tests passed\n");
     return 0;
 }

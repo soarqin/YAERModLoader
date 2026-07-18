@@ -53,6 +53,19 @@ static vfs_writable_entry_t *writable_entries;
 static size_t writable_count;
 static size_t writable_capacity;
 
+static const wchar_t *vfs_strip_path_prefix(const wchar_t *path, const wchar_t *prefix) {
+    if (path == NULL || prefix == NULL) return NULL;
+    while (*prefix != L'\0') {
+        bool path_separator = *path == L'\\' || *path == L'/';
+        bool prefix_separator = *prefix == L'\\' || *prefix == L'/';
+        if (*path == L'\0' || (path_separator != prefix_separator) ||
+            (!path_separator && CompareStringOrdinal(path, 1, prefix, 1, TRUE) != CSTR_EQUAL)) return NULL;
+        path++;
+        prefix++;
+    }
+    return *path == L'\0' || *path == L'\\' || *path == L'/' ? path : NULL;
+}
+
 static wchar_t *vfs_join(const wchar_t *left, const wchar_t *right) {
     size_t left_len = wcslen(left);
     size_t right_len = wcslen(right);
@@ -486,13 +499,11 @@ bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid) {
 }
 
 bool vfs_virtual_to_uid_prefixed(const wchar_t *path, const wchar_t *game_root, wchar_t **uid) {
-    size_t root_length;
+    const wchar_t *relative;
     if (uid != NULL) *uid = NULL;
     if (path == NULL || game_root == NULL || uid == NULL) return false;
-    root_length = wcslen(game_root);
-    if (CompareStringOrdinal(path, (int)root_length, game_root, (int)root_length, TRUE) != CSTR_EQUAL ||
-        (path[root_length] != L'\0' && path[root_length] != L'\\' && path[root_length] != L'/')) return false;
-    return vfs_virtual_to_uid(path + root_length, uid);
+    relative = vfs_strip_path_prefix(path, game_root);
+    return relative != NULL && vfs_virtual_to_uid(relative, uid);
 }
 
 const wchar_t *vfs_uid_to_path(const wchar_t *uid) {
@@ -522,12 +533,8 @@ const wchar_t *vfs_lookup_prefixed(const wchar_t *path, const wchar_t *game_root
 
 const wchar_t *vfs_lookup_prefixed_domain(const wchar_t *path, const wchar_t *game_root,
                                           vfs_lookup_domain_t domain) {
-    size_t root_length;
-    if (path == NULL || game_root == NULL) return NULL;
-    root_length = wcslen(game_root);
-    if (CompareStringOrdinal(path, (int)root_length, game_root, (int)root_length, TRUE) != CSTR_EQUAL ||
-        (path[root_length] != L'\0' && path[root_length] != L'\\' && path[root_length] != L'/')) return NULL;
-    return vfs_lookup_domain(path + root_length, domain);
+    const wchar_t *relative = vfs_strip_path_prefix(path, game_root);
+    return relative == NULL ? NULL : vfs_lookup_domain(relative, domain);
 }
 
 size_t vfs_entry_count(void) {
@@ -577,6 +584,12 @@ const wchar_t *vfs_route_read_path(const wchar_t *path, DWORD desired_access, DW
         creation_disposition == CREATE_NEW || creation_disposition == CREATE_ALWAYS ||
         creation_disposition == TRUNCATE_EXISTING) return NULL;
     return vfs_lookup_domain(path, VFS_LOOKUP_DISK_WIDE);
+}
+
+const wchar_t *vfs_route_read_path_prefixed(const wchar_t *path, const wchar_t *game_root,
+                                            DWORD desired_access, DWORD creation_disposition) {
+    const wchar_t *relative = vfs_strip_path_prefix(path, game_root);
+    return relative == NULL ? NULL : vfs_route_read_path(relative, desired_access, creation_disposition);
 }
 
 const wchar_t *vfs_route_read_path_a(const char *path, DWORD desired_access, DWORD creation_disposition) {

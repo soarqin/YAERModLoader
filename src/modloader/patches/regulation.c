@@ -12,7 +12,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <string.h>
 
 typedef struct dl_vector_ptr_msvc2015_s {
@@ -53,7 +52,7 @@ static void __cdecl regulation_step_idle_hooked(void *this_ptr, fd4_time_t *time
 
     allocator = dl_allocator_for_object(raw);
     if (allocator == NULL) {
-        fwprintf(stderr, L"WARNING: [regulation] raw buffer detached but allocator was not found\n");
+        ML_LOG_WARN(L"regulation", L"raw buffer detached but allocator was not found");
         return;
     }
     dl_allocator_dealloc(allocator, raw);

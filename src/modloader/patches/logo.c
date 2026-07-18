@@ -17,8 +17,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <stdio.h>
-
 bool ml_logo_fd4_redirect(void **step_slot, void *next_step) {
     if (step_slot == NULL || next_step == NULL) return false;
     step_slot[0] = next_step;
@@ -76,7 +74,7 @@ bool ml_logo_skip_install(const ml_game_descriptor_t *game) {
                              : L"SPRJ TitleStep redirect SIGNATURE_NOT_FOUND");
             return result;
         default:
-            fwprintf(stderr, L"WARNING: [logo] strategy UNSUPPORTED for %ls\n", game->title);
+            ML_LOG_WARN(L"logo", L"strategy UNSUPPORTED for %ls", game->title);
             return false;
     }
 }

@@ -18,9 +18,9 @@
 #include <stdint.h>
 
 #include "config.h"
+#include "log.h"
 
 static wchar_t game_folder[MAX_PATH];
-static int game_folder_length;
 
 int mod_count = 0;
 
@@ -28,7 +28,6 @@ void mods_init() {
     GetModuleFileNameW(NULL, game_folder, MAX_PATH);
     PathRemoveFileSpecW(game_folder);
     PathRemoveBackslashW(game_folder);
-    game_folder_length = lstrlenW(game_folder);
 
     vfs_init();
 }
@@ -50,15 +49,15 @@ void mods_add(const char *name, const wchar_t *path) {
         config_full_path(base_path, path);
     }
     if (!PathFileExistsW(base_path) || !PathIsDirectoryW(base_path)) {
-        fwprintf(stderr, L"Cannot find mod %hs from directory `%ls`\n", name, base_path);
+        ML_LOG_ERROR(L"mod", L"cannot find mod %hs in directory `%ls`", name, base_path);
         return;
     }
     if (!vfs_add_package(base_path)) {
-        fwprintf(stderr, L"Cannot scan mod %hs from directory `%ls`\n", name, base_path);
+        ML_LOG_ERROR(L"mod", L"cannot scan mod %hs in directory `%ls`", name, base_path);
         return;
     }
     mod_count++;
-    fwprintf(stdout, L"Added mod %hs from `%ls`\n", name, base_path);
+    ML_LOG_INFO(L"mod", L"added mod %hs from `%ls`", name, base_path);
 }
 
 int mods_count() {
@@ -87,9 +86,7 @@ const wchar_t *mods_file_route_read(const wchar_t *path, DWORD desired_access, D
     if (mod_count <= 0 || path == NULL) return NULL;
     uid_path = vfs_uid_to_path(path);
     if (uid_path != NULL) return uid_path;
-    if (StrCmpNIW(path, game_folder, game_folder_length) != 0 ||
-        (path[game_folder_length] != L'\0' && path[game_folder_length] != L'\\' && path[game_folder_length] != L'/')) return NULL;
-    return vfs_route_read_path(path + game_folder_length, desired_access, creation_disposition);
+    return vfs_route_read_path_prefixed(path, game_folder, desired_access, creation_disposition);
 }
 
 const wchar_t *mods_file_route_read_a(const char *path, DWORD desired_access, DWORD creation_disposition) {

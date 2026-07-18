@@ -43,6 +43,8 @@ bool vfs_virtual_to_uid(const wchar_t *path, wchar_t **uid);
 bool vfs_virtual_to_uid_prefixed(const wchar_t *path, const wchar_t *game_root, wchar_t **uid);
 const wchar_t *vfs_uid_to_path(const wchar_t *uid);
 const wchar_t *vfs_route_read_path(const wchar_t *path, DWORD desired_access, DWORD creation_disposition);
+const wchar_t *vfs_route_read_path_prefixed(const wchar_t *path, const wchar_t *game_root,
+                                            DWORD desired_access, DWORD creation_disposition);
 const wchar_t *vfs_route_read_path_a(const char *path, DWORD desired_access, DWORD creation_disposition);
 const wchar_t *vfs_route_writable_path(const wchar_t *path);
 void vfs_recursion_guard_enter(void);

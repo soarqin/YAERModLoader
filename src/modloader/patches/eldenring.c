@@ -13,6 +13,7 @@
 
 #include "modloader/config.h"
 #include "modloader/dl_allocator.h"
+#include "log.h"
 #include "modloader/mimalloc_allocator.h"
 #include "modloader/mod.h"
 #include "modloader/vfs.h"
@@ -37,7 +38,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
-#include <stdio.h>
 
 typedef struct er_wstring_local_s {
     void *unk;
@@ -156,7 +156,7 @@ static void *steam_api_init_hook_target;
 
 static void warn_once_bool(bool *warned, const wchar_t *message) {
     if (!*warned) {
-        fwprintf(stderr, L"WARNING: %ls\n", message);
+        ML_LOG_WARN(L"eldenring", L"%ls", message);
         *warned = true;
     }
 }
@@ -348,12 +348,12 @@ static bool patch_eldenring_disable_mouse_camera_control() {
     uint8_t *real_addr = jmp + *(int32_t*)(jmp + 1) + 5;
     MH_STATUS status = MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_h, (void**)&old_get_mouse_delta_h);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: disable_mouse_camera_control failed to create horizontal hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"disable_mouse_camera_control failed to create horizontal hook: %d", status);
         return false;
     }
     status = MH_EnableHook(real_addr);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: disable_mouse_camera_control failed to enable horizontal hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"disable_mouse_camera_control failed to enable horizontal hook: %d", status);
         return false;
     }
 
@@ -361,12 +361,12 @@ static bool patch_eldenring_disable_mouse_camera_control() {
     real_addr = jmp + *(int32_t*)(jmp + 1) + 5;
     status = MH_CreateHook(real_addr, (void*)&patch_get_mouse_delta_v, (void**)&old_get_mouse_delta_v);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: disable_mouse_camera_control failed to create vertical hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"disable_mouse_camera_control failed to create vertical hook: %d", status);
         return false;
     }
     status = MH_EnableHook(real_addr);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: disable_mouse_camera_control failed to enable vertical hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"disable_mouse_camera_control failed to enable vertical hook: %d", status);
         return false;
     }
     return true;
@@ -381,12 +381,12 @@ static bool hook_eldenring_archive_position_resolver() {
     }
     MH_STATUS status = MH_CreateHook(addr, (void*)&map_archive_path, (void**)&old_map_archive_path);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to create archive position resolver hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"failed to create archive position resolver hook: %d", status);
         return false;
     }
     status = MH_EnableHook(addr);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to enable archive position resolver hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"failed to enable archive position resolver hook: %d", status);
         return false;
     }
     return true;
@@ -395,19 +395,19 @@ static bool hook_eldenring_archive_position_resolver() {
 static void hook_eldenring_create_file() {
     MH_STATUS status = MH_CreateHook(CreateFileW, (void*)&CreateFile_hooked, (void**)&old_CreateFileW);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to create CreateFileW hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"failed to create CreateFileW hook: %d", status);
         return;
     }
     status = MH_EnableHook(CreateFileW);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to enable CreateFileW hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"failed to enable CreateFileW hook: %d", status);
     }
     status = MH_CreateHook(CreateFileA, (void *)&CreateFileA_hooked, (void **)&old_CreateFileA);
     if (status == MH_OK) status = MH_EnableHook(CreateFileA);
-    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateFileA hook: %d\n", status);
+    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateFileA hook: %d", status);
     status = MH_CreateHook(CreateFile2, (void *)&CreateFile2_hooked, (void **)&old_CreateFile2);
     if (status == MH_OK) status = MH_EnableHook(CreateFile2);
-    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateFile2 hook: %d\n", status);
+    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateFile2 hook: %d", status);
 }
 
 BOOL WINAPI DeleteFileW_hooked(LPCWSTR lpFileName) {
@@ -439,31 +439,31 @@ BOOL WINAPI CreateDirectoryExW_hooked(LPCWSTR template_path, LPCWSTR new_path, L
 static void hook_eldenring_copy_file() {
     MH_STATUS status = MH_CreateHook(CopyFileW, (void*)&CopyFile_hooked, (void**)&old_CopyFileW);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to create CopyFileW hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"failed to create CopyFileW hook: %d", status);
         return;
     }
     status = MH_EnableHook(CopyFileW);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to enable CopyFileW hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"failed to enable CopyFileW hook: %d", status);
     }
 }
 
 static void hook_eldenring_writable_file_apis() {
     MH_STATUS status = MH_CreateHook(DeleteFileW, (void *)&DeleteFileW_hooked, (void **)&old_DeleteFileW);
     if (status == MH_OK) status = MH_EnableHook(DeleteFileW);
-    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install DeleteFileW hook: %d\n", status);
+    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install DeleteFileW hook: %d", status);
     status = MH_CreateHook(DeleteFileA, (void *)&DeleteFileA_hooked, (void **)&old_DeleteFileA);
     if (status == MH_OK) status = MH_EnableHook(DeleteFileA);
-    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install DeleteFileA hook: %d\n", status);
+    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install DeleteFileA hook: %d", status);
     status = MH_CreateHook(CreateDirectoryW, (void *)&CreateDirectoryW_hooked, (void **)&old_CreateDirectoryW);
     if (status == MH_OK) status = MH_EnableHook(CreateDirectoryW);
-    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateDirectoryW hook: %d\n", status);
+    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateDirectoryW hook: %d", status);
     status = MH_CreateHook(CreateDirectoryA, (void *)&CreateDirectoryA_hooked, (void **)&old_CreateDirectoryA);
     if (status == MH_OK) status = MH_EnableHook(CreateDirectoryA);
-    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateDirectoryA hook: %d\n", status);
+    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateDirectoryA hook: %d", status);
     status = MH_CreateHook(CreateDirectoryExW, (void *)&CreateDirectoryExW_hooked, (void **)&old_CreateDirectoryExW);
     if (status == MH_OK) status = MH_EnableHook(CreateDirectoryExW);
-    if (status != MH_OK) fwprintf(stderr, L"WARNING: failed to install CreateDirectoryExW hook: %d\n", status);
+    if (status != MH_OK) ML_LOG_WARN(L"eldenring", L"failed to install CreateDirectoryExW hook: %d", status);
 }
 
 static BOOL CALLBACK eldenring_after_main_install_once(PINIT_ONCE init_once, PVOID parameter, PVOID *context) {
@@ -484,7 +484,7 @@ static bool __cdecl SteamAPI_Init_hooked(void) {
     er_log(L"SteamAPI_Init returned %d", result ? 1 : 0);
     if (result) {
         if (!InitOnceExecuteOnce(&after_main_once, eldenring_after_main_install_once, NULL, NULL)) {
-            fwprintf(stderr, L"WARNING: [eldenring] AFTER_RUNTIME_INIT setup failed; deferred initialization will retry\n");
+            ML_LOG_WARN(L"eldenring", L"AFTER_RUNTIME_INIT setup failed; deferred initialization will retry");
             return result;
         }
         ml_lifecycle_advance(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT);
@@ -495,22 +495,22 @@ static bool __cdecl SteamAPI_Init_hooked(void) {
 static bool install_steamapi_deferred_hook(void) {
     HMODULE steam_api = LoadLibraryW(L"steam_api64.dll");
     if (steam_api == NULL) {
-        fwprintf(stderr, L"WARNING: could not load steam_api64.dll for deferred Elden Ring hooks\n");
+        ML_LOG_WARN(L"eldenring", L"could not load steam_api64.dll for deferred hooks");
         return false;
     }
     void *steam_api_init = (void *)GetProcAddress(steam_api, "SteamAPI_Init");
     if (steam_api_init == NULL) {
-        fwprintf(stderr, L"WARNING: could not find SteamAPI_Init for deferred Elden Ring hooks\n");
+        ML_LOG_WARN(L"eldenring", L"could not find SteamAPI_Init for deferred hooks");
         return false;
     }
     MH_STATUS status = MH_CreateHook(steam_api_init, (void *)&SteamAPI_Init_hooked, (void **)&old_SteamAPI_Init);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to create SteamAPI_Init deferred hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"failed to create SteamAPI_Init deferred hook: %d", status);
         return false;
     }
     status = MH_EnableHook(steam_api_init);
     if (status != MH_OK) {
-        fwprintf(stderr, L"WARNING: failed to enable SteamAPI_Init deferred hook: %d\n", status);
+        ML_LOG_WARN(L"eldenring", L"failed to enable SteamAPI_Init deferred hook: %d", status);
         MH_RemoveHook(steam_api_init);
         return false;
     }
@@ -593,15 +593,15 @@ void eldenring_uninstall() {
     game_running = false;
 
     if (!ml_asset_hooks_uninstall()) {
-        fwprintf(stderr, L"WARNING: [eldenring] one or more asset hooks could not be removed\n");
+        ML_LOG_WARN(L"eldenring", L"one or more asset hooks could not be removed");
     }
 
     if (steam_api_init_hook_target != NULL) {
         MH_STATUS status = MH_RemoveHook(steam_api_init_hook_target);
         runtime_hook_removed = status == MH_OK || status == MH_ERROR_NOT_CREATED;
         if (!runtime_hook_removed) {
-            fwprintf(stderr, L"WARNING: [eldenring] failed to remove runtime-ready hook at %p: %d\n",
-                     steam_api_init_hook_target, status);
+            ML_LOG_WARN(L"eldenring", L"failed to remove runtime-ready hook at %p: %d",
+                        steam_api_init_hook_target, status);
         }
     }
     if (runtime_hook_removed) {

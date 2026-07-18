@@ -12,6 +12,7 @@ int main(void) {
     wchar_t first[MAX_PATH];
     wchar_t second[MAX_PATH];
     wchar_t path[MAX_PATH];
+    wchar_t hks_path[MAX_PATH];
     wchar_t *normalized = NULL;
     HANDLE file;
 
@@ -29,6 +30,12 @@ int main(void) {
     lstrcpyW(path, second); PathAppendW(path, L"parts"); EXPECT_TRUE(CreateDirectoryW(path, NULL));
     PathAppendW(path, L"test.bin");
     file = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, 0, NULL); EXPECT_TRUE(file != INVALID_HANDLE_VALUE); CloseHandle(file);
+    lstrcpyW(hks_path, second); PathAppendW(hks_path, L"action"); EXPECT_TRUE(CreateDirectoryW(hks_path, NULL));
+    PathAppendW(hks_path, L"script"); EXPECT_TRUE(CreateDirectoryW(hks_path, NULL));
+    PathAppendW(hks_path, L"modules"); EXPECT_TRUE(CreateDirectoryW(hks_path, NULL));
+    PathAppendW(hks_path, L"convergence"); EXPECT_TRUE(CreateDirectoryW(hks_path, NULL));
+    PathAppendW(hks_path, L"Update.hks");
+    file = CreateFileW(hks_path, GENERIC_WRITE, 0, NULL, CREATE_NEW, 0, NULL); EXPECT_TRUE(file != INVALID_HANDLE_VALUE); CloseHandle(file);
 
     EXPECT_TRUE(vfs_normalize_path(L"\\PARTS/./test.bin\0", &normalized));
     EXPECT_STREQ_W(normalized, L"parts\\test.bin");
@@ -89,6 +96,21 @@ int main(void) {
         EXPECT_NULL(vfs_lookup_prefixed_domain(absolute, root, VFS_LOOKUP_DISK_WIDE));
         EXPECT_TRUE(!vfs_virtual_to_uid_prefixed(absolute, root, &prefixed_uid));
     }
+    {
+        static const wchar_t game_root[] = L"D:\\Steam\\steamapps\\common\\ELDEN RING\\Game";
+        static const wchar_t request[] = L"d:/steam/steamapps/common/elden ring/game/action/script/modules/convergence/Update.hks";
+        const wchar_t *override = vfs_lookup(L"action/script/modules/convergence/Update.hks");
+        wchar_t *uid = NULL;
+        EXPECT_NOT_NULL(override);
+        EXPECT_STREQ_W(vfs_lookup_prefixed_domain(request, game_root, VFS_LOOKUP_DISK_WIDE), override);
+        EXPECT_TRUE(vfs_virtual_to_uid_prefixed(request, game_root, &uid));
+        EXPECT_STREQ_W(vfs_uid_to_path(uid), override);
+        LocalFree(uid);
+        EXPECT_STREQ_W(vfs_route_read_path_prefixed(request, game_root, GENERIC_READ, OPEN_EXISTING), override);
+        EXPECT_NULL(vfs_route_read_path_prefixed(
+            L"d:/steam/steamapps/common/elden ring/game-old/action/script/modules/convergence/Update.hks",
+            game_root, GENERIC_READ, OPEN_EXISTING));
+    }
     EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_VIRTUAL), vfs_lookup(L"parts/test.bin"));
     EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_DISK_WIDE), vfs_lookup(L"parts/test.bin"));
     EXPECT_STREQ_W(vfs_lookup_domain(L"parts/test.bin", VFS_LOOKUP_DISK_ANSI), vfs_lookup(L"parts/test.bin"));
@@ -144,6 +166,11 @@ int main(void) {
     vfs_uninit();
 
     DeleteFileW(path);
+    DeleteFileW(hks_path);
+    lstrcpyW(hks_path, second); PathAppendW(hks_path, L"action\\script\\modules\\convergence"); RemoveDirectoryW(hks_path);
+    lstrcpyW(hks_path, second); PathAppendW(hks_path, L"action\\script\\modules"); RemoveDirectoryW(hks_path);
+    lstrcpyW(hks_path, second); PathAppendW(hks_path, L"action\\script"); RemoveDirectoryW(hks_path);
+    lstrcpyW(hks_path, second); PathAppendW(hks_path, L"action"); RemoveDirectoryW(hks_path);
     lstrcpyW(path, first); PathAppendW(path, L"parts\\test.bin"); DeleteFileW(path);
     lstrcpyW(path, second); PathAppendW(path, L"parts"); RemoveDirectoryW(path);
     lstrcpyW(path, first); PathAppendW(path, L"parts"); RemoveDirectoryW(path);

@@ -35,7 +35,6 @@ static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t
 
 #include <MinHook.h>
 
-#include <stdio.h>
 #include <shlwapi.h>
 #endif
 
@@ -182,7 +181,7 @@ static void *find_mount_ebl(void) {
             memcpy(&displacement, p + match.displacement_offset, sizeof(displacement));
             void *target = p + match.instruction_end_offset + displacement;
             if (!pointer_in_text(target)) continue;
-            fwprintf(stderr, L"DEBUG: [asset-hooks] MountEbl signature matched at %p target=%p\n", p, target);
+            ML_LOG_DEBUG(L"asset-hooks", L"MountEbl signature matched at %p target=%p", p, target);
             return target;
         }
     }
@@ -232,7 +231,7 @@ static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t
     size_t sequence_length;
     size_t modulus_length;
 #ifndef ML_ASSET_HOOKS_TEST
-    fwprintf(stderr, L"TRACE: [asset-hooks] RSA parse begin: pem=%p length=%zu\n", pem, pem_length);
+    ML_LOG_TRACE(L"asset-hooks", L"RSA parse begin: pem=%p length=%zu", pem, pem_length);
 #endif
     if (pem == NULL || block_size == NULL || pem_length < sizeof(begin) + sizeof(pem_end)) return false;
     for (size_t i = 0; i + sizeof(begin) - 1 <= pem_length; i++) {
@@ -244,7 +243,7 @@ static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t
     }
     if (end_offset == SIZE_MAX) return false;
 #ifndef ML_ASSET_HOOKS_TEST
-    fwprintf(stderr, L"TRACE: [asset-hooks] RSA PEM markers: begin=%zu end=%zu\n", begin_offset, end_offset);
+    ML_LOG_TRACE(L"asset-hooks", L"RSA PEM markers: begin=%zu end=%zu", begin_offset, end_offset);
 #endif
     der = yaer_mem_alloc(0, end_offset - begin_offset);
     if (der == NULL) return false;
@@ -262,7 +261,7 @@ static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t
     cursor = der;
     end = der + der_length;
 #ifndef ML_ASSET_HOOKS_TEST
-    fwprintf(stderr, L"TRACE: [asset-hooks] RSA DER length: %zu\n", der_length);
+    ML_LOG_TRACE(L"asset-hooks", L"RSA DER length: %zu", der_length);
 #endif
     if (cursor >= end || *cursor++ != 0x30 || !der_read_length(&cursor, end, &sequence_length) ||
         sequence_length > (size_t)(end - cursor)) {
@@ -278,7 +277,7 @@ static bool rsa_public_key_block_size(const char *pem, size_t pem_length, size_t
     *block_size = modulus_length - (modulus_length > 1 && cursor[0] == 0 ? 1 : 0);
     yaer_mem_free(der);
 #ifndef ML_ASSET_HOOKS_TEST
-    fwprintf(stderr, L"TRACE: [asset-hooks] RSA parse complete: modulus=%zu block=%zu\n", modulus_length, *block_size);
+    ML_LOG_TRACE(L"asset-hooks", L"RSA parse complete: modulus=%zu block=%zu", modulus_length, *block_size);
 #endif
     return *block_size != 0;
 }
@@ -323,35 +322,35 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
     ml_dl_device_manager_guard_t guard = { 0 };
     if (mounted != NULL) *mounted = false;
     if (handled != NULL) *handled = false;
-    fwprintf(stderr, L"DEBUG: [asset-hooks] BootBoost enter: bhd=%p allocator=%p key=%p key_len=%zu\n",
-             bhd_path, allocator, rsa_key, key_len);
+    ML_LOG_DEBUG(L"asset-hooks", L"BootBoost enter: bhd=%p allocator=%p key=%p key_len=%zu",
+                 bhd_path, allocator, rsa_key, key_len);
     if (mounted == NULL || handled == NULL || !config.boot_boost || bhd_path == NULL || allocator == NULL || device_manager == NULL ||
         !rsa_public_key_block_size(rsa_key, key_len, &block_size)) return false;
-    fwprintf(stderr, L"DEBUG: [asset-hooks] BootBoost RSA block size: %zu\n", block_size);
+    ML_LOG_DEBUG(L"asset-hooks", L"BootBoost RSA block size: %zu", block_size);
     *mounted = false;
     *handled = false;
     if (!ml_dl_device_manager_lock(device_manager, &guard) ||
         !ml_dl_device_expand_path(device_manager, bhd_path, &expanded)) goto fallback;
-    fwprintf(stderr, L"DEBUG: [asset-hooks] BootBoost expanded BHD path: %ls\n", expanded);
+    ML_LOG_DEBUG(L"asset-hooks", L"BootBoost expanded BHD path: %ls", expanded);
     source = CreateFileW(expanded, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (source == INVALID_HANDLE_VALUE || !GetFileSizeEx(source, &source_size) || source_size.QuadPart <= 0 ||
         source_size.QuadPart > 64 * 1024 * 1024) goto fallback;
     encrypted = yaer_mem_alloc(0, (size_t)source_size.QuadPart);
     if (encrypted == NULL || !ReadFile(source, encrypted, (DWORD)source_size.QuadPart, &read, NULL) ||
         read != (DWORD)source_size.QuadPart || !ml_boot_boost_cache_key(encrypted, (size_t)source_size.QuadPart, key)) goto fallback;
-    fwprintf(stderr, L"DEBUG: [asset-hooks] BootBoost source loaded: %lld bytes\n", source_size.QuadPart);
+    ML_LOG_DEBUG(L"asset-hooks", L"BootBoost source loaded: %lld bytes", source_size.QuadPart);
     CloseHandle(source); source = INVALID_HANDLE_VALUE;
     cache_directory = config_full_path_alloc(L"cache");
     cache_path = ml_boot_boost_cache_path(cache_directory, key);
     if (cache_directory == NULL || cache_path == NULL) goto fallback;
-    fwprintf(stderr, L"DEBUG: [asset-hooks] BootBoost cache path: %ls\n", cache_path);
+    ML_LOG_DEBUG(L"asset-hooks", L"BootBoost cache path: %ls", cache_path);
     CreateDirectoryW(cache_directory, NULL);
     if (!write_boot_boost_stub(encrypted, (size_t)source_size.QuadPart, block_size, stub_path, MAX_PATH) ||
         !ml_dl_mount_snapshot(device_manager, &snapshot) || !ml_dl_mounts_init(&stub_mounts)) goto fallback;
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost invoking stub MountEbl: %ls\n", stub_path);
+    ML_LOG_TRACE(L"asset-hooks", L"BootBoost invoking stub MountEbl: %ls", stub_path);
     result = original(mount_name, stub_path, bdt_path, allocator, rsa_key, key_len);
     *handled = result;
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost stub MountEbl returned: %d\n", result ? 1 : 0);
+    ML_LOG_TRACE(L"asset-hooks", L"BootBoost stub MountEbl returned: %d", result ? 1 : 0);
     DeleteFileW(stub_path);
     if (!result) goto fallback;
     if (!ml_dl_device_extract_new(device_manager, &snapshot, &stub_mounts)) {
@@ -359,7 +358,7 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
         result = true;
         goto done;
     }
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost stub mounts extracted: %zu\n", stub_mounts.count);
+    ML_LOG_TRACE(L"asset-hooks", L"BootBoost stub mounts extracted: %zu", stub_mounts.count);
     if (stub_mounts.count == 0) goto fallback;
     {
         ml_dl_virtual_mount_t *mount = &stub_mounts.items[0];
@@ -368,20 +367,20 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
         uint32_t size;
         if (game == NULL || game->ebl_bhd_holder_offset == 0) goto full_mount;
         holder = (bhd5_holder_t *)((uint8_t *)mount->device + game->ebl_bhd_holder_offset);
-        fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost stub holder: device=%p holder=%p header=%p\n",
-                 mount->device, holder, holder->header);
+        ML_LOG_TRACE(L"asset-hooks", L"BootBoost stub holder: device=%p holder=%p header=%p",
+                     mount->device, holder, holder->header);
         if (holder->header == NULL || memcmp(holder->header, "BHD5", 4) != 0 ||
             (memcpy(&size, holder->header + 12, sizeof(size)), size < 24 || size > 64 * 1024 * 1024)) goto full_mount;
-        fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost stub header valid: size=%u allocator=%p vtable=%p\n",
-                 size, allocator, allocator->vtable);
+        ML_LOG_TRACE(L"asset-hooks", L"BootBoost stub header valid: size=%u allocator=%p vtable=%p",
+                     size, allocator, allocator->vtable);
         {
-            fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost allocating cache buffer\n");
+            ML_LOG_TRACE(L"asset-hooks", L"BootBoost allocating cache buffer");
             uint8_t *cached = allocator->vtable->allocate_aligned(allocator, size, 4096);
-            fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost cache buffer: %p\n", cached);
+            ML_LOG_TRACE(L"asset-hooks", L"BootBoost cache buffer: %p", cached);
             if (cached != NULL) {
                 uint32_t bucket_count;
                 uint32_t bucket_offset;
-                fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost loading cache\n");
+                ML_LOG_TRACE(L"asset-hooks", L"BootBoost loading cache");
                 if (ml_boot_boost_cache_load(cache_path, cached, size)) {
                     ML_LOG_INFO(L"asset-hooks", L"BootBoost cache hit");
                     memcpy(&bucket_count, cached + 16, sizeof(bucket_count));
@@ -415,7 +414,7 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
         }
     }
 full_mount:
-    fwprintf(stderr, L"DEBUG: [asset-hooks] BootBoost entering full mount\n");
+    ML_LOG_DEBUG(L"asset-hooks", L"BootBoost entering full mount");
     if (stub_mounts.count != 0) {
         /* Match me3: the stub device remains detached while the full mount is
            attempted. Its game-owned root string must not be freed here. */
@@ -428,20 +427,19 @@ full_mount:
         }
     }
     if (!ml_dl_mounts_init(&full_mounts)) goto fallback;
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost invoking full MountEbl\n");
+    ML_LOG_TRACE(L"asset-hooks", L"BootBoost invoking full MountEbl");
     result = original(mount_name, bhd_path, bdt_path, allocator, rsa_key, key_len);
     if (result) *handled = true;
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost full MountEbl returned: %d\n", result ? 1 : 0);
+    ML_LOG_TRACE(L"asset-hooks", L"BootBoost full MountEbl returned: %d", result ? 1 : 0);
     if (!result) goto fallback;
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost extracting full mounts\n");
+    ML_LOG_TRACE(L"asset-hooks", L"BootBoost extracting full mounts");
     if (!ml_dl_device_extract_new(device_manager, &snapshot, &full_mounts)) {
         *mounted = true;
         result = true;
         goto done;
     }
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost full mounts extracted: %zu\n", full_mounts.count);
+    ML_LOG_TRACE(L"asset-hooks", L"BootBoost full mounts extracted: %zu", full_mounts.count);
     if (full_mounts.count == 0) goto fallback;
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost full mounts extracted: %zu\n", full_mounts.count);
     *handled = true;
     {
         ml_dl_virtual_mount_t *mount = &full_mounts.items[0];
@@ -456,7 +454,7 @@ full_mount:
             (void)ml_boot_boost_cache_store(cache_path, holder->header, size);
         }
     }
-    fwprintf(stderr, L"TRACE: [asset-hooks] BootBoost full mount cache-store stage\n");
+    ML_LOG_TRACE(L"asset-hooks", L"BootBoost full mount cache-store stage");
     if (!ml_dl_device_push_mounts_permanent(device_manager, &full_mounts)) {
         if (ml_dl_device_restore_mounts(device_manager, &full_mounts)) {
             *mounted = true;
@@ -468,7 +466,7 @@ full_mount:
     }
     *mounted = true;
     result = true;
-    fwprintf(stderr, L"DEBUG: [asset-hooks] BootBoost full mount retained\n");
+    ML_LOG_DEBUG(L"asset-hooks", L"BootBoost full mount retained");
     goto done;
 fallback:
     result = false;
@@ -592,8 +590,8 @@ static void *__cdecl disk_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_s
     bool overridden = make_override_path(path, &replacement, L"disk open_file");
     dl_open_file_t original = (dl_open_file_t)asset_hook_original(open_hooks, open_hook_count, &device->vtable->open_file);
     if (InterlockedCompareExchange(&logged_disk_open, 1, 0) == 0) {
-        fwprintf(stderr, L"DEBUG: [asset-hooks] disk open_file enter: device=%p path=%p path_cstr=%p container=%p allocator=%p temporary=%d\n",
-                 device, path, path_cstr, container, allocator, temporary ? 1 : 0);
+        ML_LOG_DEBUG(L"asset-hooks", L"disk open_file enter: device=%p path=%p path_cstr=%p container=%p allocator=%p temporary=%d",
+                     device, path, path_cstr, container, allocator, temporary ? 1 : 0);
     }
     if (overridden) {
         path = &replacement;
@@ -603,7 +601,7 @@ static void *__cdecl disk_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_s
     result = original(device, path, path_cstr, container, allocator, temporary);
     ml_dl_string_destroy(&replacement);
     if (InterlockedCompareExchange(&logged_disk_open_return, 1, 0) == 0) {
-        fwprintf(stderr, L"DEBUG: [asset-hooks] disk open_file returned: operator=%p\n", result);
+        ML_LOG_DEBUG(L"asset-hooks", L"disk open_file returned: operator=%p", result);
     }
     if (result != NULL) (void)hook_file_operator(result);
     return result;
@@ -622,8 +620,8 @@ static void *__cdecl ebl_open_file_hooked(ml_dl_device_t *device, ml_msvc2015_st
     dl_open_file_t original = device == NULL || device->vtable == NULL ? NULL :
                               ebl_open_original(device->vtable->open_file);
     if (InterlockedCompareExchange(&logged_ebl_open, 1, 0) == 0) {
-        fwprintf(stderr, L"DEBUG: [asset-hooks] BND4 open_file enter: device=%p path=%ls original=%p\n",
-                 device, path_cstr == NULL ? L"<null>" : path_cstr, original);
+        ML_LOG_DEBUG(L"asset-hooks", L"BND4 open_file enter: device=%p path=%ls original=%p",
+                     device, path_cstr == NULL ? L"<null>" : path_cstr, original);
     }
     if (make_override_path(path, &replacement, L"BND4 open_file")) {
         void *result;
@@ -658,11 +656,11 @@ static bool hook_ebl_device_opens(void) {
             remove_ebl_device_opens_from(start_count);
             return false;
         }
-        fwprintf(stderr, L"DEBUG: [asset-hooks] BND4 open_file hook applied: target=%p\n", target);
+        ML_LOG_DEBUG(L"asset-hooks", L"BND4 open_file hook applied: target=%p", target);
         ebl_open_hooks[ebl_open_hook_count++] = (ebl_open_hook_t){ target, original };
     }
-    fwprintf(stderr, L"DEBUG: [asset-hooks] BND4 open_file hooks active: mounts=%zu hooks=%zu\n",
-             mount_count, ebl_open_hook_count);
+    ML_LOG_DEBUG(L"asset-hooks", L"BND4 open_file hooks active: mounts=%zu hooks=%zu",
+                 mount_count, ebl_open_hook_count);
     return true;
 }
 
@@ -714,8 +712,8 @@ static bool hook_file_operator(ml_dl_file_operator_t *file_operator) {
         !pointer_in_text(file_operator->vtable->set_path) ||
         !pointer_in_text(file_operator->vtable->set_path2) ||
         !pointer_in_text(file_operator->vtable->set_path3)) {
-        fwprintf(stderr, L"WARNING: [asset-hooks] DlFileOperator layout validation failed: operator=%p vtable=%p\n",
-                 file_operator, file_operator == NULL ? NULL : file_operator->vtable);
+        ML_LOG_WARN(L"asset-hooks", L"DlFileOperator layout validation failed: operator=%p vtable=%p",
+                    file_operator, file_operator == NULL ? NULL : file_operator->vtable);
         set_path_hook_result = false;
         ReleaseSRWLockExclusive(&set_path_hook_lock);
         return false;
@@ -723,15 +721,15 @@ static bool hook_file_operator(ml_dl_file_operator_t *file_operator) {
     targets[0] = file_operator->vtable->set_path;
     targets[1] = file_operator->vtable->set_path2;
     targets[2] = file_operator->vtable->set_path3;
-    fwprintf(stderr, L"DEBUG: [asset-hooks] DlFileOperator layout: operator=%p vtable=%p set_path=%p set_path2=%p set_path3=%p\n",
-             file_operator, file_operator->vtable, targets[0], targets[1], targets[2]);
+    ML_LOG_DEBUG(L"asset-hooks", L"DlFileOperator layout: operator=%p vtable=%p set_path=%p set_path2=%p set_path3=%p",
+                 file_operator, file_operator->vtable, targets[0], targets[1], targets[2]);
     for (size_t i = 0; i < 3; i++) {
-        fwprintf(stderr, L"TRACE: [asset-hooks] installing DlFileOperator::SetPath%zu hook\n", i + 1);
+        ML_LOG_TRACE(L"asset-hooks", L"installing DlFileOperator::SetPath%zu hook", i + 1);
         if (!install_asset_hook(set_path_hooks, &set_path_hook_count, 64, &file_operator->vtable->set_path + i, detours[i])) {
-            fwprintf(stderr, L"WARNING: [asset-hooks] DlFileOperator::SetPath%zu hook failed\n", i + 1);
+            ML_LOG_WARN(L"asset-hooks", L"DlFileOperator::SetPath%zu hook failed", i + 1);
             result = false;
         } else {
-            fwprintf(stderr, L"DEBUG: [asset-hooks] DlFileOperator::SetPath%zu hook applied\n", i + 1);
+            ML_LOG_DEBUG(L"asset-hooks", L"DlFileOperator::SetPath%zu hook applied", i + 1);
         }
     }
     set_path_hook_result = result;
@@ -770,8 +768,8 @@ static bool __cdecl mount_ebl_hooked(const wchar_t *mount_name, const wchar_t *b
     bool handled = false;
     bool result;
     const ml_game_descriptor_t *game = ml_game_context_get();
-    fwprintf(stderr, L"DEBUG: [asset-hooks] MountEbl enter: mount=%p bhd=%p bdt=%p allocator=%p key=%p key_len=%zu boot_boost=%d\n",
-             mount_name, bhd_path, bdt_path, allocator, rsa_key, key_len, config.boot_boost ? 1 : 0);
+    ML_LOG_DEBUG(L"asset-hooks", L"MountEbl enter: mount=%p bhd=%p bdt=%p allocator=%p key=%p key_len=%zu boot_boost=%d",
+                 mount_name, bhd_path, bdt_path, allocator, rsa_key, key_len, config.boot_boost ? 1 : 0);
     if (config.boot_boost &&
         boot_boost_mount(bhd_path, (dl_allocator_t *)allocator, old_mount_ebl,
                                                mount_name, bdt_path, rsa_key, key_len, &result, &handled)) {
@@ -780,12 +778,12 @@ static bool __cdecl mount_ebl_hooked(const wchar_t *mount_name, const wchar_t *b
             ml_dl_device_manager_guard_t hook_guard = { 0 };
             bool hooked = ml_dl_device_manager_lock(device_manager, &hook_guard) && hook_ebl_device_opens();
             ml_dl_device_manager_unlock(&hook_guard);
-            if (!hooked) fwprintf(stderr, L"WARNING: [asset-hooks] failed to hook BootBoost BND4 device opens\n");
+            if (!hooked) ML_LOG_WARN(L"asset-hooks", L"failed to hook BootBoost BND4 device opens");
         }
         return result;
     }
     if (handled) return result;
-    fwprintf(stderr, L"TRACE: [asset-hooks] MountEbl calling original\n");
+    ML_LOG_TRACE(L"asset-hooks", L"MountEbl calling original");
     if (device_manager != NULL && ml_dl_device_manager_lock(device_manager, &guard)) {
         snapshot_ok = ml_dl_mount_snapshot(device_manager, &snapshot);
         (void)ml_dl_mounts_init(&new_mounts);
@@ -793,7 +791,7 @@ static bool __cdecl mount_ebl_hooked(const wchar_t *mount_name, const wchar_t *b
     result = old_mount_ebl(mount_name, bhd_path, bdt_path, allocator, rsa_key, key_len);
     if (guard.manager != NULL && snapshot_ok && ml_dl_device_extract_new(device_manager, &snapshot, &new_mounts)) {
         if (!ml_dl_device_push_mounts_permanent(device_manager, &new_mounts)) {
-            fwprintf(stderr, L"WARNING: [asset-hooks] failed to restore mounted BND4 devices\n");
+            ML_LOG_WARN(L"asset-hooks", L"failed to restore mounted BND4 devices");
             (void)ml_dl_device_restore_mounts(device_manager, &new_mounts);
         }
     }
@@ -805,11 +803,11 @@ static bool __cdecl mount_ebl_hooked(const wchar_t *mount_name, const wchar_t *b
         bool hooked = ml_dl_device_manager_lock(device_manager, &hook_guard) && hook_ebl_device_opens();
         ML_LOG_INFO(L"asset-hooks", L"BND4 open hooks after ordinary MountEbl: %d", hooked ? 1 : 0);
         ml_dl_device_manager_unlock(&hook_guard);
-        if (!hooked) fwprintf(stderr, L"WARNING: [asset-hooks] failed to hook mounted BND4 device opens\n");
+        if (!hooked) ML_LOG_WARN(L"asset-hooks", L"failed to hook mounted BND4 device opens");
     }
     ML_LOG_INFO(L"asset-hooks", L"MountEbl original returned: %d", result ? 1 : 0);
     if (result && InterlockedCompareExchange(&logged_mount_ebl, 1, 0) == 0) {
-        ML_LOG_INFO(L"asset-hooks", L"MountEbl completed: %s", mount_name);
+        ML_LOG_INFO(L"asset-hooks", L"MountEbl completed: %ls", mount_name);
     }
     return result;
 }
@@ -819,12 +817,12 @@ static bool install_pre_hooks(void) {
     if (pre_hooks_installed) return true;
     device_manager = ml_dl_device_manager_find(game_image_base);
     if (device_manager == NULL) {
-        fwprintf(stderr, L"WARNING: [asset-hooks] DlDeviceManager validation failed; archive device hooks disabled\n");
+        ML_LOG_WARN(L"asset-hooks", L"DlDeviceManager validation failed; archive device hooks disabled");
         return false;
     }
     disk_device = device_manager->disk_device;
     if (!install_asset_hook(open_hooks, &open_hook_count, 64, &disk_device->vtable->open_file, disk_open_file_hooked)) {
-        fwprintf(stderr, L"WARNING: [asset-hooks] disk open_file hook failed\n");
+        ML_LOG_WARN(L"asset-hooks", L"disk open_file hook failed");
         return false;
     }
     ML_LOG_INFO(L"asset-hooks", L"disk open_file hook applied");
@@ -835,7 +833,7 @@ static bool install_pre_hooks(void) {
         pre_hooks_installed = true;
         return true;
     } else {
-        fwprintf(stderr, L"WARNING: [asset-hooks] MountEbl signature/hook failed\n");
+        ML_LOG_WARN(L"asset-hooks", L"MountEbl signature/hook failed");
         (void)remove_asset_hooks(open_hooks, open_hook_count);
         memset(open_hooks, 0, sizeof(open_hooks));
         open_hook_count = 0;
@@ -865,7 +863,7 @@ static bool install_post_hooks(void) {
         make_ebl_object_hook_target = target;
         ML_LOG_INFO(L"asset-hooks", L"MakeEblObject hook applied");
     } else {
-        fwprintf(stderr, L"WARNING: [asset-hooks] MakeEblObject RTTI/hook failed\n");
+        ML_LOG_WARN(L"asset-hooks", L"MakeEblObject RTTI/hook failed");
         return false;
     }
     {
@@ -874,7 +872,7 @@ static bool install_post_hooks(void) {
         bool hooked = ml_dl_device_manager_lock(device_manager, &guard) && hook_ebl_device_opens();
         ml_dl_device_manager_unlock(&guard);
         if (!hooked) {
-            fwprintf(stderr, L"WARNING: [asset-hooks] initial BND4 device open hooks failed\n");
+            ML_LOG_WARN(L"asset-hooks", L"initial BND4 device open hooks failed");
             remove_ebl_device_opens_from(previous_open_count);
             (void)remove_asset_hook(make_ebl_object_hook_target);
             make_ebl_object_hook_target = NULL;
@@ -887,6 +885,7 @@ static bool install_post_hooks(void) {
 }
 
 static void __cdecl file_step_init_hooked(void *this_ptr, fd4_time_t *time) {
+    vfs_begin_lookup_reset();
     bool pre_hooks_applied = install_pre_hooks();
     old_file_step_init(this_ptr, time);
     ML_LOG_INFO(L"asset-hooks", L"VFS cache generation %llu enabled",
@@ -903,13 +902,13 @@ bool ml_asset_hooks_install(const ml_game_descriptor_t *game, void *image_base, 
     game_image_size = image_size;
     step = fd4_step_find(game->file_step_name);
     if (step == NULL) {
-        fwprintf(stderr, L"WARNING: [asset-hooks] %ls not found for %ls; Dantelion VFS disabled\n",
-                 game->file_step_name, game->title);
+        ML_LOG_WARN(L"asset-hooks", L"%ls not found for %ls; Dantelion VFS disabled",
+                    game->file_step_name, game->title);
         return false;
     }
     if (ml_hook_install(step, file_step_init_hooked, (void **)&old_file_step_init) != ML_HOOK_APPLIED) {
-        fwprintf(stderr, L"WARNING: [asset-hooks] %ls hook failed for %ls\n",
-                 game->file_step_name, game->title);
+        ML_LOG_WARN(L"asset-hooks", L"%ls hook failed for %ls",
+                    game->file_step_name, game->title);
         return false;
     }
     file_step_hook_installed = true;
@@ -923,7 +922,7 @@ static bool remove_asset_hook(void *target) {
     if (target == NULL) return true;
     status = MH_RemoveHook(target);
     if (status == MH_OK || status == MH_ERROR_NOT_CREATED) return true;
-    fwprintf(stderr, L"WARNING: [asset-hooks] failed to remove hook at %p: %d\n", target, status);
+    ML_LOG_WARN(L"asset-hooks", L"failed to remove hook at %p: %d", target, status);
     return false;
 }
 

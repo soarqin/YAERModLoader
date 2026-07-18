@@ -2,7 +2,6 @@
 
 #include <stdbool.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <wchar.h>
 
 #ifdef __cplusplus
@@ -27,19 +26,12 @@ void ml_log_vwrite(ml_log_level_t level, const wchar_t *component,
                    const wchar_t *format, va_list args);
 void ml_log_write(ml_log_level_t level, const wchar_t *component,
                   const wchar_t *format, ...);
-int ml_log_fprintf(FILE *stream, const char *format, ...);
-int ml_log_fwprintf(FILE *stream, const wchar_t *format, ...);
 
 #define ML_LOG_TRACE(component, ...) ml_log_write(ML_LOG_LEVEL_TRACE, (component), __VA_ARGS__)
 #define ML_LOG_DEBUG(component, ...) ml_log_write(ML_LOG_LEVEL_DEBUG, (component), __VA_ARGS__)
 #define ML_LOG_INFO(component, ...) ml_log_write(ML_LOG_LEVEL_INFO, (component), __VA_ARGS__)
 #define ML_LOG_WARN(component, ...) ml_log_write(ML_LOG_LEVEL_WARN, (component), __VA_ARGS__)
 #define ML_LOG_ERROR(component, ...) ml_log_write(ML_LOG_LEVEL_ERROR, (component), __VA_ARGS__)
-
-#if defined(ML_LOG_REDIRECT_STDIO) && !defined(ML_LOG_IMPLEMENTATION)
-#define fprintf ml_log_fprintf
-#define fwprintf ml_log_fwprintf
-#endif
 
 #ifdef __cplusplus
 }

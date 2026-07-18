@@ -11,13 +11,13 @@
 #include "allocator.h"
 
 #include "config.h"
+#include "log.h"
 
 #include "game/game.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shlwapi.h>
-#include <stdio.h>
 #include <stdbool.h>
 
 typedef struct extdll_t {
@@ -61,14 +61,14 @@ int extdlls_count() {
 void extdlls_load_all() {
     const ml_game_descriptor_t *game = ml_game_context_get();
     if (game == NULL) {
-        fwprintf(stderr, L"WARNING: external DLLs are disabled because the game context is unavailable\n");
+        ML_LOG_WARN(L"extdll", L"external DLLs are disabled because the game context is unavailable");
         return;
     }
     for (int i = 0; i < extdll_count; i++) {
         HMODULE dll;
         const wchar_t *path = extdlls[i].base_path;
         if (game->id != ML_GAME_ELDEN_RING && is_elden_ring_extension(extdlls[i].name)) {
-            fwprintf(stdout, L"Skipped external dll %hs outside Elden Ring\n", extdlls[i].name);
+            ML_LOG_INFO(L"extdll", L"skipped external DLL %hs outside Elden Ring", extdlls[i].name);
             continue;
         }
         if (StrChrW(path, L':') == NULL && path[0] != L'\\' && path[0] != L'/') {
@@ -80,10 +80,10 @@ void extdlls_load_all() {
         }
         extdlls[i].dll_module = dll;
         if (dll == NULL) {
-            fwprintf(stderr, L"Cannot load external dll %hs from `%ls`\n", extdlls[i].name, path);
+            ML_LOG_ERROR(L"extdll", L"cannot load external DLL %hs from `%ls`", extdlls[i].name, path);
             continue;
         }
-        fwprintf(stdout, L"Loaded external dll %hs from `%ls`\n", extdlls[i].name, path);
+        ML_LOG_INFO(L"extdll", L"loaded external DLL %hs from `%ls`", extdlls[i].name, path);
         extdlls[i].extension_object = NULL;
     }
     for (int i = 0; i < extdll_count; i++) {
@@ -94,15 +94,15 @@ void extdlls_load_all() {
         if (!me_ext_init) continue;
         extdll->extension_object = NULL;
         if (!((bool(*)(void *, void **))me_ext_init)(NULL, &extdll->extension_object)) continue;
-        fwprintf(stdout, L"Initialized external dll %hs (using modengine API)\n", extdll->name);
-        fflush(stdout);
+        ML_LOG_INFO(L"extdll", L"initialized external DLL %hs using ModEngine API", extdll->name);
         if (!extdll->extension_object) continue;
         void **vtable = *(void***)extdll->extension_object;
         if (!vtable) continue;
         // Call ModEngineExtension::on_attach()
         ((void(*)(void *))vtable[1])(extdll->extension_object);
         // Call ModEngineExtension::id() to get the extension id
-        fwprintf(stdout, L"Attached extension id: %hs\n", ((const char *(*)(void *))vtable[3])(extdll->extension_object));
+        ML_LOG_INFO(L"extdll", L"attached extension ID: %hs",
+                    ((const char *(*)(void *))vtable[3])(extdll->extension_object));
     }
 }
 
@@ -110,8 +110,7 @@ void extdlls_unload_all() {
     for (int i = extdll_count - 1; i >= 0; i--) {
         extdll_t *extdll = &extdlls[i];
         if (extdll->dll_module) {
-            fwprintf(stdout, L"Uninitializing external dll %hs\n", extdll->name);
-            fflush(stdout);
+            ML_LOG_INFO(L"extdll", L"uninitializing external DLL %hs", extdll->name);
             if (extdll->extension_object) {
                 void **vtable = *(void***)extdll->extension_object;
                 if (vtable) {
@@ -124,7 +123,7 @@ void extdlls_unload_all() {
             FreeLibrary(extdll->dll_module);
             extdll->dll_module = NULL;
 
-            fwprintf(stdout, L"Uninitialized external dll %hs\n", extdll->name);
+            ML_LOG_INFO(L"extdll", L"uninitialized external DLL %hs", extdll->name);
         }
         if (extdll->name) {
             yaer_mem_free(extdll->name);

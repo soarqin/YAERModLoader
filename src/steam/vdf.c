@@ -61,34 +61,6 @@ static char *local_strndup_escape(const char *s, const size_t n) {
     return retval;
 }
 
-static void print_escaped(const char *s) {
-    while (*s) {
-        switch (*s) {
-            case CHAR_DOUBLE_QUOTE:
-                printf("\\\"");
-                break;
-
-            case CHAR_TAB:
-                printf("\\t");
-                break;
-
-            case CHAR_NEWLINE:
-                printf("\\n");
-                break;
-
-            case CHAR_BACKSLASH:
-                printf("\\\\");
-                break;
-
-            default:
-                printf("%c", *s);
-                break;
-        }
-
-        ++s;
-    }
-}
-
 struct vdf_object *vdf_parse_buffer(const char *buffer, const size_t size) {
     if (!buffer)
         return NULL;
@@ -320,59 +292,6 @@ int64_t vdf_object_get_int(const struct vdf_object *o) {
     assert(o->type == VDF_TYPE_INT);
 
     return o->data.data_int;
-}
-
-static void vdf_print_object_indent(const struct vdf_object *o, const int l) {
-    if (!o)
-        return;
-
-    char *spacing = "\t";
-
-    for (int k = 0; k < l; ++k)
-        printf("%s", spacing);
-
-    printf("\"");
-    print_escaped(o->key);
-    printf("\"");
-
-    switch (o->type) {
-        case VDF_TYPE_ARRAY:
-            printf("\n");
-            for (int k = 0; k < l; ++k)
-                printf("%s", spacing);
-            printf("{\n");
-            for (size_t i = 0; i < o->data.data_array.len; ++i)
-                vdf_print_object_indent(o->data.data_array.data_value[i], l + 1);
-
-            for (int k = 0; k < l; ++k)
-                printf("%s", spacing);
-            printf("}");
-            break;
-
-        case VDF_TYPE_INT:
-            printf("\t\t\"%lli\"\n", o->data.data_int);
-            break;
-
-        case VDF_TYPE_STRING:
-            printf("\t\t\"");
-            print_escaped(o->data.data_string.str);
-            printf("\"");
-            break;
-
-        default:
-        case VDF_TYPE_NONE:
-            assert(0);
-            break;
-    }
-
-    if (o->conditional)
-        printf("\t\t[%s]", o->conditional);
-
-    printf("\n");
-}
-
-void vdf_print_object(const struct vdf_object *o) {
-    vdf_print_object_indent(o, 0);
 }
 
 void vdf_free_object(struct vdf_object *o) {

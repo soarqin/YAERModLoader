@@ -1,8 +1,8 @@
 #include "winhttp.h"
+#include "log.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <stdio.h>
 
 struct winhttp_dll {
     HMODULE dll;
@@ -194,7 +194,7 @@ bool load_winhttp_proxy() {
     path[MAX_PATH - 1] = L'\0';
     winhttp.dll = LoadLibraryW(path);
     if (!winhttp.dll) {
-        fprintf(stderr, "Cannot load original winhttp.dll library\n");
+        ML_LOG_ERROR(L"proxy", L"cannot load original winhttp.dll library");
         return false;
     }
     winhttp.OriginalDllCanUnloadNow = GetProcAddress(winhttp.dll, "DllCanUnloadNow");

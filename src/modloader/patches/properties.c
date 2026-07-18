@@ -22,8 +22,6 @@
 
 #include <MinHook.h>
 
-#include <stdio.h>
-
 typedef void (__cdecl *set_game_property_t)(const char *property, const char *value);
 
 void *ml_property_init_trampoline;
@@ -38,7 +36,7 @@ static void apply_offline_property(ml_lifecycle_phase_t phase, void *userp) {
     (void)phase;
     (void)userp;
     if (set_game_property == NULL) {
-        fwprintf(stderr, L"WARNING: [properties] SetGameProperty is unavailable\n");
+        ML_LOG_WARN(L"properties", L"SetGameProperty is unavailable");
         return;
     }
     set_game_property("Menu.IsEnableOnlineMode", "false");
@@ -48,7 +46,7 @@ static void apply_offline_property(ml_lifecycle_phase_t phase, void *userp) {
 void ml_properties_on_init(void) {
     if (InterlockedCompareExchange(&property_init_seen, 1, 0) != 0) return;
     if (!ml_lifecycle_advance(ML_LIFECYCLE_PHASE_AFTER_PROPERTIES_READY)) {
-        fwprintf(stderr, L"WARNING: [properties] could not advance lifecycle\n");
+        ML_LOG_WARN(L"properties", L"could not advance lifecycle");
     }
     MH_DisableHook(property_init_target);
 }
@@ -72,7 +70,7 @@ bool ml_properties_install(const ml_game_descriptor_t *game) {
     if (game == NULL || game->control_api_class == NULL) return false;
     classes = dlrf_runtime_classes(&class_count);
     if (classes == NULL) {
-        fwprintf(stderr, L"WARNING: [properties] DLRF runtime class registry not found\n");
+        ML_LOG_WARN(L"properties", L"DLRF runtime class registry not found");
         return false;
     }
     {
@@ -83,7 +81,7 @@ bool ml_properties_install(const ml_game_descriptor_t *game) {
                                   ? DLRF_VECTOR_ABI_MSVC2012
                                   : DLRF_VECTOR_ABI_MSVC2015,
                               "SetGameProperty", &method)) {
-            fwprintf(stderr, L"WARNING: [properties] %hs::SetGameProperty not found\n", game->control_api_class);
+            ML_LOG_WARN(L"properties", L"%hs::SetGameProperty not found", game->control_api_class);
             return false;
         }
     }
@@ -102,8 +100,8 @@ bool ml_properties_install(const ml_game_descriptor_t *game) {
         }
     }
     if (property_string == NULL) {
-        fwprintf(stderr, L"WARNING: [properties] property string not found image=%p size=%zu rdata=%p size=%zu\n",
-                 image, image_size, rdata, rdata_size);
+        ML_LOG_WARN(L"properties", L"property string not found image=%p size=%zu rdata=%p size=%zu",
+                    image, image_size, rdata, rdata_size);
         return false;
     }
     property_init = ml_find_rip_relative_lea(text, text_size, property_string);
@@ -114,19 +112,19 @@ bool ml_properties_install(const ml_game_descriptor_t *game) {
         }
     }
     if (property_init == NULL) {
-        fwprintf(stderr, L"WARNING: [properties] property initializer reference not found string=%p text=%p size=%zu\n",
-                 property_string, text, text_size);
+        ML_LOG_WARN(L"properties", L"property initializer reference not found string=%p text=%p size=%zu",
+                    property_string, text, text_size);
         return false;
     }
     property_init_target = (void *)property_init;
     hook_result = ml_hook_install(property_init_target, ml_property_init_hook_raw,
                                   &ml_property_init_trampoline);
     if (hook_result != ML_HOOK_APPLIED) {
-        fwprintf(stderr, L"WARNING: [properties] initializer hook %hs\n", ml_hook_result_name(hook_result));
+        ML_LOG_WARN(L"properties", L"initializer hook %hs", ml_hook_result_name(hook_result));
         return false;
     }
     if (!ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_PROPERTIES_READY, apply_offline_property, NULL)) {
-        fwprintf(stderr, L"WARNING: [properties] could not schedule offline property\n");
+        ML_LOG_WARN(L"properties", L"could not schedule offline property");
         return false;
     }
     ML_LOG_INFO(L"properties", L"%hs::SetGameProperty resolved at %p; initializer hook applied at %p",

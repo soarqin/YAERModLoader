@@ -84,7 +84,6 @@ uint8_t *sig_scan_without_mask(void *base, size_t data_size, const uint8_t *pat,
            shift, then index j will become -1 after
            the above loop */
         if (j < 0) {
-            /* printf("\n pattern occurs at shift = %zx", s); */
             return data + s;
 
             /* Shift the pattern so that the next
@@ -146,7 +145,6 @@ uint8_t *sig_scan_with_mask(void *base, size_t data_size, const uint8_t *pat, co
            shift, then index j will become -1 after
            the above loop */
         if (j < 0) {
-            /* printf("\n pattern occurs at shift = %zx", s); */
             return data + s;
 
             /* Shift the pattern so that the next

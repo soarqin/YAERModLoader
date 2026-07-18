@@ -19,12 +19,11 @@
 #include "patches/sekiro.h"
 #include "mimalloc_allocator.h"
 #include "lifecycle.h"
+#include "log.h"
 
 #include "game/game.h"
 
 #include <MinHook.h>
-
-#include <stdio.h>
 
 static void install_logo_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
     (void)phase;
@@ -48,7 +47,7 @@ static void install_allocator_after_runtime(ml_lifecycle_phase_t phase, void *us
 
 bool gamehook_install() {
     if (!ml_game_context_init()) {
-        fwprintf(stderr, L"WARNING: unsupported or mismatched game process; game hooks are disabled\n");
+        ML_LOG_WARN(L"gamehook", L"unsupported or mismatched game process; game hooks are disabled");
         return false;
     }
     const ml_game_descriptor_t *game = ml_game_context_get();
@@ -60,19 +59,19 @@ bool gamehook_install() {
     }
     ml_lifecycle_advance(ML_LIFECYCLE_PHASE_BEFORE_MAIN);
     if (game->id != ML_GAME_ELDEN_RING && game->id != ML_GAME_SEKIRO) {
-        fwprintf(stderr, L"WARNING: %ls adapter is not implemented; game hooks are disabled\n", game->title);
+        ML_LOG_WARN(L"gamehook", L"%ls adapter is not implemented; game hooks are disabled", game->title);
         return false;
     }
     if (config.skip_intro &&
         !ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_logo_after_runtime, (void *)game)) {
-        fwprintf(stderr, L"WARNING: [logo] could not schedule Logo redirect\n");
+        ML_LOG_WARN(L"logo", L"could not schedule Logo redirect");
     }
     if (!ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_properties_after_runtime, (void *)game)) {
-        fwprintf(stderr, L"WARNING: [properties] could not schedule installation\n");
+        ML_LOG_WARN(L"properties", L"could not schedule installation");
     }
     if (config.prevent_regulation_save_write &&
         !ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_regulation_after_runtime, (void *)game)) {
-        fwprintf(stderr, L"WARNING: [regulation] could not schedule installation\n");
+        ML_LOG_WARN(L"regulation", L"could not schedule installation");
     }
     steamapi_init();
     bool result = game->id == ML_GAME_ELDEN_RING

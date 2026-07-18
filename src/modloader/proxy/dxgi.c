@@ -1,8 +1,8 @@
 #include "dxgi.h"
+#include "log.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <stdio.h>
 
 struct dxgi_dll {
     HMODULE dll;
@@ -60,7 +60,7 @@ bool load_dxgi_proxy() {
     path[MAX_PATH - 1] = L'\0';
     dxgi.dll = LoadLibraryW(path);
     if (!dxgi.dll) {
-        fprintf(stderr, "Cannot load original dxgi.dll library\n");
+        ML_LOG_ERROR(L"proxy", L"cannot load original dxgi.dll library");
         return false;
     }
     dxgi.OriginalApplyCompatResolutionQuirking = GetProcAddress(dxgi.dll, "ApplyCompatResolutionQuirking");

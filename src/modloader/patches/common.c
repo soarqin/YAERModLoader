@@ -12,6 +12,7 @@
 #include "wwise_path.h"
 
 #include "modloader/config.h"
+#include "log.h"
 #include "modloader/mod.h"
 #include "modloader/vfs.h"
 
@@ -24,7 +25,6 @@
 #include <shlwapi.h>
 
 #include <stdint.h>
-#include <stdio.h>
 
 BOOL WINAPI ImmDisableIME_hooked(DWORD unused) {
     (void)unused;
@@ -123,7 +123,7 @@ static bool hook_wwise_archive_position_resolver() {
     }
     ml_hook_result_t result = ml_hook_install((void *)open_by_name, (void *)&ak_file_location_resolver_open, (void **)&old_ak_file_location_resolver_open);
     if (result != ML_HOOK_APPLIED) {
-        fwprintf(stderr, L"WARNING: Wwise archive resolver hook %hs\n", ml_hook_result_name(result));
+        ML_LOG_WARN(L"common", L"Wwise archive resolver hook %hs", ml_hook_result_name(result));
         return false;
     }
     wwise_hook_target = (void *)open_by_name;
@@ -149,7 +149,7 @@ void common_uninstall() {
         if (status == MH_OK || status == MH_ERROR_NOT_CREATED) {
             *targets[i] = NULL;
         } else {
-            fwprintf(stderr, L"WARNING: [common] failed to remove hook at %p: %d\n", target, status);
+            ML_LOG_WARN(L"common", L"failed to remove hook at %p: %d", target, status);
         }
     }
     if (wwise_hook_target == NULL) old_ak_file_location_resolver_open = NULL;

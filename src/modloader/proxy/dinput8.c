@@ -1,8 +1,8 @@
 #include "dinput8.h"
+#include "log.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <stdio.h>
 
 struct dinput8_dll {
     HMODULE dll;
@@ -42,7 +42,7 @@ bool load_dinput8_proxy() {
     path[MAX_PATH - 1] = L'\0';
     dinput8.dll = LoadLibraryW(path);
     if (!dinput8.dll) {
-        fprintf(stderr, "Cannot load original dinput8.dll library\n");
+        ML_LOG_ERROR(L"proxy", L"cannot load original dinput8.dll library");
         return false;
     }
     dinput8.OriginalDirectInput8Create = GetProcAddress(dinput8.dll, "DirectInput8Create");

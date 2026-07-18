@@ -19,8 +19,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <stdio.h>
-
 typedef bool (__cdecl *steam_api_init_t)(void);
 
 static steam_api_init_t old_steam_api_init;
@@ -50,7 +48,7 @@ static BOOL CALLBACK install_after_runtime(PINIT_ONCE once, PVOID parameter, PVO
     }
     if (!assets_applied) return FALSE;
     if (!ml_lifecycle_advance(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT)) {
-        fwprintf(stderr, L"WARNING: [sekiro] AFTER_RUNTIME_INIT lifecycle advance failed\n");
+        ML_LOG_WARN(L"sekiro", L"AFTER_RUNTIME_INIT lifecycle advance failed");
     }
     return TRUE;
 }
@@ -58,7 +56,7 @@ static BOOL CALLBACK install_after_runtime(PINIT_ONCE once, PVOID parameter, PVO
 static bool __cdecl steam_api_init_hooked(void) {
     bool result = old_steam_api_init();
     if (result && !InitOnceExecuteOnce(&after_runtime_once, install_after_runtime, NULL, NULL)) {
-        fwprintf(stderr, L"WARNING: [sekiro] AFTER_RUNTIME_INIT setup failed; deferred initialization will retry\n");
+        ML_LOG_WARN(L"sekiro", L"AFTER_RUNTIME_INIT setup failed; deferred initialization will retry");
     }
     return result;
 }
@@ -87,16 +85,16 @@ bool sekiro_install(void) {
     needs_file_hooks = mods_count() > 0 || config.replaced_save_filename[0] != L'\0';
     if (config.replaced_save_filename[0] != L'\0' &&
         !ml_save_mapping_init(game, config.replaced_save_filename)) {
-        fwprintf(stderr, L"WARNING: [sekiro] save mapping initialization failed\n");
+        ML_LOG_WARN(L"sekiro", L"save mapping initialization failed");
         result = false;
     }
     if (needs_file_hooks && !ml_win32_file_hooks_install()) {
-        fwprintf(stderr, L"WARNING: [sekiro] Win32 VFS hook installation failed\n");
+        ML_LOG_WARN(L"sekiro", L"Win32 VFS hook installation failed");
         result = false;
     }
     image_base = get_module_image_base(NULL, &image_size);
     if (image_base == NULL || image_size == 0 || !install_runtime_ready_hook()) {
-        fwprintf(stderr, L"WARNING: [sekiro] runtime-ready trigger installation failed; deferred capabilities disabled\n");
+        ML_LOG_WARN(L"sekiro", L"runtime-ready trigger installation failed; deferred capabilities disabled");
         result = false;
     }
     return common_install() && result;
@@ -105,7 +103,7 @@ bool sekiro_install(void) {
 void sekiro_uninstall(void) {
     bool runtime_hook_removed = true;
     if (!ml_asset_hooks_uninstall()) {
-        fwprintf(stderr, L"WARNING: [sekiro] one or more asset hooks could not be removed\n");
+        ML_LOG_WARN(L"sekiro", L"one or more asset hooks could not be removed");
     }
     ml_win32_file_hooks_uninstall();
     ml_save_mapping_uninit();
@@ -114,8 +112,8 @@ void sekiro_uninstall(void) {
         MH_STATUS status = MH_RemoveHook(runtime_ready_hook_target);
         runtime_hook_removed = status == MH_OK || status == MH_ERROR_NOT_CREATED;
         if (!runtime_hook_removed) {
-            fwprintf(stderr, L"WARNING: [sekiro] failed to remove runtime-ready hook at %p: %d\n",
-                     runtime_ready_hook_target, status);
+            ML_LOG_WARN(L"sekiro", L"failed to remove runtime-ready hook at %p: %d",
+                        runtime_ready_hook_target, status);
         }
     }
     if (runtime_hook_removed) {

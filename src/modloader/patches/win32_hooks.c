@@ -15,8 +15,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <stdio.h>
-
 typedef HANDLE (WINAPI *create_file_w_t)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 typedef HANDLE (WINAPI *create_file_a_t)(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 typedef HANDLE (WINAPI *create_file_2_t)(LPCWSTR, DWORD, DWORD, DWORD, LPCREATEFILE2_EXTENDED_PARAMETERS);
@@ -82,15 +80,15 @@ static BOOL WINAPI replace_file_w_hooked(LPCWSTR replaced_path, LPCWSTR replacem
 static bool remove_hook(void *target) {
     MH_STATUS status = MH_RemoveHook(target);
     if (status == MH_OK || status == MH_ERROR_NOT_CREATED) return true;
-    fwprintf(stderr, L"WARNING: [win32-vfs] failed to remove hook at %p: %d\n", target, status);
+    ML_LOG_WARN(L"win32-vfs", L"failed to remove hook at %p: %d", target, status);
     return false;
 }
 
 static ml_hook_result_t install_hook(void *target, void *detour, void **original) {
     ml_hook_result_t result = ml_hook_install(target, detour, original);
     if (result != ML_HOOK_APPLIED) {
-        fwprintf(stderr, L"WARNING: [win32-vfs] failed to install hook at %p: %hs\n",
-                 target, ml_hook_result_name(result));
+        ML_LOG_WARN(L"win32-vfs", L"failed to install hook at %p: %hs",
+                    target, ml_hook_result_name(result));
     }
     return result;
 }
@@ -385,7 +383,7 @@ bool ml_win32_file_hooks_install(void) {
     ml_log_write(result ? ML_LOG_LEVEL_INFO : ML_LOG_LEVEL_WARN,
                  L"win32-vfs", result ? L"file hooks APPLIED" : L"file hooks HOOK_FAILED");
     if (!rollback_complete) {
-        fwprintf(stderr, L"WARNING: [win32-vfs] hook rollback incomplete; uninstall will retry cleanup\n");
+        ML_LOG_WARN(L"win32-vfs", L"hook rollback incomplete; uninstall will retry cleanup");
     }
     return result;
 }
@@ -397,7 +395,7 @@ void ml_win32_file_hooks_uninstall(void) {
     if (ml_hook_batch_remove(specs, 15, remove_hook)) {
         hooks_installed = false;
     } else {
-        fwprintf(stderr, L"WARNING: [win32-vfs] one or more file hooks could not be removed\n");
+        ML_LOG_WARN(L"win32-vfs", L"one or more file hooks could not be removed");
     }
 }
 
