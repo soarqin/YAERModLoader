@@ -48,6 +48,8 @@ int main(void) {
     EXPECT_TRUE(!extdlls_test_is_deferred_at(0));
     EXPECT_TRUE(!extdlls_test_is_deferred_at(1));
     EXPECT_TRUE(extdlls_test_is_deferred_at(2));
+    EXPECT_TRUE(!extdlls_test_has_delayed_at(true));
+    EXPECT_TRUE(extdlls_test_has_delayed_at(false));
     extdlls_unload_all();
 
     extdlls_add_spec("plain", "plain.dll");
@@ -61,10 +63,18 @@ int main(void) {
     EXPECT_EQ(extdlls_test_delay_at(1), 0);
     extdlls_unload_all();
 
+    extdlls_add_spec("early_then_delay", "early.dll|early|delay,25");
+    extdlls_add_spec("delay_then_early", "delay.dll|delay,25|early");
+    EXPECT_TRUE(extdlls_test_is_early_at(0));
+    EXPECT_EQ(extdlls_test_delay_at(0), 0);
+    EXPECT_TRUE(!extdlls_test_is_early_at(1));
+    EXPECT_EQ(extdlls_test_delay_at(1), 25);
+    extdlls_unload_all();
+
     extdlls_add_spec("early", "early.dll|early|after,dependency");
     extdlls_add_spec("dependency", "dependency.dll");
     extdlls_prepare();
-    EXPECT_TRUE(!extdlls_test_is_early_at(0));
+    EXPECT_TRUE(extdlls_test_is_early_at(0));
     EXPECT_TRUE(extdlls_test_is_effective_early_at(0));
     EXPECT_TRUE(extdlls_test_is_early_at(1));
     extdlls_unload_all();
