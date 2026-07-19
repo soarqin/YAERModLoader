@@ -14,8 +14,6 @@
 extern "C" {
 #endif
 
-#define MIMALLOC_DL_ALLOCATOR_DEFAULT_HEAP_SIZE_MB 12288u
-
 bool mimalloc_dl_allocator_prepare(size_t heap_size_mb);
 dl_allocator_t *mimalloc_dl_allocator(void);
 

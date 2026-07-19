@@ -63,9 +63,7 @@ bool gamehook_install() {
     bool common_applied;
     bool adapter_applied;
     if (config.patch_mem) {
-        size_t heap_size_mb = config.patch_mem_heap_size != 0
-            ? config.patch_mem_heap_size : MIMALLOC_DL_ALLOCATOR_DEFAULT_HEAP_SIZE_MB;
-        bool system_allocator_applied = ml_allocator_install_before_main(game, heap_size_mb);
+        bool system_allocator_applied = ml_allocator_install_before_main(game, config.patch_mem_heap_size);
         schedule_heap_allocator = system_allocator_applied;
         if (!system_allocator_applied && game->id == ML_GAME_DARK_SOULS_3) {
             ML_LOG_WARN(L"darksouls3", L"heap allocator capability HOOK_FAILED stage=system_allocator");

@@ -8,6 +8,8 @@
 
 #include "mimalloc_allocator.h"
 
+#include "game/game.h"
+
 #include <mimalloc.h>
 
 #include <stdint.h>
@@ -26,8 +28,25 @@ static BOOL CALLBACK mimalloc_heap_initialize(PINIT_ONCE init_once, PVOID parame
     (void)init_once;
     (void)context;
 
-    if (heap_size_mb == 0) heap_size_mb = MIMALLOC_DL_ALLOCATOR_DEFAULT_HEAP_SIZE_MB;
-    if (heap_size_mb > SIZE_MAX / (1024u * 1024u)) return TRUE;
+    if (heap_size_mb == 0) {
+        const ml_game_descriptor_t *game_ctx = ml_game_context_get();
+        heap_size_mb = 6 * 1024;
+        if (game_ctx) {
+            switch (game_ctx->id) {
+            case ML_GAME_ELDEN_RING:
+                heap_size_mb = 12 * 1024;
+                break;
+            case ML_GAME_SEKIRO:
+            case ML_GAME_DARK_SOULS_3:
+                heap_size_mb = 6 * 1024;
+                heap_size_mb = 6 * 1024;
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    if (heap_size_mb > 32 * 1024) heap_size_mb = 32 * 1024;
 
     mi_option_set(mi_option_purge_decommits, 0);
     if (mi_reserve_os_memory_ex(heap_size_mb * 1024u * 1024u, true, true, true, &arena_id) != 0) return TRUE;
