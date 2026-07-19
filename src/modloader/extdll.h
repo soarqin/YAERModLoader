@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <wchar.h>
 
 #ifdef __cplusplus
@@ -15,9 +17,21 @@ extern "C" {
 #endif
 
 extern void extdlls_add(const char *name, const wchar_t *path);
+extern void extdlls_add_spec(const char *name, const char *value);
 extern int extdlls_count();
+extern void extdlls_prepare();
+extern void extdlls_load_early();
 extern void extdlls_load_all();
 extern void extdlls_unload_all();
+
+#ifdef ML_EXTDLL_TEST
+extern const char *extdlls_test_name_at(int index);
+extern bool extdlls_test_is_early_at(int index);
+extern bool extdlls_test_is_effective_early_at(int index);
+extern uint32_t extdlls_test_delay_at(int index);
+extern int extdlls_test_after_count(int index);
+extern const char *extdlls_test_after_at(int index, int dependency);
+#endif
 
 #ifdef __cplusplus
 }

@@ -108,9 +108,7 @@ static int ini_read_cb(void *user, const char *section,
             config.replaced_seamless_coop_save_filename[63] = L'\0';
         }
     } else if (lstrcmpA(section, "dlls") == 0) {
-        MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
-        path[MAX_PATH - 1] = L'\0';
-        extdlls_add(name, path);
+        extdlls_add_spec(name, value);
     } else if (lstrcmpA(section, "mods") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
         path[MAX_PATH - 1] = L'\0';

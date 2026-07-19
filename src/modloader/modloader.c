@@ -13,6 +13,8 @@
 #include "lifecycle.h"
 #include "log.h"
 
+#include "game/game.h"
+
 #include "process/image.h"
 
 #include "patches/window_flash.h"
@@ -30,6 +32,12 @@ HMODULE module_instance = NULL;
 typedef int (WINAPI*entrypoint_t)(void);
 static entrypoint_t orig_entrypoint = NULL;
 
+static void load_extdlls_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
+    (void)phase;
+    (void)userp;
+    extdlls_load_all();
+}
+
 static void modloader_init(void) {
     load_winhttp_proxy();
     load_dxgi_proxy();
@@ -41,8 +49,19 @@ static void modloader_init(void) {
     ml_log_set_level(config.log_level);
     mods_init();
     config_load();
+    extdlls_prepare();
     gamehook_install();
-    extdlls_load_all();
+    extdlls_load_early();
+    if (ml_game_context_get() != NULL &&
+        ml_game_context_get()->runtime_ready_trigger == ML_RUNTIME_READY_STEAM_API_INIT) {
+        if (!ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT,
+                                   load_extdlls_after_runtime, NULL)) {
+            ML_LOG_WARN(L"extdll", L"could not schedule external DLL loading after SteamAPI_Init");
+        }
+    } else {
+        /* Preserve loading for unsupported game contexts without a runtime trigger. */
+        extdlls_load_all();
+    }
 }
 
 __declspec(dllexport) DWORD WINAPI YAFSMLInit(LPVOID parameter) {

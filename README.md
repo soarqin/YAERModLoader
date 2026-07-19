@@ -85,8 +85,20 @@ validation.
 ### DLLs and mods
 
 The `[dlls]` section loads external DLLs at game startup. Paths can be relative
-to the configuration file or absolute. Project-owned extension DLLs are no
-longer shipped with this repository.
+to the configuration file or absolute. Without conditions, DLLs keep the
+backward-compatible behavior and load after `SteamAPI_Init`. A value can append
+pipe-separated conditions using `name=path_to_file.dll|conditions...`:
+
+- `early` loads the DLL before `SteamAPI_Init`.
+- `delay,500` waits 500 ms before loading the DLL.
+- `after,abc` loads the DLL after the `[dlls]` entry named `abc`, not after its
+  file path.
+
+Dependencies reorder entries only when necessary and preserve the configured
+order otherwise. If an `early` DLL depends on a normal entry, that prerequisite
+is promoted to early loading. Cyclic dependencies are reported and leave the
+configured order unchanged. Project-owned extension DLLs are no longer shipped
+with this repository.
 
 The `[mods]` section lists directories containing loose-file overrides. Paths
 can be relative to the configuration file or absolute. When multiple mods
