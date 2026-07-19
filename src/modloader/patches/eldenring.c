@@ -54,7 +54,6 @@ typedef bool (__cdecl *SteamAPI_Init_t)(void);
 
 static HANDLE async_operations_thread_handle = NULL;
 static volatile bool game_running = false;
-static HANDLE reset_achievements_on_new_game_thread_handle = NULL;
 static void *image_base;
 static size_t image_size;
 static INIT_ONCE after_main_once = INIT_ONCE_STATIC_INIT;
@@ -90,33 +89,6 @@ void *__cdecl map_archive_path(er_wstring_local_t *path, const uint64_t p2, cons
         memcpy(str, L"./////", 6 * sizeof(wchar_t));
     }
     return res;
-}
-
-DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
-    (void)arg;
-    uint8_t *addr = sig_scan(image_base, image_size, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 05 48 8B 40 58 C3 C3");
-    if (!addr) return 1;
-    addr += *(int32_t*)(addr + 3) + 7;
-    HANDLE process = GetCurrentProcess();
-    uint32_t last_igt = UINT32_MAX;
-    while (game_running) {
-        uint8_t *addr2;
-        if (ReadProcessMemory(process, addr, &addr2, sizeof(uint8_t*), NULL) && addr2) {
-            uint32_t igt;
-            if (ReadProcessMemory(process, addr2 + 0xA0, &igt, sizeof(uint32_t), NULL) && igt > 0) {
-                if (igt < last_igt && igt < 5000) {
-                    isteam_userstats *ustats = steam_userstats();
-                    if (ustats) {
-                        isteam_userstats_reset_all_stats(ustats, true);
-                        isteam_userstats_store_stats(ustats);
-                    }
-                }
-                last_igt = igt;
-            }
-        }
-        Sleep(1000);
-    }
-    return 0;
 }
 
 static bool hook_eldenring_archive_position_resolver(void) {
@@ -219,9 +191,6 @@ bool eldenring_install(void) {
     }
 
     async_operations_thread_handle = CreateThread(NULL, 0, async_operation_thread, NULL, 0, NULL);
-    if (config.reset_achievements_on_new_game) {
-        reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
-    }
 
     modcount = mods_count();
     /* Route the game's file APIs through the shared Win32 VFS hooks when mods are
@@ -279,10 +248,6 @@ void eldenring_uninstall(void) {
        We use a longer timeout and accept the thread may still be running on process exit. */
     if (async_operations_thread_handle && WaitForSingleObject(async_operations_thread_handle, 5000) == WAIT_TIMEOUT)
         TerminateThread(async_operations_thread_handle, 0);
-    if (reset_achievements_on_new_game_thread_handle && WaitForSingleObject(reset_achievements_on_new_game_thread_handle, 5000) == WAIT_TIMEOUT)
-        TerminateThread(reset_achievements_on_new_game_thread_handle, 0);
     if (async_operations_thread_handle != NULL) CloseHandle(async_operations_thread_handle);
-    if (reset_achievements_on_new_game_thread_handle != NULL) CloseHandle(reset_achievements_on_new_game_thread_handle);
     async_operations_thread_handle = NULL;
-    reset_achievements_on_new_game_thread_handle = NULL;
 }

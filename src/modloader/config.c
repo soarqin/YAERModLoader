@@ -25,7 +25,6 @@
 
 config_t config = {
     .cpu_affinity_strategy = 0,
-    .reset_achievements_on_new_game = false,
     .enable_ime = false,
     .log_level = ML_LOG_LEVEL_INFO,
     .skip_intro = true,
@@ -79,8 +78,6 @@ static int ini_read_cb(void *user, const char *section,
             }
         } else if (lstrcmpA(name, "cpu_affinity") == 0) {
             config.cpu_affinity_strategy = strtol(value, NULL, 0);
-        } else if (lstrcmpA(name, "reset_achievements_on_new_game") == 0) {
-            config.reset_achievements_on_new_game = value_to_bool(value);
         } else if (lstrcmpA(name, "enable_ime") == 0) {
             config.enable_ime = value_to_bool(value);
         }

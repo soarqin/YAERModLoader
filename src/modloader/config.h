@@ -21,7 +21,6 @@ extern "C" {
 typedef struct {
     /* COMMON */
     int cpu_affinity_strategy;
-    bool reset_achievements_on_new_game;
     bool enable_ime;
     ml_log_level_t log_level;
 
