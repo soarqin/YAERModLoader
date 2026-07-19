@@ -28,6 +28,7 @@ extern void extdlls_unload_all();
 extern const char *extdlls_test_name_at(int index);
 extern bool extdlls_test_is_early_at(int index);
 extern bool extdlls_test_is_effective_early_at(int index);
+extern bool extdlls_test_is_deferred_at(int index);
 extern uint32_t extdlls_test_delay_at(int index);
 extern int extdlls_test_after_count(int index);
 extern const char *extdlls_test_after_at(int index, int dependency);

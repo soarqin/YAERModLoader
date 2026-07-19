@@ -32,6 +32,7 @@ typedef struct extdll_t {
     bool early;
     bool effective_early;
     bool delayed;
+    bool deferred;
     uint32_t delay_ms;
     char **after;
     int after_count;
@@ -184,6 +185,14 @@ static bool extdll_has_unique_dependency(const extdll_t *extdll, int dependency_
     return true;
 }
 
+static bool extdll_is_deferred(const extdll_t *extdll) {
+    for (int i = 0; i < extdll->after_count; i++) {
+        int dependency = extdll_index_by_name(extdll->after[i]);
+        if (dependency >= 0 && (extdlls[dependency].delayed || extdlls[dependency].deferred)) return true;
+    }
+    return false;
+}
+
 void extdlls_prepare() {
     unsigned char *selected;
     int *indegree;
@@ -192,7 +201,10 @@ void extdlls_prepare() {
     int output_count = 0;
 
     if (extdll_count < 2) {
-        if (extdll_count == 1) extdlls[0].effective_early = extdlls[0].early;
+        if (extdll_count == 1) {
+            extdlls[0].effective_early = extdlls[0].early;
+            extdlls[0].deferred = false;
+        }
         return;
     }
     selected = ml_mem_alloc(LMEM_ZEROINIT, (size_t)extdll_count * sizeof(*selected));
@@ -316,6 +328,9 @@ void extdlls_prepare() {
         }
         if (!changed) break;
     }
+    for (int i = 0; i < extdll_count; i++) {
+        extdlls[i].deferred = extdll_is_deferred(&extdlls[i]);
+    }
     ml_mem_free(selected);
     ml_mem_free(indegree);
     ml_mem_free(order);
@@ -362,28 +377,28 @@ static void load_extdll_one(int index) {
     }
 }
 
-void extdlls_load_early() {
+static void extdlls_load(bool early) {
     if (ml_game_context_get() == NULL) {
         ML_LOG_WARN(L"extdll", L"external DLLs are disabled because the game context is unavailable");
         return;
     }
     for (int i = 0; i < extdll_count; i++) {
-        if (!extdlls[i].effective_early) continue;
+        if (extdlls[i].effective_early != early || extdlls[i].delayed || extdlls[i].deferred) continue;
+        load_extdll_one(i);
+    }
+    for (int i = 0; i < extdll_count; i++) {
+        if (extdlls[i].effective_early != early || (!extdlls[i].delayed && !extdlls[i].deferred)) continue;
         if (extdlls[i].delayed && extdlls[i].delay_ms != 0) Sleep(extdlls[i].delay_ms);
         load_extdll_one(i);
     }
 }
 
+void extdlls_load_early() {
+    extdlls_load(true);
+}
+
 void extdlls_load_all() {
-    if (ml_game_context_get() == NULL) {
-        ML_LOG_WARN(L"extdll", L"external DLLs are disabled because the game context is unavailable");
-        return;
-    }
-    for (int i = 0; i < extdll_count; i++) {
-        if (extdlls[i].effective_early) continue;
-        if (extdlls[i].delayed && extdlls[i].delay_ms != 0) Sleep(extdlls[i].delay_ms);
-        load_extdll_one(i);
-    }
+    extdlls_load(false);
 }
 
 void extdlls_unload_all() {
@@ -438,6 +453,10 @@ bool extdlls_test_is_early_at(int index) {
 
 bool extdlls_test_is_effective_early_at(int index) {
     return index >= 0 && index < extdll_count ? extdlls[index].effective_early : false;
+}
+
+bool extdlls_test_is_deferred_at(int index) {
+    return index >= 0 && index < extdll_count ? extdlls[index].deferred : false;
 }
 
 uint32_t extdlls_test_delay_at(int index) {

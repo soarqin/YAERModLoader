@@ -35,6 +35,19 @@ int main(void) {
     EXPECT_TRUE(strcmp(extdlls_test_name_at(1), "early") == 0);
     EXPECT_TRUE(strcmp(extdlls_test_name_at(2), "delayed") == 0);
     EXPECT_TRUE(strcmp(extdlls_test_name_at(3), "dependent") == 0);
+    EXPECT_TRUE(!extdlls_test_is_deferred_at(0));
+    EXPECT_TRUE(!extdlls_test_is_deferred_at(1));
+    EXPECT_TRUE(!extdlls_test_is_deferred_at(2));
+    EXPECT_TRUE(extdlls_test_is_deferred_at(3));
+    extdlls_unload_all();
+
+    extdlls_add_spec("delayed", "delayed.dll|delay,5000");
+    extdlls_add_spec("immediate", "immediate.dll");
+    extdlls_add_spec("dependent", "dependent.dll|after,delayed");
+    extdlls_prepare();
+    EXPECT_TRUE(!extdlls_test_is_deferred_at(0));
+    EXPECT_TRUE(!extdlls_test_is_deferred_at(1));
+    EXPECT_TRUE(extdlls_test_is_deferred_at(2));
     extdlls_unload_all();
 
     extdlls_add_spec("plain", "plain.dll");
