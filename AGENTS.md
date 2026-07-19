@@ -81,7 +81,7 @@ tests/
 
 Always `#define kcalloc/kmalloc/krealloc/kfree` before `#include "khash.h"` in production files.
 
-**Extension DLLs:** Project-owned extension DLLs have been split out of this repository. External ModEngine extensions continue to use `modengine_ext_init` through the `[dlls]` configuration section.
+**Extension DLLs:** Project-owned extension DLLs have been split out of this repository. External ModEngine extensions continue to use `modengine_ext_init` through the `[dll]` configuration section.
 
 **Signature scanning:** Game function addresses are found at runtime via byte-pattern scanning (`sig_scan`). Patterns use `??` for wildcard bytes. Offsets in comments (e.g. `/* 0x5B8 for version < 1.12 */`) track version-specific differences.
 

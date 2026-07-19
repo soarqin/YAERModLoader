@@ -43,53 +43,59 @@ Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；
 完整模板位于 `src/YAFSML.ini`，发布包中的文件名为
 `YAFSML.ini`。布尔值支持 `true`、`yes`、`on` 和 `1`；其他值均视为 false。
 
-### 全局选项
+### 顶层选项
 
 以下选项位于所有 section 之外：
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `debug` | `0` | 打开调试控制台。 |
 | `game` | `eldenring` | 未指定 `--launch-target` 时选择独立启动器的游戏。可用值包括 `eldenring`、`sekiro`、`darksouls3` 及其别名。 |
-| `log_level` | `info` | 最低日志级别：`trace`、`debug`、`info`、`warn`、`error` 或 `off`。 |
-| `cpu_affinity` | `0` | 选择游戏进程的 CPU 亲和性策略。`1`–`4` 对应模板中的核心子集。 |
-| `reset_achievements_on_new_game` | `0` | Elden Ring 开始新游戏时重置成就。 |
-| `enable_ime` | `0` | 为需要 CJK 文本输入的模组保持 IME 启用。 |
-| `replace_save_filename` | 留空 | 替换 `.sl2` 存档文件名；以点号开头时仅替换扩展名。 |
-| `replace_seamless_coop_save_filename` | 留空 | 当游戏或模组使用 `.co2` 存档时，替换其文件名。 |
 
-### 游戏 section
+### `[patch]`
 
-section 名称必须与当前可执行文件匹配：Elden Ring 使用 `[elden_ring]`，Sekiro
-使用 `[sekiro]`，Dark Souls III 实验性适配器使用 `[darksouls3]`。Dark Souls III
-会安装共享 Host 能力。dearxan 不是必要条件，当前也未安排实现。
+该 section 包含通用补丁设置。加载器仅对当前游戏应用受支持的设置。Dark Souls III
+仍为实验性适配，且不需要或包含 Arxan 中和。
 
-| 选项 | Elden Ring | Sekiro | Dark Souls III | 说明 |
-| --- | --- | --- | --- | --- |
-| `skip_intro` | 支持 | 支持 | 实验性 | 跳过开场 Logo。 |
-| `prevent_regulation_save_write` | 支持 | 支持 | 实验性 | 阻止原始、修改后或过大的 regulation 数据写入存档。 |
-| `patch_mem` | 支持 | 支持 | 实验性 | 使用基于 mimalloc 的 Dantelion 分配器。 |
-| `patch_mem_heap_size` | 支持 | 支持 | 实验性 | 专用堆大小，单位为 MB；`0` 使用默认大小。 |
-| `patch_mem_hook_cs_graphics` | 支持 | 不支持 | 不支持 | 作为 `patch_mem` 的一部分 Hook `CSGraphicsImp`。 |
-| `boot_boost` | 支持 | 支持 | 实验性 | 缓存解密后的 BHD 标头，减少归档启动时间。 |
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `skip_intro` | `1` | 跳过开场 Logo。 |
+| `prevent_regulation_save_write` | `1` | 阻止原始、修改后或过大的 `regulation.bin` 数据写入存档。 |
+| `patch_mem` | `1` | 使用 mimalloc 替换 Dantelion 分配器。 |
+| `patch_mem_heap_size` | `0` | mimalloc 专用堆大小，单位为 MB；`0` 使用默认的 12288 MB 堆。 |
+| `boot_boost` | `1` | 缓存解密后的 BHD 标头，减少归档启动时间。 |
+| `replace_save_filename` | 留空 | 替换存档文件名；以点号开头时仅替换扩展名。 |
+| `replace_seamless_coop_save_filename` | 留空 | 替换 Seamless Co-op 使用的额外存档文件名。 |
+| `enable_ime` | `0` | 为需要非拉丁文字输入的模组保持 IME 启用。 |
 
-Dark Souls III 在完成更广泛的长期稳定性验证前保持实验性。
+### `[tweak]`
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `cpu_affinity` | `0` | 选择游戏进程的 CPU 亲和性策略：`0` 为所有逻辑核，`1` 为除第一个逻辑核外的所有逻辑核，`2` 为能效核，`3` 为性能核，`4` 为除第一个逻辑核外的性能核。在 Intel Ultra 系列 CPU 上运行《艾尔登法环》1.16.2 或更高版本时，不要使用 `2`、`3` 或 `4`。 |
+
+### `[log]`
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `console` | `0` | 打开用于记录日志的调试控制台。 |
+| `log_file` | `0` | 配置项存在时，将日志写入配置文件旁的 `log/YAFSML.log`。 |
+| `log_level` | `warn` | 最低日志级别：`trace`、`debug`、`info`、`warn`、`error` 或 `off`。 |
 
 ### DLL 与模组
 
-`[dlls]` section 用于在游戏启动时加载外部 DLL。路径可以是相对于配置文件的路径，
+`[dll]` section 用于在游戏启动时加载外部 DLL。路径可以是相对于配置文件的路径，
 也可以是绝对路径。未设置条件时，为保持向后兼容，DLL 会在 `SteamAPI_Init` 之后加载。
 配置值可以使用 `name=path_to_file.dll|conditions...` 追加由竖线分隔的条件：
 
 - `early`：在 `SteamAPI_Init` 之前加载 DLL。
 - `delay,500`：等待 500 ms 后加载 DLL。
-- `after,abc`：在 `[dlls]` 中名称为 `abc` 的条目之后加载，而不是根据 DLL 路径判断。
+- `after,abc`：在 `[dll]` 中名称为 `abc` 的条目之后加载，而不是根据 DLL 路径判断。
 
 只有依赖关系无法由原有顺序保证时才会调整顺序；其他条目保持配置顺序。如果 `early`
 DLL 依赖普通条目，该依赖项也会提前加载。检测到循环依赖时记录错误，并保持原有顺序
 不变。项目自带的扩展 DLL 已不再随此仓库发布。
 
-`[mods]` section 用于声明包含散文件覆盖的目录。路径可以是相对路径或绝对路径；多个
+`[mod]` section 用于声明包含散文件覆盖的目录。路径可以是相对路径或绝对路径；多个
 模组包含同名文件时，后声明的模组覆盖先声明的模组。
 
 ### ModEngine2 TOML 兼容

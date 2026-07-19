@@ -219,4 +219,4 @@ ctest --test-dir cmake-build-debug -C Debug --output-on-failure
 2. 设置 `replace_save_filename`,确认主存档被重定向到新文件名(`.sl2` 与 `.sl2.bak`),原版 `ER0000.sl2` 不被写入。
 3. 设置 `replace_seamless_coop_save_filename` 并配合无缝联机,确认 `.co2`/`.co2.bak` 被重定向。
 4. 仅设置其中一个(只主存档 / 只联机存档),确认另一个不受影响。
-5. `reset_achievements_on_new_game=true` 时新游戏成就重置仍工作;`cpu_affinity` 策略生效。
+5. `[tweak]` 中的 `cpu_affinity` 策略生效。

@@ -48,50 +48,55 @@ The complete template is `src/YAFSML.ini` and is copied into release
 packages as `YAFSML.ini`. Boolean values accept `true`, `yes`, `on`, or
 `1`; other values are false.
 
-### Global options
+### Top-level options
 
 These options are outside a section:
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `debug` | `0` | Open a debug console. |
 | `game` | `eldenring` | Select the standalone launcher's game when `--launch-target` is omitted. Accepted values include `eldenring`, `sekiro`, `darksouls3`, and their aliases. |
-| `log_level` | `info` | Minimum log level: `trace`, `debug`, `info`, `warn`, `error`, or `off`. |
-| `cpu_affinity` | `0` | Select the game process CPU affinity strategy. Values `1`–`4` select the documented core subsets. |
-| `reset_achievements_on_new_game` | `0` | Reset Elden Ring achievements when a new game starts. |
-| `enable_ime` | `0` | Keep IME enabled for mods that need CJK text input. |
-| `replace_save_filename` | Empty | Replace a `.sl2` save filename; a leading dot replaces only the extension. |
-| `replace_seamless_coop_save_filename` | Empty | Replace an additional `.co2` save filename when the game or a mod uses one. |
 
-### Game sections
+### `[patch]`
 
-The section must match the current executable: `[elden_ring]` for Elden Ring,
-`[sekiro]` for Sekiro, or `[darksouls3]` for the experimental adapter. Dark
-Souls III installs the shared host capabilities without dearxan. Arxan
-neutralization is not required and is not currently scheduled.
+This section contains common patch settings. The loader applies settings that
+are supported by the current game; Dark Souls III remains experimental and
+does not require or include Arxan neutralization.
 
-| Option | Elden Ring | Sekiro | Dark Souls III | Description |
-| --- | --- | --- | --- | --- |
-| `skip_intro` | Yes | Yes | Experimental | Skip the intro logo. |
-| `prevent_regulation_save_write` | Yes | Yes | Experimental | Prevent raw modded or oversized regulation data from being written to saves. |
-| `patch_mem` | Yes | Yes | Experimental | Use the mimalloc-backed Dantelion allocator. |
-| `patch_mem_heap_size` | Yes | Yes | Experimental | Dedicated heap size in MB; `0` uses the default heap size. |
-| `patch_mem_hook_cs_graphics` | Yes | No | No | Hook `CSGraphicsImp` as part of `patch_mem`. |
-| `boot_boost` | Yes | Yes | Experimental | Cache decrypted BHD headers to reduce archive startup time. |
+| Option | Default | Description |
+| --- | --- | --- |
+| `skip_intro` | `1` | Skip the intro logo. |
+| `prevent_regulation_save_write` | `1` | Prevent raw modded or oversized `regulation.bin` data from being written to saves. |
+| `patch_mem` | `1` | Replace the Dantelion allocator with mimalloc. |
+| `patch_mem_heap_size` | `0` | Dedicated mimalloc heap size in MB; `0` uses the default 12288 MB heap. |
+| `boot_boost` | `1` | Cache decrypted BHD headers to reduce archive startup time. |
+| `replace_save_filename` | Empty | Replace a save filename; a leading dot replaces only its extension. |
+| `replace_seamless_coop_save_filename` | Empty | Replace the additional Seamless Co-op save filename. |
+| `enable_ime` | `0` | Keep IME enabled for mods that need non-Latin text input. |
 
-Dark Souls III remains experimental pending broader long-running stability
-validation.
+### `[tweak]`
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `cpu_affinity` | `0` | Select the game process CPU affinity strategy: `0` all logical cores, `1` all except the first, `2` efficient cores, `3` performance cores, or `4` performance cores except the first logical core. Do not use `2`, `3`, or `4` on Intel Ultra CPUs with Elden Ring 1.16.2 or later. |
+
+### `[log]`
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `console` | `0` | Open a debug console for logging. |
+| `log_file` | `0` | When present, write logs to `log/YAFSML.log` beside the configuration file. |
+| `log_level` | `warn` | Minimum log level: `trace`, `debug`, `info`, `warn`, `error`, or `off`. |
 
 ### DLLs and mods
 
-The `[dlls]` section loads external DLLs at game startup. Paths can be relative
+The `[dll]` section loads external DLLs at game startup. Paths can be relative
 to the configuration file or absolute. Without conditions, DLLs keep the
 backward-compatible behavior and load after `SteamAPI_Init`. A value can append
 pipe-separated conditions using `name=path_to_file.dll|conditions...`:
 
 - `early` loads the DLL before `SteamAPI_Init`.
 - `delay,500` waits 500 ms before loading the DLL.
-- `after,abc` loads the DLL after the `[dlls]` entry named `abc`, not after its
+- `after,abc` loads the DLL after the `[dll]` entry named `abc`, not after its
   file path.
 
 Dependencies reorder entries only when necessary and preserve the configured
@@ -100,7 +105,7 @@ is promoted to early loading. Cyclic dependencies are reported and leave the
 configured order unchanged. Project-owned extension DLLs are no longer shipped
 with this repository.
 
-The `[mods]` section lists directories containing loose-file overrides. Paths
+The `[mod]` section lists directories containing loose-file overrides. Paths
 can be relative to the configuration file or absolute. When multiple mods
 contain the same file, the later declaration overrides the earlier one.
 

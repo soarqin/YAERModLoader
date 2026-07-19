@@ -1,6 +1,6 @@
-#### Unreleased
+#### 0.7.0
 * Renamed the project and release artifacts from YAERModLoader to YAFSML (Yet Another FromSoftware Mod Loader). This is a direct switch without compatibility aliases.
-* Added complete English and Chinese `YAFSML.ini` templates and documented all loader options, game sections, and launcher arguments. Distribution packages now include both templates and both README files.
+* Reorganized `YAFSML.ini` into top-level launcher selection plus `[patch]`, `[tweak]`, `[log]`, `[dll]`, and `[mod]` sections; updated English and Chinese templates and documentation. Distribution packages include both templates and both README files.
 * Added top-level `game=...` launcher configuration. An explicit `--launch-target` overrides it; absent configuration defaults to Elden Ring.
 * Added launcher and adapter coverage for Sekiro and Dark Souls III, plus game-target selection through `--launch-target`; Sekiro is stable and Dark Souls III remains experimental.
 * Added the frozen VFS index, domain-specific lookup caches, Dantelion asset routing, BootBoost caching, explicit writable mappings, and long-path handling.
