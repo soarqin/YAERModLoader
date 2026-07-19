@@ -142,7 +142,7 @@ bool ml_allocator_install_before_main(const ml_game_descriptor_t *game, size_t h
     return system_allocator_hook_installed;
 }
 
-bool ml_allocator_install_after_runtime(const ml_game_descriptor_t *game, bool hook_cs_graphics) {
+bool ml_allocator_install_after_runtime(const ml_game_descriptor_t *game) {
     size_t image_size = 0;
     void *image;
     void **vtable;
@@ -184,7 +184,7 @@ bool ml_allocator_install_after_runtime(const ml_game_descriptor_t *game, bool h
         roles[spec_count] = L"debug_allocator";
         specs[spec_count++] = (ml_hook_spec_t){ debug_target, get_debug_allocator, NULL };
     }
-    if (game->allocator_strategy == ML_ALLOCATOR_STRATEGY_ELDEN_RING && hook_cs_graphics) {
+    if (game->allocator_strategy == ML_ALLOCATOR_STRATEGY_ELDEN_RING) {
         void **graphics = rtti_find_vtable("CS::CSGraphicsImp");
         graphics_target = graphics == NULL ? NULL : graphics[0];
         if (graphics_target == NULL) return heap_allocator_failed(game, L"graphics_init");

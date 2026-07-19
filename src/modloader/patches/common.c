@@ -10,6 +10,8 @@
 #include "common/allocator.h"
 #include "modloader/hook.h"
 #include "wwise_path.h"
+#include "save_mapping.h"
+#include "win32_hooks.h"
 
 #include "modloader/config.h"
 #include "log.h"
@@ -18,6 +20,7 @@
 
 #include "process/rtti.h"
 #include "process/pe.h"
+#include "process/util.h"
 
 #include <MinHook.h>
 
@@ -164,32 +167,70 @@ static bool hook_wwise_archive_position_resolver() {
     return true;
 }
 
-bool common_install() {
-    bool ime_applied = common_install_ime();
-    bool wwise_applied = common_install_wwise();
-    if (!ime_applied) ML_LOG_WARN(L"common", L"IME capability HOOK_FAILED; continuing with other capabilities");
-    return wwise_applied;
+void common_apply_process_settings(void) {
+    if (config.cpu_affinity_strategy != 0) {
+        set_process_cpu_affinity_strategy(config.cpu_affinity_strategy);
+    }
 }
 
-bool common_install_ime() {
+bool common_install_file_routing(const ml_game_descriptor_t *game) {
+    bool want_main_save = config.replaced_save_filename[0] != L'\0';
+    bool want_additional_save = config.replaced_seamless_coop_save_filename[0] != L'\0';
+    bool save_mapping_applied = true;
+    bool needs_file_hooks = mods_count() > 0 || want_main_save || want_additional_save;
+
+    if (!want_main_save && !want_additional_save) {
+        ML_LOG_INFO(L"common", L"save mapping NOT_REQUESTED");
+    } else if (!ml_save_mapping_init_root(game)) {
+        ML_LOG_WARN(L"common", L"save mapping initialization failed");
+        save_mapping_applied = false;
+    } else {
+        if (want_main_save &&
+            !ml_save_mapping_add_extension(L".sl2", config.replaced_save_filename)) {
+            ML_LOG_WARN(L"common", L"main save mapping registration failed");
+            save_mapping_applied = false;
+        }
+        if (want_additional_save &&
+            !ml_save_mapping_add_extension(L".co2", config.replaced_seamless_coop_save_filename)) {
+            ML_LOG_WARN(L"common", L"additional save mapping registration failed");
+            save_mapping_applied = false;
+        }
+    }
+    if (!needs_file_hooks) {
+        ML_LOG_INFO(L"common", L"Win32 VFS hooks NOT_REQUESTED");
+        return save_mapping_applied;
+    }
+    if (!ml_win32_file_hooks_install()) {
+        ML_LOG_WARN(L"common", L"Win32 VFS hook installation failed");
+        return false;
+    }
+    return save_mapping_applied;
+}
+
+void common_uninstall_file_routing(void) {
+    ml_win32_file_hooks_uninstall();
+    ml_save_mapping_uninit();
+}
+
+bool common_install_ime(void) {
     if (config.enable_ime) {
         return ime_hook_target != NULL || patch_ime_disable();
     }
     return true;
 }
 
-bool common_wwise_requested() {
+bool common_wwise_requested(void) {
     return vfs_has_wwise_entries();
 }
 
-bool common_install_wwise() {
+bool common_install_wwise(void) {
     if (!common_wwise_requested()) return true;
     if (wwise_hook_target != NULL) return true;
     if (!hook_wwise_archive_position_resolver()) return false;
     return true;
 }
 
-void common_uninstall() {
+void common_uninstall(void) {
     void **targets[2] = { &wwise_hook_target, &ime_hook_target };
     for (size_t i = 0; i < 2; i++) {
         void *target = *targets[i];

@@ -226,26 +226,26 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
     const wchar_t *registered;
     const wchar_t *raw_ext;
     bool interesting;
+    size_t i;
 
     if (mapped_path != NULL) *mapped_path = NULL;
     if (path == NULL || mapped_path == NULL) return false;
-    /* Only log for paths that look like save files, so the hot CreateFile path
-     * (every asset open) is not spammed when debug logging is enabled. */
     raw_ext = PathFindExtensionW(path);
-    interesting = raw_ext != NULL && (lstrcmpiW(raw_ext, L".sl2") == 0 ||
-                  lstrcmpiW(raw_ext, L".co2") == 0 || lstrcmpiW(raw_ext, L".bak") == 0);
     AcquireSRWLockShared(&mapping_lock);
     root_snapshot = save_root == NULL ? NULL : yaer_mem_strdup_w(save_root);
     snapshot_count = mapping_count;
     memcpy(snapshot, mappings, snapshot_count * sizeof(snapshot[0]));
     ReleaseSRWLockShared(&mapping_lock);
     if (root_snapshot == NULL || snapshot_count == 0) {
-        if (interesting) {
-            ML_LOG_DEBUG(L"save-mapping", L"skip %ls: no save mapping configured (root=%ls, mappings=%zu)",
-                         path, root_snapshot == NULL ? L"<null>" : root_snapshot, snapshot_count);
-        }
         yaer_mem_free(root_snapshot);
         return false;
+    }
+    interesting = raw_ext != NULL && lstrcmpiW(raw_ext, L".bak") == 0;
+    for (i = 0; raw_ext != NULL && i < snapshot_count; i++) {
+        if (lstrcmpiW(raw_ext, snapshot[i].extension) == 0) {
+            interesting = true;
+            break;
+        }
     }
     source = canonicalize_path(path);
     if (source == NULL || !path_is_under_root(source, root_snapshot) ||
@@ -277,7 +277,7 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
     }
     if (backup) PathRemoveExtensionW(logical_source);
     logical_ext = PathFindExtensionW(logical_source);
-    for (size_t i = 0; i < snapshot_count; i++) {
+    for (i = 0; i < snapshot_count; i++) {
         if (lstrcmpiW(logical_ext, snapshot[i].extension) == 0) {
             override_name = snapshot[i].override_name;
             break;

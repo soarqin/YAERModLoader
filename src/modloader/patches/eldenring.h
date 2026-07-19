@@ -14,8 +14,8 @@
 extern "C" {
 #endif
 
-extern bool eldenring_install();
-extern void eldenring_uninstall();
+extern bool eldenring_install(void);
+extern void eldenring_uninstall(void);
 
 #ifdef __cplusplus
 }

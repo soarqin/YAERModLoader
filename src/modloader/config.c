@@ -24,17 +24,17 @@
 #include "log.h"
 
 config_t config = {
-    .cpu_affinity_strategy = 0,
-    .enable_ime = false,
-    .log_level = ML_LOG_LEVEL_INFO,
     .skip_intro = true,
     .prevent_regulation_save_write = true,
     .patch_mem = true,
     .patch_mem_heap_size = 0,
-    .patch_mem_hook_cs_graphics = true,
     .boot_boost = true,
     .replaced_save_filename = L"",
     .replaced_seamless_coop_save_filename = L"",
+    .enable_ime = false,
+    .cpu_affinity_strategy = 0,
+    .log_file = false,
+    .log_level = ML_LOG_LEVEL_WARN,
 };
 
 static wchar_t modloader_module_path[MAX_PATH];
@@ -51,37 +51,10 @@ static bool value_to_bool(const char *value) {
     return lstrcmpA(value, "true") == 0 || lstrcmpA(value, "yes") == 0 || lstrcmpA(value, "on") == 0 || lstrcmpA(value, "1") == 0;
 }
 
-static bool is_current_game_section(const char *section) {
-    const ml_game_descriptor_t *game = ml_game_detect_current_process();
-    wchar_t wide_section[64];
-    if (game == NULL || game->ini_section == NULL ||
-        MultiByteToWideChar(CP_UTF8, 0, section, -1, wide_section, 64) == 0) return false;
-    wide_section[63] = L'\0';
-    return lstrcmpiW(wide_section, game->ini_section) == 0;
-}
-
 static int ini_read_cb(void *user, const char *section,
                        const char *name, const char *value) {
     wchar_t path[MAX_PATH];
-    if (section[0] == 0) {
-        if (lstrcmpA(name, "debug") == 0) {
-            if (value_to_bool(value)) {
-                enable_debug();
-            }
-        } else if (lstrcmpA(name, "log_level") == 0) {
-            ml_log_level_t level;
-            if (ml_log_level_parse(value, &level)) {
-                config.log_level = level;
-                ml_log_set_level(level);
-            } else {
-                ML_LOG_WARN(L"config", L"Unknown log level: %hs", value);
-            }
-        } else if (lstrcmpA(name, "cpu_affinity") == 0) {
-            config.cpu_affinity_strategy = strtol(value, NULL, 0);
-        } else if (lstrcmpA(name, "enable_ime") == 0) {
-            config.enable_ime = value_to_bool(value);
-        }
-    } else if (is_current_game_section(section)) {
+    if (lstrcmpA(section, "patch") == 0) {
         if (lstrcmpA(name, "skip_intro") == 0) {
             config.skip_intro = value_to_bool(value);
         } else if (lstrcmpA(name, "prevent_regulation_save_write") == 0) {
@@ -92,21 +65,41 @@ static int ini_read_cb(void *user, const char *section,
             char *end;
             unsigned long long size = strtoull(value, &end, 10);
             if (end != value && *end == '\0' && size <= UINT32_MAX) config.patch_mem_heap_size = (uint32_t)size;
-        } else if (lstrcmpA(name, "patch_mem_hook_cs_graphics") == 0) {
-            config.patch_mem_hook_cs_graphics = value_to_bool(value);
         } else if (lstrcmpA(name, "boot_boost") == 0) {
             config.boot_boost = value_to_bool(value);
         } else if (lstrcmpA(name, "replace_save_filename") == 0) {
-            /* MultiByteToWideChar does not null-terminate on overflow; force it. */
             MultiByteToWideChar(CP_UTF8, 0, value, -1, config.replaced_save_filename, 64);
             config.replaced_save_filename[63] = L'\0';
         } else if (lstrcmpA(name, "replace_seamless_coop_save_filename") == 0) {
-            MultiByteToWideChar(CP_UTF8, 0, value, -1, config.replaced_seamless_coop_save_filename, 64);
+            MultiByteToWideChar(CP_UTF8, 0, value, -1,
+                                config.replaced_seamless_coop_save_filename, 64);
             config.replaced_seamless_coop_save_filename[63] = L'\0';
+        } else if (lstrcmpA(name, "enable_ime") == 0) {
+            config.enable_ime = value_to_bool(value);
         }
-    } else if (lstrcmpA(section, "dlls") == 0) {
+    } else if (lstrcmpA(section, "log") == 0) {
+        if (lstrcmpA(name, "console") == 0) {
+            if (value_to_bool(value)) {
+                enable_debug();
+            }
+        } else if (lstrcmpA(name, "log_file") == 0) {
+            config.log_file = value_to_bool(value);
+        } else if (lstrcmpA(name, "log_level") == 0) {
+            ml_log_level_t level;
+            if (ml_log_level_parse(value, &level)) {
+                config.log_level = level;
+                ml_log_set_level(level);
+            } else {
+                ML_LOG_WARN(L"config", L"Unknown log level: %hs", value);
+            }
+        }
+    } else if (lstrcmpA(section, "tweak") == 0) {
+        if (lstrcmpA(name, "cpu_affinity") == 0) {
+            config.cpu_affinity_strategy = strtol(value, NULL, 0);
+        }
+    } else if (lstrcmpA(section, "dll") == 0) {
         extdlls_add_spec(name, value);
-    } else if (lstrcmpA(section, "mods") == 0) {
+    } else if (lstrcmpA(section, "mod") == 0) {
         MultiByteToWideChar(CP_UTF8, 0, value, -1, path, MAX_PATH);
         path[MAX_PATH - 1] = L'\0';
         mods_add(name, path);

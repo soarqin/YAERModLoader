@@ -57,9 +57,11 @@ These options are outside a section:
 | `debug` | `0` | Open a debug console. |
 | `game` | `eldenring` | Select the standalone launcher's game when `--launch-target` is omitted. Accepted values include `eldenring`, `sekiro`, `darksouls3`, and their aliases. |
 | `log_level` | `info` | Minimum log level: `trace`, `debug`, `info`, `warn`, `error`, or `off`. |
-| `cpu_affinity` | `0` | Select the Elden Ring process CPU affinity strategy. Values `1`–`4` select the documented core subsets. |
+| `cpu_affinity` | `0` | Select the game process CPU affinity strategy. Values `1`–`4` select the documented core subsets. |
 | `reset_achievements_on_new_game` | `0` | Reset Elden Ring achievements when a new game starts. |
 | `enable_ime` | `0` | Keep IME enabled for mods that need CJK text input. |
+| `replace_save_filename` | Empty | Replace a `.sl2` save filename; a leading dot replaces only the extension. |
+| `replace_seamless_coop_save_filename` | Empty | Replace an additional `.co2` save filename when the game or a mod uses one. |
 
 ### Game sections
 
@@ -76,8 +78,6 @@ neutralization is not required and is not currently scheduled.
 | `patch_mem_heap_size` | Yes | Yes | Experimental | Dedicated heap size in MB; `0` uses the default heap size. |
 | `patch_mem_hook_cs_graphics` | Yes | No | No | Hook `CSGraphicsImp` as part of `patch_mem`. |
 | `boot_boost` | Yes | Yes | Experimental | Cache decrypted BHD headers to reduce archive startup time. |
-| `replace_save_filename` | Yes | Yes | Experimental | Replace the save filename; a leading dot replaces only the extension. |
-| `replace_seamless_coop_save_filename` | Yes | No | No | Replace the Seamless Co-op `.co2` filename. |
 
 Dark Souls III remains experimental pending broader long-running stability
 validation.

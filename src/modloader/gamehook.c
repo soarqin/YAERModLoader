@@ -50,8 +50,7 @@ static void install_regulation_after_runtime(ml_lifecycle_phase_t phase, void *u
 
 static void install_allocator_after_runtime(ml_lifecycle_phase_t phase, void *userp) {
     (void)phase;
-    (void)ml_allocator_install_after_runtime((const ml_game_descriptor_t *)userp,
-                                             config.patch_mem_hook_cs_graphics);
+    (void)ml_allocator_install_after_runtime((const ml_game_descriptor_t *)userp);
 }
 
 bool gamehook_install() {
@@ -61,6 +60,8 @@ bool gamehook_install() {
         return false;
     }
     const ml_game_descriptor_t *game = ml_game_context_get();
+    bool common_applied;
+    bool adapter_applied;
     if (config.patch_mem) {
         size_t heap_size_mb = config.patch_mem_heap_size != 0
             ? config.patch_mem_heap_size : MIMALLOC_DL_ALLOCATOR_DEFAULT_HEAP_SIZE_MB;
@@ -78,6 +79,7 @@ bool gamehook_install() {
         ML_LOG_WARN(L"gamehook", L"%ls adapter is not implemented; game hooks are disabled", game->title);
         return false;
     }
+    common_apply_process_settings();
     /* me3 schedules the logo redirect before other after-runtime host work. */
     if (config.skip_intro &&
         !ml_lifecycle_on_phase(ML_LIFECYCLE_PHASE_AFTER_RUNTIME_INIT, install_logo_after_runtime, (void *)game)) {
@@ -96,22 +98,25 @@ bool gamehook_install() {
         ML_LOG_WARN(L"regulation", L"could not schedule installation");
     }
     steamapi_init();
-    bool result = game->id == ML_GAME_ELDEN_RING
-        ? common_install() && eldenring_install()
+    common_applied = common_install_file_routing(game) && common_install_ime() &&
+                     common_install_wwise();
+    adapter_applied = game->id == ML_GAME_ELDEN_RING
+        ? eldenring_install()
         : game->id == ML_GAME_SEKIRO ? sekiro_install() : darksouls3_install();
-    return result;
+    return common_applied && adapter_applied;
 }
 
 void gamehook_uninstall() {
     const ml_game_descriptor_t *game = ml_game_context_get();
     if (game != NULL && game->id == ML_GAME_ELDEN_RING) {
         eldenring_uninstall();
-        common_uninstall();
     } else if (game != NULL && game->id == ML_GAME_SEKIRO) {
         sekiro_uninstall();
     } else if (game != NULL && game->id == ML_GAME_DARK_SOULS_3) {
         darksouls3_uninstall();
     }
+    common_uninstall();
+    common_uninstall_file_routing();
 
     MH_Uninitialize();
     steamapi_uninit();

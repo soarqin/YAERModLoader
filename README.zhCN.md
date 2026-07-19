@@ -52,9 +52,11 @@ Elden Ring 仍是主要目标。使用 `--launch-target sekiro` 选择 Sekiro；
 | `debug` | `0` | 打开调试控制台。 |
 | `game` | `eldenring` | 未指定 `--launch-target` 时选择独立启动器的游戏。可用值包括 `eldenring`、`sekiro`、`darksouls3` 及其别名。 |
 | `log_level` | `info` | 最低日志级别：`trace`、`debug`、`info`、`warn`、`error` 或 `off`。 |
-| `cpu_affinity` | `0` | 选择 Elden Ring 进程的 CPU 亲和性策略。`1`–`4` 对应模板中的核心子集。 |
+| `cpu_affinity` | `0` | 选择游戏进程的 CPU 亲和性策略。`1`–`4` 对应模板中的核心子集。 |
 | `reset_achievements_on_new_game` | `0` | Elden Ring 开始新游戏时重置成就。 |
 | `enable_ime` | `0` | 为需要 CJK 文本输入的模组保持 IME 启用。 |
+| `replace_save_filename` | 留空 | 替换 `.sl2` 存档文件名；以点号开头时仅替换扩展名。 |
+| `replace_seamless_coop_save_filename` | 留空 | 当游戏或模组使用 `.co2` 存档时，替换其文件名。 |
 
 ### 游戏 section
 
@@ -70,8 +72,6 @@ section 名称必须与当前可执行文件匹配：Elden Ring 使用 `[elden_r
 | `patch_mem_heap_size` | 支持 | 支持 | 实验性 | 专用堆大小，单位为 MB；`0` 使用默认大小。 |
 | `patch_mem_hook_cs_graphics` | 支持 | 不支持 | 不支持 | 作为 `patch_mem` 的一部分 Hook `CSGraphicsImp`。 |
 | `boot_boost` | 支持 | 支持 | 实验性 | 缓存解密后的 BHD 标头，减少归档启动时间。 |
-| `replace_save_filename` | 支持 | 支持 | 实验性 | 替换存档文件名；以点号开头时只替换扩展名。 |
-| `replace_seamless_coop_save_filename` | 支持 | 不支持 | 不支持 | 替换 Seamless Co-op 的 `.co2` 存档文件名。 |
 
 Dark Souls III 在完成更广泛的长期稳定性验证前保持实验性。
 

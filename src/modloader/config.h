@@ -19,20 +19,22 @@ extern "C" {
 #endif
 
 typedef struct {
-    /* COMMON */
-    int cpu_affinity_strategy;
-    bool enable_ime;
-    ml_log_level_t log_level;
-
-    /* GAME */
+    /* patches */
     bool skip_intro;
     bool prevent_regulation_save_write;
     bool patch_mem;
     uint32_t patch_mem_heap_size;
-    bool patch_mem_hook_cs_graphics;
     bool boot_boost;
     wchar_t replaced_save_filename[64];
     wchar_t replaced_seamless_coop_save_filename[64];
+    bool enable_ime;
+
+    /* tweak */
+    int cpu_affinity_strategy;
+
+    /* log */
+    bool log_file;
+    ml_log_level_t log_level;
 } config_t;
 
 extern void config_init(void *module);
