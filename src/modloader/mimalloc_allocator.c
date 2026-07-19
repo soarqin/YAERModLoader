@@ -60,7 +60,6 @@ bool mimalloc_dl_allocator_prepare(size_t heap_size_mb) {
 }
 
 static mi_heap_t *mimalloc_dl_heap(void) {
-    mimalloc_dl_allocator_prepare(0);
     return mimalloc_heap;
 }
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-07-19
+
+### Changed
+
+- Made the dedicated mimalloc heap used by `patch_mem` optional and disabled by default. Set `patch_mem_dedicated_heap=1` to enable it; otherwise the Dantelion allocator uses mimalloc's regular allocation functions.
+
 ## [0.7.1] - 2026-07-19
 
 ### Changed

@@ -21,6 +21,7 @@ typedef struct {
     bool skip_intro;
     bool prevent_regulation_save_write;
     bool patch_mem;
+    bool patch_mem_dedicated_heap;
     uint32_t patch_mem_heap_size;
     bool boot_boost;
     wchar_t replaced_save_filename[64];

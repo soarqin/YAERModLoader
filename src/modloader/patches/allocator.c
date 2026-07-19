@@ -121,13 +121,12 @@ static void *find_debug_allocator_target(const ml_game_descriptor_t *game, void 
     return NULL;
 }
 
-bool ml_allocator_install_before_main(const ml_game_descriptor_t *game, size_t heap_size_mb) {
+bool ml_allocator_install_before_main(const ml_game_descriptor_t *game) {
     size_t image_size = 0;
     void *image;
     uint8_t *match;
     void *target;
     if (game == NULL || game->allocator_strategy == ML_ALLOCATOR_STRATEGY_UNSUPPORTED) return false;
-    mimalloc_dl_allocator_prepare(heap_size_mb);
     image = get_module_image_base(NULL, &image_size);
     match = sig_scan(image, image_size,
         "E8 ?? ?? ?? ?? 48 8B 74 24 30 48 8B 5C 24 38 48 83 C4 20 5F E9 ?? ?? ?? ??");

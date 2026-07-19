@@ -26,6 +26,7 @@ config_t config = {
     .skip_intro = true,
     .prevent_regulation_save_write = true,
     .patch_mem = true,
+    .patch_mem_dedicated_heap = false,
     .patch_mem_heap_size = 0,
     .boot_boost = true,
     .replaced_save_filename = L"",
@@ -51,6 +52,8 @@ static int ini_read_cb(void *user, const char *section,
             config.prevent_regulation_save_write = value_to_bool(value);
         } else if (lstrcmpA(name, "patch_mem") == 0) {
             config.patch_mem = value_to_bool(value);
+        } else if (lstrcmpA(name, "patch_mem_dedicated_heap") == 0) {
+            config.patch_mem_dedicated_heap = value_to_bool(value);
         } else if (lstrcmpA(name, "patch_mem_heap_size") == 0) {
             char *end;
             unsigned long long size = strtoull(value, &end, 10);
