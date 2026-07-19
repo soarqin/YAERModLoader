@@ -9,9 +9,11 @@
 #include "config.h"
 
 #include "allocator.h"
-
+#include "log.h"
 #include "extdll.h"
 #include "mod.h"
+
+#include "game/game.h"
 
 #include <ini.h>
 #if !defined(ML_STRIP_MODENGINE_CONFIG)
@@ -19,9 +21,6 @@
 #endif
 
 #include <shlwapi.h>
-
-#include "game/game.h"
-#include "log.h"
 
 config_t config = {
     .skip_intro = true,
@@ -33,19 +32,10 @@ config_t config = {
     .replaced_seamless_coop_save_filename = L"",
     .enable_ime = false,
     .cpu_affinity_strategy = 0,
-    .log_file = false,
-    .log_level = ML_LOG_LEVEL_WARN,
 };
 
 static wchar_t modloader_module_path[MAX_PATH];
 wchar_t env_config_path[MAX_PATH];
-
-static void enable_debug() {
-    AllocConsole();
-    freopen("CONOUT$", "w", stdout);
-    freopen("CONOUT$", "w", stderr);
-    freopen("CONIN$", "r", stdin);
-}
 
 static bool value_to_bool(const char *value) {
     return lstrcmpA(value, "true") == 0 || lstrcmpA(value, "yes") == 0 || lstrcmpA(value, "on") == 0 || lstrcmpA(value, "1") == 0;
@@ -80,14 +70,19 @@ static int ini_read_cb(void *user, const char *section,
     } else if (lstrcmpA(section, "log") == 0) {
         if (lstrcmpA(name, "console") == 0) {
             if (value_to_bool(value)) {
-                enable_debug();
+                ml_log_enable_console();
             }
         } else if (lstrcmpA(name, "log_file") == 0) {
-            config.log_file = value_to_bool(value);
+            wchar_t *file = config_full_path_alloc(L"log/YAFSML.log");
+            wchar_t *path = ml_mem_strdup_w(file);
+            PathRemoveFileSpecW(path);
+            CreateDirectoryW(path, NULL);
+            ml_mem_free(path);
+            ml_log_enable_file(file);
+            ml_mem_free(file);
         } else if (lstrcmpA(name, "log_level") == 0) {
             ml_log_level_t level;
             if (ml_log_level_parse(value, &level)) {
-                config.log_level = level;
                 ml_log_set_level(level);
             } else {
                 ML_LOG_WARN(L"config", L"Unknown log level: %hs", value);
@@ -123,14 +118,13 @@ bool config_load_toml(FILE *f) {
     if (me == NULL) goto TOML_LOAD_MODS;
     value = toml_table_bool(me, "debug");
     if (value.ok && value.u.b) {
-        enable_debug();
+        ml_log_enable_console();
     }
     {
         toml_value_t log_level = toml_table_string(me, "log_level");
         if (log_level.ok) {
             ml_log_level_t level;
             if (ml_log_level_parse(log_level.u.s, &level)) {
-                config.log_level = level;
                 ml_log_set_level(level);
             } else {
                 ML_LOG_WARN(L"config", L"Unknown log level: %hs", log_level.u.s);
@@ -236,10 +230,7 @@ void config_load() {
 #endif
         config_load_ini(config_file);
     fclose(config_file);
-    ml_log_set_level(config.log_level);
-    if (GetConsoleWindow() != NULL) {
-        ML_LOG_INFO(NULL, L"Debug console enabled; log level=%ls", ml_log_level_name(config.log_level));
-    }
+    ML_LOG_INFO(NULL, L"Log enabled; log level=%ls", ml_log_level_name(ml_log_get_level()));
 }
 
 const wchar_t *module_path() { return modloader_module_path; }
@@ -252,7 +243,7 @@ wchar_t *config_full_path_alloc(const wchar_t *filename) {
                      base[base_length - 1] != L'\\' && base[base_length - 1] != L'/';
     wchar_t *result;
     if (base_length > SIZE_MAX - filename_length - (separator ? 2 : 1)) return NULL;
-    result = yaer_mem_alloc(0, (base_length + filename_length + (separator ? 2 : 1)) * sizeof(*result));
+    result = ml_mem_alloc(0, (base_length + filename_length + (separator ? 2 : 1)) * sizeof(*result));
     if (result == NULL) return NULL;
     memcpy(result, base, (base_length + 1) * sizeof(*result));
     if (env_config_path[0] != L'\0' && PathFileExistsW(result) && !PathIsDirectoryW(result)) {

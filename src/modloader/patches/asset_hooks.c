@@ -9,19 +9,10 @@
 #include "asset_hooks.h"
 #include "asset_sig.h"
 
+#include "log.h"
+
 #include "common/allocator.h"
 #include "game/game.h"
-
-#include <string.h>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-static const wchar_t *loose_param_paths[] = {
-    L"data1:/param/gameparam/gameparam.parambnd.dcx",
-    L"data1:/param/gameparam/gameparam_dlc1.parambnd.dcx",
-    L"data1:/param/gameparam/gameparam_dlc2.parambnd.dcx",
-};
 
 #ifndef ML_ASSET_HOOKS_TEST
 #include "dl_device.h"
@@ -43,6 +34,19 @@ static const wchar_t *loose_param_paths[] = {
 
 #include <shlwapi.h>
 #endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
+#include <string.h>
+
+static const wchar_t *loose_param_paths[] = {
+    L"data1:/param/gameparam/gameparam.parambnd.dcx",
+    L"data1:/param/gameparam/gameparam_dlc1.parambnd.dcx",
+    L"data1:/param/gameparam/gameparam_dlc2.parambnd.dcx",
+};
 
 bool ml_asset_hooks_requested(void) {
 #ifdef ML_ASSET_HOOKS_TEST
@@ -231,7 +235,7 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
     source = CreateFileW(expanded, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (source == INVALID_HANDLE_VALUE || !GetFileSizeEx(source, &source_size) || source_size.QuadPart <= 0 ||
         source_size.QuadPart > 64 * 1024 * 1024) goto fallback;
-    encrypted = yaer_mem_alloc(0, (size_t)source_size.QuadPart);
+    encrypted = ml_mem_alloc(0, (size_t)source_size.QuadPart);
     if (encrypted == NULL || !ReadFile(source, encrypted, (DWORD)source_size.QuadPart, &read, NULL) ||
         read != (DWORD)source_size.QuadPart || !ml_boot_boost_cache_key(encrypted, (size_t)source_size.QuadPart, key)) goto fallback;
     ML_LOG_DEBUG(L"asset-hooks", L"BootBoost source loaded: %lld bytes", source_size.QuadPart);
@@ -369,10 +373,10 @@ fallback:
 done:
     if (source != INVALID_HANDLE_VALUE) CloseHandle(source);
     DeleteFileW(stub_path);
-    yaer_mem_free(encrypted);
-    yaer_mem_free(cache_directory);
-    yaer_mem_free(cache_path);
-    yaer_mem_free(expanded);
+    ml_mem_free(encrypted);
+    ml_mem_free(cache_directory);
+    ml_mem_free(cache_path);
+    ml_mem_free(expanded);
     ml_dl_mounts_destroy(&stub_mounts, game_stl_abi);
     ml_dl_mounts_destroy(&full_mounts, game_stl_abi);
     ml_dl_mount_snapshot_destroy(&snapshot);
@@ -393,13 +397,13 @@ static void log_override_once(const wchar_t *route, const wchar_t *requested,
             return;
         }
     }
-    copy = yaer_mem_strdup_w(physical);
+    copy = ml_mem_strdup_w(physical);
     if (copy != NULL) {
         if (logged_override_count == logged_override_capacity) {
             size_t capacity = logged_override_capacity == 0 ? 64 : logged_override_capacity * 2;
             wchar_t **paths = logged_override_paths == NULL
-                ? yaer_mem_alloc(0, capacity * sizeof(*paths))
-                : yaer_mem_realloc(logged_override_paths, capacity * sizeof(*paths), LMEM_MOVEABLE);
+                ? ml_mem_alloc(0, capacity * sizeof(*paths))
+                : ml_mem_realloc(logged_override_paths, capacity * sizeof(*paths), LMEM_MOVEABLE);
             if (paths != NULL) {
                 logged_override_paths = paths;
                 logged_override_capacity = capacity;
@@ -409,7 +413,7 @@ static void log_override_once(const wchar_t *route, const wchar_t *requested,
             logged_override_paths[logged_override_count++] = copy;
             added = true;
         } else {
-            yaer_mem_free(copy);
+            ml_mem_free(copy);
         }
     }
     ReleaseSRWLockExclusive(&override_log_lock);
@@ -421,8 +425,8 @@ static void log_override_once(const wchar_t *route, const wchar_t *requested,
 
 static void clear_override_log(void) {
     AcquireSRWLockExclusive(&override_log_lock);
-    for (size_t i = 0; i < logged_override_count; i++) yaer_mem_free(logged_override_paths[i]);
-    yaer_mem_free(logged_override_paths);
+    for (size_t i = 0; i < logged_override_count; i++) ml_mem_free(logged_override_paths[i]);
+    ml_mem_free(logged_override_paths);
     logged_override_paths = NULL;
     logged_override_count = 0;
     logged_override_capacity = 0;
@@ -445,7 +449,7 @@ static bool make_override_path(const ml_dl_string_t *path, ml_dl_string_t *repla
             if (result) log_override_once(route, raw, expanded, vfs_uid_to_path(uid));
         }
     }
-    yaer_mem_free(expanded);
+    ml_mem_free(expanded);
     ml_dl_device_manager_unlock(&guard);
     return result;
 }
@@ -648,7 +652,7 @@ static void *__cdecl make_ebl_object_hooked(void *utility, const wchar_t *path, 
             loose_override = physical != NULL;
             if (loose_override) log_override_once(L"MakeEblObject", path, expanded, physical);
         }
-        yaer_mem_free(expanded);
+        ml_mem_free(expanded);
     }
     if (loose_override) {
         ml_dl_device_manager_unlock(&guard);

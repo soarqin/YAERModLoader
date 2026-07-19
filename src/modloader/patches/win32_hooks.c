@@ -12,7 +12,9 @@
 #include "modloader/path_convert.h"
 #include "modloader/vfs.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 /*
@@ -196,7 +198,7 @@ static HANDLE WINAPI create_file_a_hooked(LPCSTR path, DWORD access, DWORD share
     /* Free the temporary before the real call so GetLastError() reflects the
      * API result, not the deallocation. `mapped` is owned by the VFS / save
      * mapping and never aliases `wide`. */
-    yaer_mem_free(wide);
+    ml_mem_free(wide);
     if (mapped != NULL) {
         return old_create_file_w(mapped, access, share, security, disposition, flags, template_file);
     }
@@ -227,7 +229,7 @@ static BOOL WINAPI delete_file_a_hooked(LPCSTR path) {
     if (mapped == NULL) mapped = vfs_route_writable_path(wide);
     /* Free before the real call so GetLastError() reflects the delete, not the
      * deallocation; `mapped` does not alias `wide`. */
-    yaer_mem_free(wide);
+    ml_mem_free(wide);
     return mapped != NULL ? old_delete_file_w(mapped) : old_delete_file_a(path);
 }
 
@@ -241,7 +243,7 @@ static BOOL WINAPI create_directory_a_hooked(LPCSTR path, LPSECURITY_ATTRIBUTES 
     const wchar_t *mapped = wide != NULL ? vfs_route_writable_path(wide) : NULL;
     /* Free before the real call so GetLastError() reflects it; `mapped` does
      * not alias `wide`. */
-    yaer_mem_free(wide);
+    ml_mem_free(wide);
     return mapped != NULL ? old_create_directory_w(mapped, security) : old_create_directory_a(path, security);
 }
 
@@ -294,8 +296,8 @@ static BOOL WINAPI copy_file_a_hooked(LPCSTR existing_path, LPCSTR new_path, BOO
     wide_existing = ml_path_from_ansi(existing_path);
     wide_new = ml_path_from_ansi(new_path);
     if (wide_existing == NULL || wide_new == NULL) {
-        yaer_mem_free(wide_existing);
-        yaer_mem_free(wide_new);
+        ml_mem_free(wide_existing);
+        ml_mem_free(wide_new);
         return old_copy_file_a(existing_path, new_path, fail_if_exists);
     }
     route_copy_paths(wide_existing, wide_new, &mapped_existing, &mapped_new);
@@ -303,8 +305,8 @@ static BOOL WINAPI copy_file_a_hooked(LPCSTR existing_path, LPCSTR new_path, BOO
         ? old_copy_file_w(mapped_existing != NULL ? mapped_existing : wide_existing,
                           mapped_new != NULL ? mapped_new : wide_new, fail_if_exists)
         : old_copy_file_a(existing_path, new_path, fail_if_exists);
-    yaer_mem_free(wide_existing);
-    yaer_mem_free(wide_new);
+    ml_mem_free(wide_existing);
+    ml_mem_free(wide_new);
     return result;
 }
 
@@ -322,8 +324,8 @@ static BOOL WINAPI copy_file_ex_a_hooked(LPCSTR existing_path, LPCSTR new_path,
     wide_existing = ml_path_from_ansi(existing_path);
     wide_new = ml_path_from_ansi(new_path);
     if (wide_existing == NULL || wide_new == NULL) {
-        yaer_mem_free(wide_existing);
-        yaer_mem_free(wide_new);
+        ml_mem_free(wide_existing);
+        ml_mem_free(wide_new);
         return old_copy_file_ex_a(existing_path, new_path, progress, data, cancel, flags);
     }
     route_copy_paths(wide_existing, wide_new, &mapped_existing, &mapped_new);
@@ -331,8 +333,8 @@ static BOOL WINAPI copy_file_ex_a_hooked(LPCSTR existing_path, LPCSTR new_path,
         ? old_copy_file_ex_w(mapped_existing != NULL ? mapped_existing : wide_existing,
                              mapped_new != NULL ? mapped_new : wide_new, progress, data, cancel, flags)
         : old_copy_file_ex_a(existing_path, new_path, progress, data, cancel, flags);
-    yaer_mem_free(wide_existing);
-    yaer_mem_free(wide_new);
+    ml_mem_free(wide_existing);
+    ml_mem_free(wide_new);
     return result;
 }
 

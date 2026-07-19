@@ -11,12 +11,14 @@
 #include "pe.h"
 #include "undname.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 
 #define kcalloc(N,Z)  LocalAlloc(LPTR, (N)*(Z))
 #define kmalloc(Z)    LocalAlloc(0, (Z))

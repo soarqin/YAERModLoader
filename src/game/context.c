@@ -8,7 +8,9 @@
 
 #include "game.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 static const ml_game_descriptor_t *current_game;

@@ -5,7 +5,9 @@
 
 #include "modloader/vfs.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <shlwapi.h>
 
@@ -34,7 +36,7 @@ static wchar_t *join_path(const wchar_t *left, const wchar_t *right) {
     right_length = wcslen(right);
     separator = left_length != 0 && left[left_length - 1] != L'\\' && left[left_length - 1] != L'/';
     if (left_length > SIZE_MAX - right_length - (separator ? 2 : 1)) return NULL;
-    result = yaer_mem_alloc(0, (left_length + right_length + (separator ? 2 : 1)) * sizeof(*result));
+    result = ml_mem_alloc(0, (left_length + right_length + (separator ? 2 : 1)) * sizeof(*result));
     if (result == NULL) return NULL;
     memcpy(result, left, left_length * sizeof(*result));
     if (separator) result[left_length++] = L'\\';
@@ -47,12 +49,12 @@ static wchar_t *canonicalize_path(const wchar_t *path) {
     if (path == NULL) return NULL;
     capacity = GetFullPathNameW(path, 0, NULL, NULL);
     while (capacity != 0) {
-        wchar_t *result = yaer_mem_alloc(0, (size_t)capacity * sizeof(*result));
+        wchar_t *result = ml_mem_alloc(0, (size_t)capacity * sizeof(*result));
         DWORD length;
         if (result == NULL) return NULL;
         length = GetFullPathNameW(path, capacity, result, NULL);
         if (length == 0) {
-            yaer_mem_free(result);
+            ml_mem_free(result);
             return NULL;
         }
         if (length < capacity) {
@@ -61,7 +63,7 @@ static wchar_t *canonicalize_path(const wchar_t *path) {
             }
             return result;
         }
-        yaer_mem_free(result);
+        ml_mem_free(result);
         capacity = length + 1;
     }
     return NULL;
@@ -70,16 +72,16 @@ static wchar_t *canonicalize_path(const wchar_t *path) {
 static wchar_t *environment_value(const wchar_t *name) {
     DWORD capacity = GetEnvironmentVariableW(name, NULL, 0);
     while (capacity != 0) {
-        wchar_t *result = yaer_mem_alloc(0, (size_t)capacity * sizeof(*result));
+        wchar_t *result = ml_mem_alloc(0, (size_t)capacity * sizeof(*result));
         DWORD length;
         if (result == NULL) return NULL;
         length = GetEnvironmentVariableW(name, result, capacity);
         if (length == 0) {
-            yaer_mem_free(result);
+            ml_mem_free(result);
             return NULL;
         }
         if (length < capacity) return result;
-        yaer_mem_free(result);
+        ml_mem_free(result);
         capacity = length + 1;
     }
     return NULL;
@@ -94,7 +96,7 @@ static bool path_is_under_root(const wchar_t *canonical, const wchar_t *root) {
 
 static bool path_contains_reparse_point(const wchar_t *canonical, const wchar_t *root) {
     size_t root_length = wcslen(root);
-    wchar_t *prefix = yaer_mem_strdup_w(canonical);
+    wchar_t *prefix = ml_mem_strdup_w(canonical);
     wchar_t *cursor;
     DWORD attributes;
     if (prefix == NULL) return true;
@@ -108,12 +110,12 @@ static bool path_contains_reparse_point(const wchar_t *canonical, const wchar_t 
         attributes = GetFileAttributesW(prefix);
         *cursor = saved;
         if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
-            yaer_mem_free(prefix);
+            ml_mem_free(prefix);
             return true;
         }
         if (saved == L'\0') break;
     }
-    yaer_mem_free(prefix);
+    ml_mem_free(prefix);
     return false;
 }
 
@@ -122,12 +124,12 @@ static wchar_t *build_override_name(const wchar_t *source_name, const wchar_t *o
     size_t stem_length;
     size_t suffix_length;
     wchar_t *result;
-    if (override_name[0] != L'.') return yaer_mem_strdup_w(override_name);
+    if (override_name[0] != L'.') return ml_mem_strdup_w(override_name);
     extension = PathFindExtensionW(source_name);
     stem_length = (size_t)(extension - source_name);
     suffix_length = wcslen(override_name);
     if (stem_length > SIZE_MAX - suffix_length - 1) return NULL;
-    result = yaer_mem_alloc(0, (stem_length + suffix_length + 1) * sizeof(*result));
+    result = ml_mem_alloc(0, (stem_length + suffix_length + 1) * sizeof(*result));
     if (result == NULL) return NULL;
     memcpy(result, source_name, stem_length * sizeof(*result));
     memcpy(result + stem_length, override_name, (suffix_length + 1) * sizeof(*result));
@@ -162,12 +164,12 @@ bool ml_save_mapping_init_root(const ml_game_descriptor_t *game) {
     appdata = environment_value(L"APPDATA");
     joined = appdata == NULL ? NULL : join_path(appdata, game->save_root_name);
     canonical = joined == NULL ? NULL : canonicalize_path(joined);
-    yaer_mem_free(joined);
-    yaer_mem_free(appdata);
+    ml_mem_free(joined);
+    ml_mem_free(appdata);
     if (canonical == NULL) return false;
 
     AcquireSRWLockExclusive(&mapping_lock);
-    yaer_mem_free(save_root);
+    ml_mem_free(save_root);
     save_root = canonical;
     mapping_count = 0;
     ReleaseSRWLockExclusive(&mapping_lock);
@@ -232,12 +234,12 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
     if (path == NULL || mapped_path == NULL) return false;
     raw_ext = PathFindExtensionW(path);
     AcquireSRWLockShared(&mapping_lock);
-    root_snapshot = save_root == NULL ? NULL : yaer_mem_strdup_w(save_root);
+    root_snapshot = save_root == NULL ? NULL : ml_mem_strdup_w(save_root);
     snapshot_count = mapping_count;
     memcpy(snapshot, mappings, snapshot_count * sizeof(snapshot[0]));
     ReleaseSRWLockShared(&mapping_lock);
     if (root_snapshot == NULL || snapshot_count == 0) {
-        yaer_mem_free(root_snapshot);
+        ml_mem_free(root_snapshot);
         return false;
     }
     interesting = raw_ext != NULL && lstrcmpiW(raw_ext, L".bak") == 0;
@@ -257,22 +259,22 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
                          source != NULL && path_is_under_root(source, root_snapshot) ? 1 : 0,
                          source != NULL && path_contains_reparse_point(source, root_snapshot) ? 1 : 0);
         }
-        yaer_mem_free(root_snapshot);
-        yaer_mem_free(source);
+        ml_mem_free(root_snapshot);
+        ml_mem_free(source);
         return false;
     }
-    yaer_mem_free(root_snapshot);
+    ml_mem_free(root_snapshot);
     registered = vfs_route_writable_path(path);
     if (registered != NULL) {
         *mapped_path = registered;
-        yaer_mem_free(source);
+        ml_mem_free(source);
         return true;
     }
 
     backup = lstrcmpiW(PathFindExtensionW(source), L".bak") == 0;
-    logical_source = yaer_mem_strdup_w(source);
+    logical_source = ml_mem_strdup_w(source);
     if (logical_source == NULL) {
-        yaer_mem_free(source);
+        ml_mem_free(source);
         return true;
     }
     if (backup) PathRemoveExtensionW(logical_source);
@@ -287,40 +289,40 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
         if (interesting) {
             ML_LOG_DEBUG(L"save-mapping", L"skip %ls: extension %ls not mapped", path, logical_ext);
         }
-        yaer_mem_free(logical_source);
-        yaer_mem_free(source);
+        ml_mem_free(logical_source);
+        ml_mem_free(source);
         return false;
     }
     source_name = PathFindFileNameW(logical_source);
     target_name = build_override_name(source_name, override_name);
     if (target_name != NULL) {
         size_t directory_length = (size_t)(source_name - logical_source);
-        wchar_t *directory = yaer_mem_alloc(0, (directory_length + 1) * sizeof(*directory));
+        wchar_t *directory = ml_mem_alloc(0, (directory_length + 1) * sizeof(*directory));
         if (directory != NULL) {
             memcpy(directory, logical_source, directory_length * sizeof(*directory));
             directory[directory_length] = L'\0';
             target = join_path(directory, target_name);
-            yaer_mem_free(directory);
+            ml_mem_free(directory);
         }
     }
-    yaer_mem_free(target_name);
+    ml_mem_free(target_name);
     if (target == NULL) {
-        yaer_mem_free(logical_source);
-        yaer_mem_free(source);
+        ml_mem_free(logical_source);
+        ml_mem_free(source);
         return true;
     }
     if (backup) {
         size_t length = wcslen(target);
-        wchar_t *with_backup = yaer_mem_alloc(0, (length + 5) * sizeof(*with_backup));
+        wchar_t *with_backup = ml_mem_alloc(0, (length + 5) * sizeof(*with_backup));
         if (with_backup == NULL) {
-            yaer_mem_free(target);
-            yaer_mem_free(logical_source);
-            yaer_mem_free(source);
+            ml_mem_free(target);
+            ml_mem_free(logical_source);
+            ml_mem_free(source);
             return true;
         }
         memcpy(with_backup, target, length * sizeof(*with_backup));
         memcpy(with_backup + length, L".bak", 5 * sizeof(*with_backup));
-        yaer_mem_free(target);
+        ml_mem_free(target);
         target = with_backup;
     }
 
@@ -338,9 +340,9 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
             if (!copied && GetLastError() != ERROR_FILE_EXISTS) {
                 vfs_recursion_guard_leave();
                 ReleaseSRWLockExclusive(&mapping_lock);
-                yaer_mem_free(target);
-                yaer_mem_free(logical_source);
-                yaer_mem_free(source);
+                ml_mem_free(target);
+                ml_mem_free(logical_source);
+                ml_mem_free(source);
                 return true;
             }
             vfs_recursion_guard_leave();
@@ -353,15 +355,15 @@ bool ml_save_mapping_route(const wchar_t *path, const wchar_t **mapped_path) {
         ML_LOG_WARN(L"save-mapping", L"route %ls: target=%ls computed but writable registration returned NULL (falling back to original path)",
                     path, target);
     }
-    yaer_mem_free(target);
-    yaer_mem_free(logical_source);
-    yaer_mem_free(source);
+    ml_mem_free(target);
+    ml_mem_free(logical_source);
+    ml_mem_free(source);
     return true;
 }
 
 void ml_save_mapping_uninit(void) {
     AcquireSRWLockExclusive(&mapping_lock);
-    yaer_mem_free(save_root);
+    ml_mem_free(save_root);
     save_root = NULL;
     mapping_count = 0;
     ReleaseSRWLockExclusive(&mapping_lock);

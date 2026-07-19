@@ -8,14 +8,16 @@
 
 #pragma once
 
+#include "game/game.h"
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <wchar.h>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-#include "game/game.h"
 
 typedef enum ml_launcher_game_config_result_e {
     ML_LAUNCHER_GAME_CONFIG_NOT_SPECIFIED,

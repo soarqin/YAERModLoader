@@ -12,8 +12,6 @@
 #include <stdint.h>
 #include <wchar.h>
 
-#include "log.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,10 +29,6 @@ typedef struct {
 
     /* tweak */
     int cpu_affinity_strategy;
-
-    /* log */
-    bool log_file;
-    ml_log_level_t log_level;
 } config_t;
 
 extern void config_init(void *module);

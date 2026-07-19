@@ -12,7 +12,9 @@
 
 #include <stdint.h>
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 static INIT_ONCE mimalloc_heap_once = INIT_ONCE_STATIC_INIT;

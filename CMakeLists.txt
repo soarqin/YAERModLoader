@@ -17,7 +17,6 @@ include(ProjectMacros)
 project(YAFSML)
 
 add_subdirectory(deps)
-# add_subdirectory(tools)
 add_subdirectory(src)
 
 option(BUILD_TESTING "Build the testing tree." OFF)

@@ -8,7 +8,9 @@
 
 #include "image.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 void *get_module_image_base(const wchar_t *module_name, size_t *size) {

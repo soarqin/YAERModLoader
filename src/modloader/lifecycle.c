@@ -10,7 +10,9 @@
 
 #include "allocator.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 typedef struct ml_phase_observer_s {
@@ -28,7 +30,7 @@ static volatile LONG current_phase;
 
 void ml_lifecycle_init(void) {
     AcquireSRWLockExclusive(&observers_lock);
-    yaer_mem_free(observers);
+    ml_mem_free(observers);
     observers = NULL;
     observer_count = 0;
     observer_capacity = 0;
@@ -58,8 +60,8 @@ bool ml_lifecycle_on_phase(ml_lifecycle_phase_t phase, ml_lifecycle_callback_t c
     if (observer_count == observer_capacity) {
         size_t capacity = observer_capacity == 0 ? 8 : observer_capacity * 2;
         ml_phase_observer_t *new_observers = observers == NULL
-            ? yaer_mem_alloc(LMEM_ZEROINIT, capacity * sizeof(*observers))
-            : yaer_mem_realloc(observers, capacity * sizeof(*observers), LMEM_MOVEABLE | LMEM_ZEROINIT);
+            ? ml_mem_alloc(LMEM_ZEROINIT, capacity * sizeof(*observers))
+            : ml_mem_realloc(observers, capacity * sizeof(*observers), LMEM_MOVEABLE | LMEM_ZEROINIT);
         if (new_observers == NULL) {
             ReleaseSRWLockExclusive(&observers_lock);
             return false;

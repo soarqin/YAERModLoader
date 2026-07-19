@@ -14,9 +14,12 @@
 #include "log.h"
 #include "game/game.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <shlwapi.h>
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -47,8 +50,8 @@ static bool extdlls_reserve(int capacity) {
     extdll_t *new_dlls;
     if (capacity <= extdll_capacity) return true;
     new_dlls = extdlls == NULL
-        ? yaer_mem_alloc(LMEM_ZEROINIT, (size_t)capacity * sizeof(*extdlls))
-        : yaer_mem_realloc(extdlls, (size_t)capacity * sizeof(*extdlls), LMEM_MOVEABLE | LMEM_ZEROINIT);
+        ? ml_mem_alloc(LMEM_ZEROINIT, (size_t)capacity * sizeof(*extdlls))
+        : ml_mem_realloc(extdlls, (size_t)capacity * sizeof(*extdlls), LMEM_MOVEABLE | LMEM_ZEROINIT);
     if (new_dlls == NULL) return false;
     extdlls = new_dlls;
     extdll_capacity = capacity;
@@ -60,14 +63,14 @@ static bool extdll_after_add(extdll_t *extdll, const char *name) {
     if (extdll->after_count >= extdll->after_capacity) {
         int capacity = extdll->after_capacity == 0 ? 4 : extdll->after_capacity * 2;
         new_after = extdll->after == NULL
-            ? yaer_mem_alloc(LMEM_ZEROINIT, (size_t)capacity * sizeof(*extdll->after))
-            : yaer_mem_realloc(extdll->after, (size_t)capacity * sizeof(*extdll->after),
+            ? ml_mem_alloc(LMEM_ZEROINIT, (size_t)capacity * sizeof(*extdll->after))
+            : ml_mem_realloc(extdll->after, (size_t)capacity * sizeof(*extdll->after),
                                LMEM_MOVEABLE | LMEM_ZEROINIT);
         if (new_after == NULL) return false;
         extdll->after = new_after;
         extdll->after_capacity = capacity;
     }
-    extdll->after[extdll->after_count] = yaer_mem_strdup_a(name);
+    extdll->after[extdll->after_count] = ml_mem_strdup_a(name);
     if (extdll->after[extdll->after_count] == NULL) return false;
     extdll->after_count++;
     return true;
@@ -91,12 +94,12 @@ void extdlls_add(const char *name, const wchar_t *path) {
         !extdlls_reserve(extdll_capacity == 0 ? 8 : extdll_capacity * 2)) return;
     extdll = &extdlls[extdll_count++];
     memset(extdll, 0, sizeof(*extdll));
-    extdll->name = yaer_mem_strdup_a(name);
-    extdll->base_path = yaer_mem_strdup_w(path);
+    extdll->name = ml_mem_strdup_a(name);
+    extdll->base_path = ml_mem_strdup_w(path);
     extdll->effective_early = false;
     if (extdll->name == NULL || extdll->base_path == NULL) {
-        if (extdll->name != NULL) yaer_mem_free(extdll->name);
-        if (extdll->base_path != NULL) yaer_mem_free(extdll->base_path);
+        if (extdll->name != NULL) ml_mem_free(extdll->name);
+        if (extdll->base_path != NULL) ml_mem_free(extdll->base_path);
         memset(extdll, 0, sizeof(*extdll));
         extdll_count--;
     }
@@ -112,28 +115,28 @@ void extdlls_add_spec(const char *name, const char *value) {
     if (name == NULL || value == NULL) return;
     if (extdll_count >= extdll_capacity &&
         !extdlls_reserve(extdll_capacity == 0 ? 8 : extdll_capacity * 2)) return;
-    spec = yaer_mem_strdup_a(value);
+    spec = ml_mem_strdup_a(value);
     if (spec == NULL) return;
     condition = strchr(spec, '|');
     if (condition != NULL) *condition++ = '\0';
     if (spec[0] == '\0' || MultiByteToWideChar(CP_UTF8, 0, spec, -1, path, MAX_PATH) == 0) {
         ML_LOG_ERROR(L"extdll", L"invalid external DLL path for %hs", name);
-        yaer_mem_free(spec);
+        ml_mem_free(spec);
         return;
     }
     path[MAX_PATH - 1] = L'\0';
 
     extdll = &extdlls[extdll_count++];
     memset(extdll, 0, sizeof(*extdll));
-    extdll->name = yaer_mem_strdup_a(name);
-    extdll->base_path = yaer_mem_strdup_w(path);
+    extdll->name = ml_mem_strdup_a(name);
+    extdll->base_path = ml_mem_strdup_w(path);
     if (extdll->name == NULL || extdll->base_path == NULL) {
         ML_LOG_ERROR(L"extdll", L"cannot allocate external DLL configuration for %hs", name);
-        if (extdll->name != NULL) yaer_mem_free(extdll->name);
-        if (extdll->base_path != NULL) yaer_mem_free(extdll->base_path);
+        if (extdll->name != NULL) ml_mem_free(extdll->name);
+        if (extdll->base_path != NULL) ml_mem_free(extdll->base_path);
         memset(extdll, 0, sizeof(*extdll));
         extdll_count--;
-        yaer_mem_free(spec);
+        ml_mem_free(spec);
         return;
     }
     while (condition != NULL && condition[0] != '\0') {
@@ -159,7 +162,7 @@ void extdlls_add_spec(const char *name, const char *value) {
         }
         condition = next;
     }
-    yaer_mem_free(spec);
+    ml_mem_free(spec);
 }
 
 int extdlls_count() {
@@ -192,14 +195,14 @@ void extdlls_prepare() {
         if (extdll_count == 1) extdlls[0].effective_early = extdlls[0].early;
         return;
     }
-    selected = yaer_mem_alloc(LMEM_ZEROINIT, (size_t)extdll_count * sizeof(*selected));
-    indegree = yaer_mem_alloc(LMEM_ZEROINIT, (size_t)extdll_count * sizeof(*indegree));
-    order = yaer_mem_alloc(0, (size_t)extdll_count * sizeof(*order));
+    selected = ml_mem_alloc(LMEM_ZEROINIT, (size_t)extdll_count * sizeof(*selected));
+    indegree = ml_mem_alloc(LMEM_ZEROINIT, (size_t)extdll_count * sizeof(*indegree));
+    order = ml_mem_alloc(0, (size_t)extdll_count * sizeof(*order));
     if (selected == NULL || indegree == NULL || order == NULL) {
         ML_LOG_ERROR(L"extdll", L"cannot allocate external DLL dependency sorter");
-        yaer_mem_free(selected);
-        yaer_mem_free(indegree);
-        yaer_mem_free(order);
+        ml_mem_free(selected);
+        ml_mem_free(indegree);
+        ml_mem_free(order);
         return;
     }
 
@@ -227,9 +230,9 @@ void extdlls_prepare() {
         }
         if (next < 0) {
             ML_LOG_ERROR(L"extdll", L"external DLL dependency cycle detected; preserving configured order");
-            yaer_mem_free(selected);
-            yaer_mem_free(indegree);
-            yaer_mem_free(order);
+            ml_mem_free(selected);
+            ml_mem_free(indegree);
+            ml_mem_free(order);
             return;
         }
         selected[next] = true;
@@ -281,20 +284,20 @@ void extdlls_prepare() {
         if (!moved) break;
         if (move_count == extdll_count * extdll_count) {
             ML_LOG_ERROR(L"extdll", L"external DLL dependency cycle detected; preserving configured order");
-            yaer_mem_free(selected);
-            yaer_mem_free(indegree);
-            yaer_mem_free(order);
+            ml_mem_free(selected);
+            ml_mem_free(indegree);
+            ml_mem_free(order);
             return;
         }
     }
 
-    sorted = yaer_mem_alloc(0, (size_t)extdll_count * sizeof(*sorted));
+    sorted = ml_mem_alloc(0, (size_t)extdll_count * sizeof(*sorted));
     if (sorted == NULL) {
         ML_LOG_ERROR(L"extdll", L"cannot allocate external DLL dependency order");
     } else {
         for (int i = 0; i < extdll_count; i++) sorted[i] = extdlls[order[i]];
         memcpy(extdlls, sorted, (size_t)extdll_count * sizeof(*extdlls));
-        yaer_mem_free(sorted);
+        ml_mem_free(sorted);
     }
     /* Dependencies of an early DLL must also be available before the
        runtime-ready phase. Promote only the prerequisite closure. */
@@ -313,9 +316,9 @@ void extdlls_prepare() {
         }
         if (!changed) break;
     }
-    yaer_mem_free(selected);
-    yaer_mem_free(indegree);
-    yaer_mem_free(order);
+    ml_mem_free(selected);
+    ml_mem_free(indegree);
+    ml_mem_free(order);
 }
 
 static HMODULE load_extdll_module(const extdll_t *extdll) {
@@ -411,13 +414,13 @@ void extdlls_unload_all() {
     }
     for (int i = extdll_count - 1; i >= 0; i--) {
         extdll_t *extdll = &extdlls[i];
-        for (int j = 0; j < extdll->after_count; j++) yaer_mem_free(extdll->after[j]);
-        yaer_mem_free(extdll->after);
-        yaer_mem_free(extdll->name);
-        yaer_mem_free(extdll->base_path);
+        for (int j = 0; j < extdll->after_count; j++) ml_mem_free(extdll->after[j]);
+        ml_mem_free(extdll->after);
+        ml_mem_free(extdll->name);
+        ml_mem_free(extdll->base_path);
         memset(extdll, 0, sizeof(*extdll));
     }
-    yaer_mem_free(extdlls);
+    ml_mem_free(extdlls);
     extdlls = NULL;
     extdll_count = 0;
     extdll_capacity = 0;

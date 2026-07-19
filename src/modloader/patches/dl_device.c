@@ -12,16 +12,16 @@
 
 #include "modloader/dl_allocator.h"
 #include "process/pe.h"
-#include "xxhash.h"
+
+#include <xxhash.h>
+#include <miniz.h>
+#include <miniz_tdef.h>
+#include <miniz_tinfl.h>
 
 #include <shlwapi.h>
 
 #include <string.h>
 #include <wchar.h>
-
-#include <miniz.h>
-#include <miniz_tdef.h>
-#include <miniz_tinfl.h>
 
 static bool pointer_in_section(void *image_base, const IMAGE_SECTION_HEADER *section, const void *pointer) {
     return pointer != NULL && pe_section_contains_va(image_base, section, pointer);
@@ -187,7 +187,7 @@ bool ml_dl_device_expand_path(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
     wchar_t *current;
     if (manager == NULL || path == NULL || expanded == NULL) return false;
     *expanded = NULL;
-    current = yaer_mem_strdup_w(path);
+    current = ml_mem_strdup_w(path);
     if (current == NULL) return false;
     for (size_t depth = 0; depth != 16; depth++) {
         size_t count = ml_dl_vector_count(&manager->virtual_roots, abi, sizeof(ml_dl_virtual_root_t));
@@ -217,18 +217,18 @@ bool ml_dl_device_expand_path(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
             if (from == NULL || to == NULL || from_len == 0 || from_len != root_len ||
                 memcmp(current, from, from_len * sizeof(*current)) != 0) continue;
             remainder_len = wcslen(current + from_len + 2);
-            next = yaer_mem_alloc(0, (to_len + remainder_len + 1) * sizeof(*next));
-            if (next == NULL) { yaer_mem_free(current); return false; }
+            next = ml_mem_alloc(0, (to_len + remainder_len + 1) * sizeof(*next));
+            if (next == NULL) { ml_mem_free(current); return false; }
             memcpy(next, to, to_len * sizeof(*next));
             memcpy(next + to_len, current + from_len + 2, (remainder_len + 1) * sizeof(*next));
-            yaer_mem_free(current);
+            ml_mem_free(current);
             current = next;
             replaced = true;
             break;
         }
         if (!replaced) { *expanded = current; return true; }
     }
-    yaer_mem_free(current);
+    ml_mem_free(current);
     return false;
 }
 
@@ -288,7 +288,7 @@ bool ml_dl_mount_snapshot(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
     memset(snapshot, 0, sizeof(*snapshot));
     count = ml_dl_vector_count(&manager->bnd4_mounts, abi, sizeof(ml_dl_virtual_mount_t));
     if (count == 0) return true;
-    snapshot->roots = yaer_mem_alloc(0, count * sizeof(*snapshot->roots));
+    snapshot->roots = ml_mem_alloc(0, count * sizeof(*snapshot->roots));
     if (snapshot->roots == NULL) return false;
     for (size_t i = 0; i < count; i++) {
         void *allocator;
@@ -303,7 +303,7 @@ bool ml_dl_mount_snapshot(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
         }
         mount = &((ml_dl_virtual_mount_t *)first)[i];
         root = ml_dl_string_data(&mount->root, abi);
-        snapshot->roots[i] = root == NULL ? NULL : yaer_mem_strdup_w(root);
+        snapshot->roots[i] = root == NULL ? NULL : ml_mem_strdup_w(root);
         if (root != NULL && snapshot->roots[i] == NULL) {
             ml_dl_mount_snapshot_destroy(snapshot);
             return false;
@@ -315,8 +315,8 @@ bool ml_dl_mount_snapshot(ml_dl_device_manager_t *manager, ml_stl_abi_t abi,
 
 void ml_dl_mount_snapshot_destroy(ml_dl_mount_snapshot_t *snapshot) {
     if (snapshot == NULL) return;
-    for (size_t i = 0; i < snapshot->count; i++) yaer_mem_free(snapshot->roots[i]);
-    yaer_mem_free(snapshot->roots);
+    for (size_t i = 0; i < snapshot->count; i++) ml_mem_free(snapshot->roots[i]);
+    ml_mem_free(snapshot->roots);
     memset(snapshot, 0, sizeof(*snapshot));
 }
 
@@ -338,10 +338,10 @@ static bool mounts_reserve(ml_dl_vfs_mounts_t *mounts, size_t capacity) {
     ml_dl_virtual_mount_t *items;
     if (mounts == NULL || capacity > SIZE_MAX / sizeof(*items)) return false;
     if (capacity <= mounts->capacity) return true;
-    items = yaer_mem_alloc(0, capacity * sizeof(*items));
+    items = ml_mem_alloc(0, capacity * sizeof(*items));
     if (items == NULL) return false;
     memcpy(items, mounts->items, mounts->count * sizeof(*items));
-    yaer_mem_free(mounts->items);
+    ml_mem_free(mounts->items);
     mounts->items = items;
     mounts->capacity = capacity;
     return true;
@@ -474,7 +474,7 @@ bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_stl_abi_t a
                (uint8_t *)devices_first + required_devices * sizeof(ml_dl_device_t *), devices_end);
     vector_set(&manager->bnd4_mounts, abi, mounts_first,
                (uint8_t *)mounts_first + required_mounts * sizeof(ml_dl_virtual_mount_t), mounts_end);
-    yaer_mem_free(mounts->items);
+    ml_mem_free(mounts->items);
     memset(mounts, 0, sizeof(*mounts));
     return true;
 }
@@ -482,13 +482,13 @@ bool ml_dl_device_restore_mounts(ml_dl_device_manager_t *manager, ml_stl_abi_t a
 void ml_dl_mounts_destroy(ml_dl_vfs_mounts_t *mounts, ml_stl_abi_t abi) {
     if (mounts == NULL) return;
     for (size_t i = 0; i < mounts->count; i++) ml_dl_string_destroy(&mounts->items[i].root, abi);
-    yaer_mem_free(mounts->items);
+    ml_mem_free(mounts->items);
     memset(mounts, 0, sizeof(*mounts));
 }
 
 void ml_dl_mounts_release(ml_dl_vfs_mounts_t *mounts) {
     if (mounts == NULL) return;
-    yaer_mem_free(mounts->items);
+    ml_mem_free(mounts->items);
     memset(mounts, 0, sizeof(*mounts));
 }
 
@@ -525,7 +525,7 @@ bool ml_dl_device_push_mounts_permanent(ml_dl_device_manager_t *manager, ml_stl_
                (uint8_t *)devices_first + required_devices * sizeof(ml_dl_device_t *), devices_end);
     vector_set(&manager->bnd4_mounts, abi, mounts_first,
                (uint8_t *)mounts_first + required_mounts * sizeof(ml_dl_virtual_mount_t), mounts_end);
-    yaer_mem_free(mounts->items);
+    ml_mem_free(mounts->items);
     memset(mounts, 0, sizeof(*mounts));
     return true;
 }
@@ -586,7 +586,7 @@ wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, const uint64_t key[2
                 directory[directory_length - 1] != L'/';
     suffix_length = _scwprintf(L"%016llx%016llx.bhd.zz", (unsigned long long)key[1], (unsigned long long)key[0]);
     if (suffix_length < 0 || directory_length > SIZE_MAX - (size_t)suffix_length - (separator ? 2 : 1)) return NULL;
-    result = yaer_mem_alloc(0, (directory_length + (size_t)suffix_length + (separator ? 2 : 1)) * sizeof(*result));
+    result = ml_mem_alloc(0, (directory_length + (size_t)suffix_length + (separator ? 2 : 1)) * sizeof(*result));
     if (result == NULL) return NULL;
     memcpy(result, directory, directory_length * sizeof(*result));
     if (separator) result[directory_length++] = L'\\';
@@ -609,7 +609,7 @@ bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_s
     if (!GetFileSizeEx(file, &file_size) || file_size.QuadPart < 4 || file_size.QuadPart > SIZE_MAX) goto done;
     if (!ReadFile(file, &expected_size, sizeof(expected_size), &read, NULL) || read != sizeof(expected_size) || expected_size != output_size) goto done;
     compressed_size = (size_t)file_size.QuadPart - sizeof(expected_size);
-    compressed = yaer_mem_alloc(0, compressed_size);
+    compressed = ml_mem_alloc(0, compressed_size);
     if (compressed == NULL) goto done;
     if (ReadFile(file, compressed, (DWORD)compressed_size, &read, NULL) && read == compressed_size) {
         tinfl_decompressor decompressor;
@@ -621,7 +621,7 @@ bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_s
                 input_size == compressed_size && uncompressed_size == output_size &&
                 ml_bhd5_header_valid(output, output_size);
     }
-    yaer_mem_free(compressed);
+    ml_mem_free(compressed);
 done:
     CloseHandle(file);
     if (!valid) DeleteFileW(path);
@@ -638,13 +638,13 @@ bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t siz
     DWORD written;
     bool result = false;
     if (path == NULL || data == NULL || size > UINT32_MAX || !ml_bhd5_header_valid(data, size)) return false;
-    temporary = yaer_mem_alloc(0, (wcslen(path) + 5) * sizeof(*temporary));
+    temporary = ml_mem_alloc(0, (wcslen(path) + 5) * sizeof(*temporary));
     if (temporary == NULL) return false;
     lstrcpyW(temporary, path);
     lstrcatW(temporary, L".tmp");
     bound = mz_compressBound(size);
-    compressed = yaer_mem_alloc(0, bound);
-    if (compressed == NULL) { yaer_mem_free(temporary); return false; }
+    compressed = ml_mem_alloc(0, bound);
+    if (compressed == NULL) { ml_mem_free(temporary); return false; }
     {
         compressed_size = tdefl_compress_mem_to_mem(compressed, bound, data, size,
             tdefl_create_comp_flags_from_zip_params(7, -MZ_DEFAULT_WINDOW_BITS, MZ_DEFAULT_STRATEGY));
@@ -664,7 +664,7 @@ bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t siz
 done:
     if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
     if (!result) DeleteFileW(temporary);
-    yaer_mem_free(compressed);
-    yaer_mem_free(temporary);
+    ml_mem_free(compressed);
+    ml_mem_free(temporary);
     return result;
 }

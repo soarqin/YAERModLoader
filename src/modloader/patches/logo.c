@@ -14,7 +14,9 @@
 #include "process/pe.h"
 #include "process/scanner.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 bool ml_logo_fd4_redirect(void **step_slot, void *next_step) {

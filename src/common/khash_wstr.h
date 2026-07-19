@@ -1,6 +1,9 @@
 #ifndef ML_KHASH_WSTR_H
 #define ML_KHASH_WSTR_H
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include "khash.h"
 

@@ -8,17 +8,15 @@
 
 #include "mod.h"
 
+#include "config.h"
+#include "log.h"
+
 #include "allocator.h"
 
 #include "vfs.h"
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <shlwapi.h>
 #include <stdint.h>
-
-#include "config.h"
-#include "log.h"
 
 static wchar_t game_folder[MAX_PATH];
 
@@ -92,13 +90,13 @@ const wchar_t *mods_file_route_read_a(const char *path, DWORD desired_access, DW
     if (mod_count <= 0 || path == NULL) return NULL;
     length = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
     if (length <= 0) return NULL;
-    wide = length <= MAX_PATH ? stack_path : yaer_mem_alloc(0, (size_t)length * sizeof(*wide));
+    wide = length <= MAX_PATH ? stack_path : ml_mem_alloc(0, (size_t)length * sizeof(*wide));
     if (wide == NULL) return NULL;
     if (MultiByteToWideChar(CP_ACP, 0, path, -1, wide, length) == 0) {
-        if (wide != stack_path) yaer_mem_free(wide);
+        if (wide != stack_path) ml_mem_free(wide);
         return NULL;
     }
     result = mods_file_route_read(wide, desired_access, creation_disposition);
-    if (wide != stack_path) yaer_mem_free(wide);
+    if (wide != stack_path) ml_mem_free(wide);
     return result;
 }

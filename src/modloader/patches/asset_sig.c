@@ -100,7 +100,7 @@ bool ml_asset_sig_rsa_block_size(const char *pem, size_t pem_length, size_t *blo
     }
     if (end_offset == SIZE_MAX) return false;
     ML_LOG_TRACE(L"asset-hooks", L"RSA PEM markers: begin=%zu end=%zu", begin_offset, end_offset);
-    der = yaer_mem_alloc(0, end_offset - begin_offset);
+    der = ml_mem_alloc(0, end_offset - begin_offset);
     if (der == NULL) return false;
     for (size_t i = begin_offset; i < end_offset; i++) {
         int value = base64_value(pem[i]);
@@ -118,17 +118,17 @@ bool ml_asset_sig_rsa_block_size(const char *pem, size_t pem_length, size_t *blo
     ML_LOG_TRACE(L"asset-hooks", L"RSA DER length: %zu", der_length);
     if (cursor >= end || *cursor++ != 0x30 || !der_read_length(&cursor, end, &sequence_length) ||
         sequence_length > (size_t)(end - cursor)) {
-        yaer_mem_free(der);
+        ml_mem_free(der);
         return false;
     }
     sequence_end = cursor + sequence_length;
     if (cursor >= sequence_end || *cursor++ != 0x02 || !der_read_length(&cursor, sequence_end, &modulus_length) ||
         modulus_length == 0 || modulus_length > (size_t)(sequence_end - cursor)) {
-        yaer_mem_free(der);
+        ml_mem_free(der);
         return false;
     }
     *block_size = modulus_length - (modulus_length > 1 && cursor[0] == 0 ? 1 : 0);
-    yaer_mem_free(der);
+    ml_mem_free(der);
     ML_LOG_TRACE(L"asset-hooks", L"RSA parse complete: modulus=%zu block=%zu", modulus_length, *block_size);
     return *block_size != 0;
 }

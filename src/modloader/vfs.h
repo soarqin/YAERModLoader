@@ -8,13 +8,15 @@
 
 #pragma once
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <wchar.h>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 
 typedef enum vfs_lookup_domain_e {
     VFS_LOOKUP_VIRTUAL = 0,

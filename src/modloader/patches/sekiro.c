@@ -10,7 +10,9 @@
 #include "game/game.h"
 #include "process/image.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 static void *image_base;

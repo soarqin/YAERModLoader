@@ -6,10 +6,11 @@
  * https://opensource.org/licenses/MIT.
  */
 
+#include "log.h"
+
 #include "steam/app.h"
 #include "game/game.h"
 #include "launcher/launch_config.h"
-#include "log.h"
 
 #include <getopt.h>
 #include <shlwapi.h>

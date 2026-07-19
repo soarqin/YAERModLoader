@@ -8,16 +8,18 @@
 
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-
 #include "from/abi_msvc2012.h"
 #include "from/abi_msvc2015.h"
 #include "game/game.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 typedef struct ml_dl_device_s ml_dl_device_t;
 typedef struct ml_dl_file_operator_s ml_dl_file_operator_t;

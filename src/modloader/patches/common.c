@@ -24,7 +24,9 @@
 
 #include <MinHook.h>
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <shlwapi.h>
 
@@ -95,18 +97,18 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
                 wchar_t *candidate = wwise_join_path(prefixes[i], direct_path);
                 if (candidate != NULL) {
                     new_replace = vfs_lookup_domain(candidate, VFS_LOOKUP_WWISE);
-                    yaer_mem_free(candidate);
+                    ml_mem_free(candidate);
                 }
             }
             for (int i = 0; i < 3 && new_replace == NULL; i++) {
                 wchar_t *candidate = wwise_join_path(prefixes[i], nested_path);
                 if (candidate != NULL) {
                     new_replace = vfs_lookup_domain(candidate, VFS_LOOKUP_WWISE);
-                    yaer_mem_free(candidate);
+                    ml_mem_free(candidate);
                 }
             }
-            yaer_mem_free(direct_path);
-            yaer_mem_free(nested_path);
+            ml_mem_free(direct_path);
+            ml_mem_free(nested_path);
             if (new_replace != NULL) {
             /* FromSoftware's READ_EBL (9) mode yields an EBLFileOperator that
              * only reads from BDT archives. An override file lives on disk, so
@@ -121,7 +123,7 @@ void *__cdecl ak_file_location_resolver_open(const uint64_t p1, wchar_t *path, c
         wchar_t *new_path = wwise_join_path(prefixes[i], replace);
         if (new_path == NULL) continue;
         const wchar_t *new_replace = vfs_lookup_domain(new_path, VFS_LOOKUP_WWISE);
-        yaer_mem_free(new_path);
+        ml_mem_free(new_path);
         if (new_replace != NULL) {
             return old_ak_file_location_resolver_open(p1, (wchar_t*)new_replace, READ, p4, p5, p6);
         }

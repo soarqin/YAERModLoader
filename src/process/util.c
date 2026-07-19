@@ -8,9 +8,12 @@
 
 #include "util.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <sysinfoapi.h>
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
