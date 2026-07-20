@@ -561,7 +561,7 @@ bool ml_bhd5_header_valid(const void *data, size_t size) {
     memcpy(&file_size, bytes + 12, sizeof(file_size));
     memcpy(&bucket_count, bytes + 16, sizeof(bucket_count));
     memcpy(&bucket_offset, bytes + 20, sizeof(bucket_offset));
-    return file_size >= 24 && file_size <= size && bucket_offset <= file_size &&
+    return file_size == size && bucket_offset <= file_size &&
            bucket_count <= (file_size - bucket_offset) / sizeof(uint32_t);
 }
 
@@ -595,20 +595,45 @@ wchar_t *ml_boot_boost_cache_path(const wchar_t *directory, const uint64_t key[2
     return result;
 }
 
-bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_size) {
+typedef struct ml_boot_boost_cache_header_s {
+    uint8_t magic[8];
+    uint32_t version;
+    uint32_t header_size;
+    uint64_t key[2];
+    uint32_t uncompressed_size;
+    uint32_t compressed_size;
+    uint64_t checksum;
+} ml_boot_boost_cache_header_t;
+
+_Static_assert(sizeof(ml_boot_boost_cache_header_t) == 48, "BootBoost cache header size");
+
+static const uint8_t boot_boost_cache_magic[8] = { 'Y', 'A', 'F', 'S', 'B', 'H', 'D', 0 };
+static const uint32_t boot_boost_cache_version = 1;
+
+static uint64_t boot_boost_cache_checksum(const void *data, size_t size) {
+    return XXH3_128bits_withSeed(data, size, 2).low64;
+}
+
+bool ml_boot_boost_cache_load(const wchar_t *path, const uint64_t key[2], void *output, size_t output_size) {
     HANDLE file = INVALID_HANDLE_VALUE;
     DWORD read;
-    uint32_t expected_size;
+    ml_boot_boost_cache_header_t header;
     LARGE_INTEGER file_size;
     uint8_t *compressed = NULL;
     size_t compressed_size;
     bool valid = false;
-    if (path == NULL || output == NULL || output_size > UINT32_MAX) return false;
+    if (path == NULL || key == NULL || output == NULL || output_size > UINT32_MAX) return false;
     file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE) return false;
-    if (!GetFileSizeEx(file, &file_size) || file_size.QuadPart < 4 || file_size.QuadPart > SIZE_MAX) goto done;
-    if (!ReadFile(file, &expected_size, sizeof(expected_size), &read, NULL) || read != sizeof(expected_size) || expected_size != output_size) goto done;
-    compressed_size = (size_t)file_size.QuadPart - sizeof(expected_size);
+    if (!GetFileSizeEx(file, &file_size) || file_size.QuadPart < sizeof(header) || file_size.QuadPart > SIZE_MAX) goto done;
+    if (!ReadFile(file, &header, sizeof(header), &read, NULL) || read != sizeof(header) ||
+        memcmp(header.magic, boot_boost_cache_magic, sizeof(header.magic)) != 0 ||
+        header.version != boot_boost_cache_version || header.header_size != sizeof(header) ||
+        header.key[0] != key[0] || header.key[1] != key[1] ||
+        header.uncompressed_size != output_size ||
+        header.compressed_size != (uint64_t)file_size.QuadPart - sizeof(header)) goto done;
+    compressed_size = header.compressed_size;
+    if (compressed_size == 0) goto done;
     compressed = ml_mem_alloc(0, compressed_size);
     if (compressed == NULL) goto done;
     if (ReadFile(file, compressed, (DWORD)compressed_size, &read, NULL) && read == compressed_size) {
@@ -619,6 +644,7 @@ bool ml_boot_boost_cache_load(const wchar_t *path, void *output, size_t output_s
         valid = tinfl_decompress(&decompressor, compressed, &input_size, output, output, &uncompressed_size,
                                  TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_STATUS_DONE &&
                 input_size == compressed_size && uncompressed_size == output_size &&
+                boot_boost_cache_checksum(output, output_size) == header.checksum &&
                 ml_bhd5_header_valid(output, output_size);
     }
     ml_mem_free(compressed);
@@ -628,20 +654,24 @@ done:
     return valid;
 }
 
-bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t size) {
+bool ml_boot_boost_cache_store(const wchar_t *path, const uint64_t key[2], const void *data, size_t size) {
     wchar_t *temporary;
     HANDLE file = INVALID_HANDLE_VALUE;
     size_t bound;
     size_t compressed_size;
     uint8_t *compressed;
-    uint32_t stored_size;
+    ml_boot_boost_cache_header_t header;
     DWORD written;
     bool result = false;
-    if (path == NULL || data == NULL || size > UINT32_MAX || !ml_bhd5_header_valid(data, size)) return false;
-    temporary = ml_mem_alloc(0, (wcslen(path) + 5) * sizeof(*temporary));
+    int temporary_length;
+    if (path == NULL || key == NULL || data == NULL || size > UINT32_MAX || !ml_bhd5_header_valid(data, size)) return false;
+    temporary_length = _scwprintf(L"%ls.%08lx.%08lx.tmp", path,
+                                  GetCurrentProcessId(), GetCurrentThreadId());
+    if (temporary_length < 0) return false;
+    temporary = ml_mem_alloc(0, ((size_t)temporary_length + 1) * sizeof(*temporary));
     if (temporary == NULL) return false;
-    lstrcpyW(temporary, path);
-    lstrcatW(temporary, L".tmp");
+    _snwprintf(temporary, (size_t)temporary_length + 1, L"%ls.%08lx.%08lx.tmp", path,
+               GetCurrentProcessId(), GetCurrentThreadId());
     bound = mz_compressBound(size);
     compressed = ml_mem_alloc(0, bound);
     if (compressed == NULL) { ml_mem_free(temporary); return false; }
@@ -651,12 +681,20 @@ bool ml_boot_boost_cache_store(const wchar_t *path, const void *data, size_t siz
         if (compressed_size == 0) goto done;
     }
     if (compressed_size == 0 || compressed_size > MAXDWORD) goto done;
+    memset(&header, 0, sizeof(header));
+    memcpy(header.magic, boot_boost_cache_magic, sizeof(header.magic));
+    header.version = boot_boost_cache_version;
+    header.header_size = sizeof(header);
+    header.key[0] = key[0];
+    header.key[1] = key[1];
+    header.uncompressed_size = (uint32_t)size;
+    header.compressed_size = (uint32_t)compressed_size;
+    header.checksum = boot_boost_cache_checksum(data, size);
     file = CreateFileW(temporary, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE) goto done;
-    stored_size = (uint32_t)size;
-    if (WriteFile(file, &stored_size, sizeof(stored_size), &written, NULL) && written == sizeof(stored_size) &&
+    if (WriteFile(file, &header, sizeof(header), &written, NULL) && written == sizeof(header) &&
         WriteFile(file, compressed, (DWORD)compressed_size, &written, NULL) && written == (DWORD)compressed_size) {
-        FlushFileBuffers(file);
+        if (!FlushFileBuffers(file)) goto done;
         CloseHandle(file);
         file = INVALID_HANDLE_VALUE;
         result = MoveFileExW(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;

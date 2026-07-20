@@ -42,6 +42,19 @@
 
 #include <string.h>
 
+typedef struct bhd5_holder_s {
+    uint8_t *header;
+    uint32_t bucket_count;
+    uint32_t *buckets;
+} bhd5_holder_t;
+
+static void assign_bhd_contents(bhd5_holder_t *holder, uint8_t *contents,
+                                uint32_t bucket_count, uint32_t bucket_offset) {
+    holder->header = contents;
+    holder->bucket_count = bucket_count;
+    holder->buckets = (uint32_t *)(contents + bucket_offset);
+}
+
 static const wchar_t *loose_param_paths[] = {
     L"data1:/param/gameparam/gameparam.parambnd.dcx",
     L"data1:/param/gameparam/gameparam_dlc1.parambnd.dcx",
@@ -107,12 +120,6 @@ typedef struct ebl_open_hook_s {
     void *original;
 } ebl_open_hook_t;
 
-typedef struct bhd5_holder_s {
-    uint8_t *header;
-    uint32_t bucket_count;
-    uint32_t *buckets;
-} bhd5_holder_t;
-
 static bool remove_asset_hook(void *target);
 static bool remove_asset_hooks(asset_hook_t *hooks, size_t count);
 static bool make_override_path(const ml_dl_string_t *path, ml_dl_string_t *replacement,
@@ -158,6 +165,13 @@ bool ml_asset_hooks_test_match_mount_ebl(const uint8_t *bytes, size_t size,
 
 bool ml_asset_hooks_test_rsa_public_key_block_size(const char *pem, size_t pem_length, size_t *block_size) {
     return ml_asset_sig_rsa_block_size(pem, pem_length, block_size);
+}
+
+bool ml_asset_hooks_test_assign_bhd_contents(void *holder, uint8_t *contents,
+                                             uint32_t bucket_count, uint32_t bucket_offset) {
+    if (holder == NULL || contents == NULL) return false;
+    assign_bhd_contents(holder, contents, bucket_count, bucket_offset);
+    return true;
 }
 
 #ifndef ML_ASSET_HOOKS_TEST
@@ -281,7 +295,7 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
                 uint32_t bucket_count;
                 uint32_t bucket_offset;
                 ML_LOG_TRACE(L"asset-hooks", L"BootBoost loading cache");
-                if (ml_boot_boost_cache_load(cache_path, cached, size)) {
+                if (ml_boot_boost_cache_load(cache_path, key, cached, size)) {
                     ML_LOG_INFO(L"asset-hooks", L"BootBoost cache hit");
                     memcpy(&bucket_count, cached + 16, sizeof(bucket_count));
                     memcpy(&bucket_offset, cached + 20, sizeof(bucket_offset));
@@ -291,20 +305,18 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
                     bucket_offset = UINT32_MAX;
                 }
                 if (bucket_offset <= size && bucket_count <= (size - bucket_offset) / sizeof(uint32_t)) {
-                    uint8_t *previous = holder->header;
-                    holder->header = cached;
-                    holder->bucket_count = bucket_count;
-                    holder->buckets = (uint32_t *)(cached + bucket_offset);
-                    dl_allocator_dealloc(allocator, previous);
                     if (!ml_dl_device_push_mounts_permanent(device_manager, game_stl_abi, &stub_mounts)) {
                         if (ml_dl_device_restore_mounts(device_manager, game_stl_abi, &stub_mounts)) {
+                            assign_bhd_contents(holder, cached, bucket_count, bucket_offset);
                             *mounted = true;
                             result = true;
                             goto done;
                         }
+                        dl_allocator_dealloc(allocator, cached);
                         *handled = false;
                         goto fallback;
                     }
+                    assign_bhd_contents(holder, cached, bucket_count, bucket_offset);
                     *mounted = true;
                     result = true;
                     goto done;
@@ -351,7 +363,7 @@ full_mount:
         if (holder->header != NULL && memcmp(holder->header, "BHD5", 4) == 0 &&
             (memcpy(&size, holder->header + 12, sizeof(size)), size >= 24 && size <= 64 * 1024 * 1024) &&
             ml_bhd5_header_valid(holder->header, size)) {
-            (void)ml_boot_boost_cache_store(cache_path, holder->header, size);
+            (void)ml_boot_boost_cache_store(cache_path, key, holder->header, size);
         }
     }
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost full mount cache-store stage");

@@ -7,6 +7,11 @@
 #include "modloader/patches/asset_hooks.h"
 
 int main(void) {
+    typedef struct test_bhd5_holder_s {
+        uint8_t *header;
+        uint32_t bucket_count;
+        uint32_t *buckets;
+    } test_bhd5_holder_t;
     static const char rsa_key[] =
         "-----BEGIN RSA PUBLIC KEY-----\n"
         "MAsCCQCQAQIDBAUGBw==\n"
@@ -32,6 +37,9 @@ int main(void) {
     size_t displacement_offset;
     size_t instruction_end_offset;
     size_t block_size;
+    uint8_t previous[24] = { 0 };
+    uint8_t cached[64] = { 0 };
+    test_bhd5_holder_t holder = { previous, 0, NULL };
     const ml_game_descriptor_t *ds3 = ml_game_by_id(ML_GAME_DARK_SOULS_3);
 
     EXPECT_EQ(sizeof(mount_pattern), 42);
@@ -51,6 +59,11 @@ int main(void) {
                                                       NULL, NULL));
     EXPECT_TRUE(ml_asset_hooks_test_rsa_public_key_block_size(rsa_key, sizeof(rsa_key) - 1, &block_size));
     EXPECT_EQ(block_size, 8);
+    EXPECT_TRUE(ml_asset_hooks_test_assign_bhd_contents(&holder, cached, 2, 32));
+    EXPECT_EQ(holder.header, cached);
+    EXPECT_EQ(holder.bucket_count, 2);
+    EXPECT_EQ(holder.buckets, (uint32_t *)(cached + 32));
+    EXPECT_EQ(holder.header != previous, 1);
     memcpy(invalid, mount_pattern, sizeof(invalid));
     invalid[40] = 0x73;
     EXPECT_TRUE(!ml_asset_hooks_test_match_mount_ebl(invalid, sizeof(invalid), NULL, NULL));

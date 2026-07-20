@@ -12,6 +12,20 @@ static size_t allocated;
 static size_t freed;
 static size_t permanent_freed;
 
+typedef struct cache_store_thread_s {
+    const wchar_t *path;
+    const uint64_t *key;
+    const uint8_t *data;
+    size_t size;
+    bool result;
+} cache_store_thread_t;
+
+static DWORD WINAPI cache_store_thread(void *parameter) {
+    cache_store_thread_t *context = parameter;
+    context->result = ml_boot_boost_cache_store(context->path, context->key, context->data, context->size);
+    return 0;
+}
+
 static void *__cdecl test_allocate_aligned(dl_allocator_t *self, size_t size, size_t alignment) {
     (void)self;
     (void)alignment;
@@ -106,11 +120,11 @@ int main(void) {
     EXPECT_TRUE(GetTempPathW(MAX_PATH, temporary) != 0);
     EXPECT_TRUE(GetTempFileNameW(temporary, L"bbd", 0, temporary) != 0);
     DeleteFileW(temporary);
-    EXPECT_TRUE(ml_boot_boost_cache_store(temporary, header, sizeof(header)));
+    EXPECT_TRUE(ml_boot_boost_cache_store(temporary, first, header, sizeof(header)));
     memset(header, 0, sizeof(header));
-    EXPECT_TRUE(ml_boot_boost_cache_load(temporary, header, sizeof(header)));
+    EXPECT_TRUE(ml_boot_boost_cache_load(temporary, first, header, sizeof(header)));
     DeleteFileW(temporary);
-    EXPECT_TRUE(ml_boot_boost_cache_store(temporary, header, sizeof(header)));
+    EXPECT_TRUE(ml_boot_boost_cache_store(temporary, first, header, sizeof(header)));
     {
         HANDLE file = CreateFileW(temporary, FILE_APPEND_DATA, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
         const uint8_t trailing = 0;
@@ -120,8 +134,79 @@ int main(void) {
         EXPECT_EQ(written, sizeof(trailing));
         CloseHandle(file);
     }
-    EXPECT_TRUE(!ml_boot_boost_cache_load(temporary, header, sizeof(header)));
+    EXPECT_TRUE(!ml_boot_boost_cache_load(temporary, first, header, sizeof(header)));
     EXPECT_EQ(GetFileAttributesW(temporary), INVALID_FILE_ATTRIBUTES);
+    EXPECT_TRUE(ml_boot_boost_cache_store(temporary, first, header, sizeof(header)));
+    second[0] ^= 1;
+    EXPECT_TRUE(!ml_boot_boost_cache_load(temporary, second, header, sizeof(header)));
+    second[0] ^= 1;
+    EXPECT_EQ(GetFileAttributesW(temporary), INVALID_FILE_ATTRIBUTES);
+    EXPECT_TRUE(ml_boot_boost_cache_store(temporary, first, header, sizeof(header)));
+    {
+        HANDLE file = CreateFileW(temporary, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        LARGE_INTEGER end;
+        EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
+        EXPECT_TRUE(GetFileSizeEx(file, &end));
+        EXPECT_TRUE(end.QuadPart > 1);
+        end.QuadPart--;
+        EXPECT_TRUE(SetFilePointerEx(file, end, NULL, FILE_BEGIN));
+        EXPECT_TRUE(SetEndOfFile(file));
+        CloseHandle(file);
+    }
+    EXPECT_TRUE(!ml_boot_boost_cache_load(temporary, first, header, sizeof(header)));
+    EXPECT_EQ(GetFileAttributesW(temporary), INVALID_FILE_ATTRIBUTES);
+    EXPECT_TRUE(ml_boot_boost_cache_store(temporary, first, header, sizeof(header)));
+    {
+        HANDLE file = CreateFileW(temporary, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        LARGE_INTEGER payload = { 0 };
+        uint8_t byte;
+        DWORD transferred;
+        payload.QuadPart = 48;
+        EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
+        EXPECT_TRUE(SetFilePointerEx(file, payload, NULL, FILE_BEGIN));
+        EXPECT_TRUE(ReadFile(file, &byte, sizeof(byte), &transferred, NULL));
+        EXPECT_EQ(transferred, sizeof(byte));
+        byte ^= 1;
+        EXPECT_TRUE(SetFilePointerEx(file, payload, NULL, FILE_BEGIN));
+        EXPECT_TRUE(WriteFile(file, &byte, sizeof(byte), &transferred, NULL));
+        EXPECT_EQ(transferred, sizeof(byte));
+        CloseHandle(file);
+    }
+    EXPECT_TRUE(!ml_boot_boost_cache_load(temporary, first, header, sizeof(header)));
+    EXPECT_EQ(GetFileAttributesW(temporary), INVALID_FILE_ATTRIBUTES);
+    {
+        wchar_t interrupted[MAX_PATH + 32];
+        HANDLE file;
+        DWORD written;
+        _snwprintf(interrupted, sizeof(interrupted) / sizeof(interrupted[0]),
+                   L"%ls.%08lx.%08lx.tmp", temporary,
+                   GetCurrentProcessId(), GetCurrentThreadId());
+        file = CreateFileW(interrupted, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        EXPECT_TRUE(file != INVALID_HANDLE_VALUE);
+        EXPECT_TRUE(WriteFile(file, header, 8, &written, NULL));
+        CloseHandle(file);
+        EXPECT_TRUE(ml_boot_boost_cache_store(temporary, first, header, sizeof(header)));
+        EXPECT_TRUE(ml_boot_boost_cache_load(temporary, first, header, sizeof(header)));
+        EXPECT_EQ(GetFileAttributesW(interrupted), INVALID_FILE_ATTRIBUTES);
+        DeleteFileW(temporary);
+    }
+    {
+        cache_store_thread_t contexts[2] = {
+            { temporary, first, header, sizeof(header), false },
+            { temporary, first, header, sizeof(header), false },
+        };
+        HANDLE threads[2] = {
+            CreateThread(NULL, 0, cache_store_thread, &contexts[0], 0, NULL),
+            CreateThread(NULL, 0, cache_store_thread, &contexts[1], 0, NULL),
+        };
+        EXPECT_TRUE(threads[0] != NULL && threads[1] != NULL);
+        EXPECT_EQ(WaitForMultipleObjects(2, threads, TRUE, INFINITE), WAIT_OBJECT_0);
+        CloseHandle(threads[0]);
+        CloseHandle(threads[1]);
+        EXPECT_TRUE(contexts[0].result || contexts[1].result);
+        EXPECT_TRUE(ml_boot_boost_cache_load(temporary, first, header, sizeof(header)));
+        DeleteFileW(temporary);
+    }
     memcpy(roots[0].root.msvc2015.storage.inline_storage, L"dataX", 12);
     roots[0].root.msvc2015.length = roots[0].root.msvc2015.capacity = 4;
     roots[0].root.msvc2015.encoding = 1;

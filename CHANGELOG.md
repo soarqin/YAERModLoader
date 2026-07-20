@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-07-20
+
+### Changed
+
+- Added a versioned BootBoost cache format with source-key, size, and payload checksum validation. Existing cache files are invalidated and regenerated automatically.
+- Write BootBoost cache files through per-process, per-thread temporary files before replacing the active cache.
+
+### Fixed
+
+- Fixed game startup crashes after BootBoost generated a cache by matching me3's BHD holder ownership behavior and deferring the cache-buffer assignment until the mount is retained or restored successfully.
+- Fixed log initialization when the log directory does not exist.
+- Reject and remove BootBoost cache files that are truncated, contain trailing data, belong to another source BHD, fail decompression or checksum validation, or contain inconsistent BHD metadata.
+
 ## [0.7.2] - 2026-07-19
 
 ### Changed
@@ -171,7 +184,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/soarqin/YAFSML/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/soarqin/YAFSML/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/soarqin/YAFSML/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/soarqin/YAFSML/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/soarqin/YAFSML/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/soarqin/YAFSML/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/soarqin/YAFSML/compare/v0.6.0...v0.6.1
