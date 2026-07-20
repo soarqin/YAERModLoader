@@ -77,11 +77,3 @@ void ml_log_vwrite(ml_log_level_t level, const wchar_t *component,
         ReleaseSRWLockExclusive(&file_lock);
     }
 }
-
-void ml_log_write(ml_log_level_t level, const wchar_t *component,
-                  const wchar_t *format, ...) {
-    va_list args;
-    va_start(args, format);
-    ml_log_vwrite(level, component, format, args);
-    va_end(args);
-}

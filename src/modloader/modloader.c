@@ -44,12 +44,12 @@ static void modloader_init(void) {
     load_winhttp_proxy();
     load_dxgi_proxy();
     load_dinput8_proxy();
-    ml_lifecycle_init();
-    ml_lifecycle_advance(ML_LIFECYCLE_PHASE_PRE_ENTRY_SAFE);
-    ml_window_flash_install();
     config_init(module_instance);
     mods_init();
     config_load();
+    ml_lifecycle_init();
+    ml_lifecycle_advance(ML_LIFECYCLE_PHASE_PRE_ENTRY_SAFE);
+    ml_window_flash_install();
     extdlls_prepare();
     gamehook_install();
     extdlls_load_early();

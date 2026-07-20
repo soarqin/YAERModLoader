@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed game startup crashes after BootBoost generated a cache by matching me3's BHD holder ownership behavior and deferring the cache-buffer assignment until the mount is retained or restored successfully.
 - Fixed log initialization when the log directory does not exist.
+- Fixed log output level check and config loading order.
 - Reject and remove BootBoost cache files that are truncated, contain trailing data, belong to another source BHD, fail decompression or checksum validation, or contain inconsistent BHD metadata.
 
 ## [0.7.2] - 2026-07-19
