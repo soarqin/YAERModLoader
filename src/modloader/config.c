@@ -76,13 +76,15 @@ static int ini_read_cb(void *user, const char *section,
                 ml_log_enable_console();
             }
         } else if (lstrcmpA(name, "log_file") == 0) {
-            wchar_t *file = config_full_path_alloc(L"log/YAFSML.log");
-            wchar_t *path = ml_mem_strdup_w(file);
-            PathRemoveFileSpecW(path);
-            CreateDirectoryW(path, NULL);
-            ml_mem_free(path);
-            ml_log_enable_file(file);
-            ml_mem_free(file);
+            if (value_to_bool(value)) {
+                wchar_t *file = config_full_path_alloc(L"log\\YAFSML.log");
+                wchar_t *path = ml_mem_strdup_w(file);
+                PathRemoveFileSpecW(path);
+                CreateDirectoryW(path, NULL);
+                ml_mem_free(path);
+                ml_log_enable_file(file);
+                ml_mem_free(file);
+            }
         } else if (lstrcmpA(name, "log_level") == 0) {
             ml_log_level_t level;
             if (ml_log_level_parse(value, &level)) {
