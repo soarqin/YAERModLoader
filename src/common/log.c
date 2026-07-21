@@ -55,7 +55,9 @@ ml_log_level_t ml_log_get_level() {
 
 void ml_log_vwrite(ml_log_level_t level, const wchar_t *component,
                    const wchar_t *format, va_list args) {
+    va_list copy;
     if (format == NULL) return;
+    if (log_stream) va_copy(copy, args);
     if (log_console) {
         FILE *stream;
         stream = level >= ML_LOG_LEVEL_WARN ? stderr : stdout;
@@ -71,9 +73,10 @@ void ml_log_vwrite(ml_log_level_t level, const wchar_t *component,
         AcquireSRWLockExclusive(&file_lock);
         fwprintf(log_stream, L"%ls: ", ml_log_level_name(level));
         if (component != NULL && component[0] != L'\0') fwprintf(log_stream, L"[%ls] ", component);
-        vfwprintf(log_stream, format, args);
+        vfwprintf(log_stream, format, copy);
         fputwc(L'\n', log_stream);
         fflush(log_stream);
         ReleaseSRWLockExclusive(&file_lock);
+        va_end(copy);
     }
 }

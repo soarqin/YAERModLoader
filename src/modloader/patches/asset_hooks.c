@@ -234,6 +234,7 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
     ml_dl_vfs_mounts_t stub_mounts = { 0 };
     ml_dl_vfs_mounts_t full_mounts = { 0 };
     ml_dl_device_manager_guard_t guard = { 0 };
+    bool manager_locked = false;
     if (mounted != NULL) *mounted = false;
     if (handled != NULL) *handled = false;
     ML_LOG_DEBUG(L"asset-hooks", L"BootBoost enter: bhd=%p allocator=%p key=%p key_len=%zu",
@@ -245,6 +246,7 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
     *handled = false;
     if (!ml_dl_device_manager_lock(device_manager, &guard) ||
         !ml_dl_device_expand_path(device_manager, game_stl_abi, bhd_path, &expanded)) goto fallback;
+    manager_locked = true;
     ML_LOG_DEBUG(L"asset-hooks", L"BootBoost expanded BHD path: %ls", expanded);
     source = CreateFileW(expanded, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (source == INVALID_HANDLE_VALUE || !GetFileSizeEx(source, &source_size) || source_size.QuadPart <= 0 ||
@@ -261,12 +263,16 @@ static bool boot_boost_mount(const wchar_t *bhd_path, dl_allocator_t *allocator,
     CreateDirectoryW(cache_directory, NULL);
     if (!write_boot_boost_stub(encrypted, (size_t)source_size.QuadPart, block_size, stub_path, MAX_PATH) ||
         !ml_dl_mount_snapshot(device_manager, game_stl_abi, &snapshot) || !ml_dl_mounts_init(&stub_mounts)) goto fallback;
+    ml_dl_device_manager_unlock(&guard);
+    manager_locked = false;
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost invoking stub MountEbl: %ls", stub_path);
     result = original(mount_name, stub_path, bdt_path, allocator, rsa_key, key_len);
     *handled = result;
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost stub MountEbl returned: %d", result ? 1 : 0);
     DeleteFileW(stub_path);
     if (!result) goto fallback;
+    if (!ml_dl_device_manager_lock(device_manager, &guard)) goto fallback;
+    manager_locked = true;
     if (!ml_dl_device_extract_new(device_manager, game_stl_abi, &snapshot, &stub_mounts)) {
         *mounted = true;
         result = true;
@@ -339,11 +345,15 @@ full_mount:
         }
     }
     if (!ml_dl_mounts_init(&full_mounts)) goto fallback;
+    ml_dl_device_manager_unlock(&guard);
+    manager_locked = false;
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost invoking full MountEbl");
     result = original(mount_name, bhd_path, bdt_path, allocator, rsa_key, key_len);
     if (result) *handled = true;
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost full MountEbl returned: %d", result ? 1 : 0);
     if (!result) goto fallback;
+    if (!ml_dl_device_manager_lock(device_manager, &guard)) goto fallback;
+    manager_locked = true;
     ML_LOG_TRACE(L"asset-hooks", L"BootBoost extracting full mounts");
     if (!ml_dl_device_extract_new(device_manager, game_stl_abi, &snapshot, &full_mounts)) {
         *mounted = true;
@@ -392,7 +402,7 @@ done:
     ml_dl_mounts_destroy(&stub_mounts, game_stl_abi);
     ml_dl_mounts_destroy(&full_mounts, game_stl_abi);
     ml_dl_mount_snapshot_destroy(&snapshot);
-    ml_dl_device_manager_unlock(&guard);
+    if (manager_locked) ml_dl_device_manager_unlock(&guard);
     *mounted = result;
     return result;
 }
@@ -706,11 +716,13 @@ static bool __cdecl mount_ebl_hooked(const wchar_t *mount_name, const wchar_t *b
         snapshot_ok = ml_dl_mount_snapshot(device_manager, game_stl_abi, &snapshot);
         (void)ml_dl_mounts_init(&new_mounts);
     }
+    ml_dl_device_manager_unlock(&guard);
     result = old_mount_ebl(mount_name, bhd_path, bdt_path, allocator, rsa_key, key_len);
     if (config.boot_boost && result && InterlockedCompareExchange(&boot_boost_status_reported, 1, 0) == 0) {
         ML_LOG_INFO(L"asset-hooks", L"BootBoost capability FALLBACK");
     }
-    if (guard.manager != NULL && snapshot_ok && ml_dl_device_extract_new(device_manager, game_stl_abi, &snapshot, &new_mounts)) {
+    if (snapshot_ok && ml_dl_device_manager_lock(device_manager, &guard) &&
+        ml_dl_device_extract_new(device_manager, game_stl_abi, &snapshot, &new_mounts)) {
         if (!ml_dl_device_push_mounts_permanent(device_manager, game_stl_abi, &new_mounts)) {
             ML_LOG_WARN(L"asset-hooks", L"failed to restore mounted BND4 devices");
             (void)ml_dl_device_restore_mounts(device_manager, game_stl_abi, &new_mounts);

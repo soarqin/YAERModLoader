@@ -7,7 +7,7 @@ ports. Do not infer the baseline from another local checkout.
 
 - Repository: https://github.com/garyttierney/me3
 - Branch: `main`
-- Synced commit: `266adf1`
+- Synced commit: `6563ebb`
 
 Update the commit only when changes from a newer me3 revision are synchronized.
 
