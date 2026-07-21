@@ -18,6 +18,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "config_ui.h"
+
 static wchar_t full_game_path[MAX_PATH] = L"";
 static wchar_t full_config_path[MAX_PATH] = L"";
 static wchar_t full_modengine_dll[MAX_PATH] = L"";
@@ -186,12 +188,19 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
     wchar_t config_path[MAX_PATH];
 
     if (!parse_args(__argc, __wargv)) return -1;
+    if (GetModuleFileNameW(hInstance, launcher_dir, MAX_PATH) == 0) return -1;
+    PathRemoveFileSpecW(launcher_dir);
+    if (full_config_path[0] == L'\0' && !launch_game_explicit) {
+        if (ml_launcher_ui_should_show(launcher_dir)) {
+            if (!ml_launcher_show_config_ui(hInstance, launcher_dir, full_config_path)) return 0;
+        } else {
+            ml_launcher_ui_saved_config_path(launcher_dir, full_config_path);
+        }
+    }
     if (!launch_game_explicit) {
         const ml_game_descriptor_t *config_game = NULL;
         wchar_t invalid_key[64];
         ml_launcher_game_config_result_t config_result;
-        if (GetModuleFileNameW(hInstance, launcher_dir, MAX_PATH) == 0) return -1;
-        PathRemoveFileSpecW(launcher_dir);
         if (!ml_launcher_resolve_config_path(config_path, launcher_dir,
                                               full_config_path[0] != L'\0' ? full_config_path : NULL)) {
             return -1;

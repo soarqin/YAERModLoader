@@ -15,6 +15,7 @@ generate_version_info(exe_res_files
 add_project(modloader_launcher WIN32
     launcher.c
     launch_config.c
+    config_ui.c
     ${CMAKE_SOURCE_DIR}/src/common/log.c
 
     launcher.rc
@@ -28,5 +29,8 @@ target_include_directories(modloader_launcher PRIVATE ..)
 target_include_directories(modloader_launcher PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
 if (NOT MSVC)
     target_link_options(modloader_launcher PRIVATE -municode)
+else ()
+    target_link_options(modloader_launcher PRIVATE
+        "/MANIFESTDEPENDENCY:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'")
 endif ()
-target_link_libraries(modloader_launcher game_registry steam wingetopt inih #[[lzma]] shlwapi psapi)
+target_link_libraries(modloader_launcher game_registry steam wingetopt inih #[[lzma]] shlwapi psapi comctl32 comdlg32)
