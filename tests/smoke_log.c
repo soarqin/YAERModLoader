@@ -14,11 +14,9 @@ int main(void) {
     EXPECT_TRUE(ml_log_level_parse(NULL, &level) == false);
 
     ml_log_set_level(ML_LOG_LEVEL_WARN);
-    EXPECT_TRUE(!ml_log_enabled(ML_LOG_LEVEL_INFO));
-    EXPECT_TRUE(ml_log_enabled(ML_LOG_LEVEL_WARN));
-    EXPECT_TRUE(ml_log_enabled(ML_LOG_LEVEL_ERROR));
+    EXPECT_EQ(ml_log_get_level(), ML_LOG_LEVEL_WARN);
     ml_log_set_level(ML_LOG_LEVEL_OFF);
-    EXPECT_TRUE(!ml_log_enabled(ML_LOG_LEVEL_ERROR));
+    EXPECT_EQ(ml_log_get_level(), ML_LOG_LEVEL_OFF);
     printf("smoke_log: all tests passed\n");
     return 0;
 }

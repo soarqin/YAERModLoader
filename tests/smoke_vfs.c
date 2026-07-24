@@ -9,29 +9,29 @@
 
 static volatile LONG64 allocation_count;
 
-void *yaer_mem_alloc(UINT flags, size_t size) {
+void *ml_mem_alloc(UINT flags, size_t size) {
     void *result = LocalAlloc(flags, size);
     if (result != NULL) InterlockedIncrement64(&allocation_count);
     return result;
 }
 
-void *yaer_mem_realloc(void *ptr, size_t size, UINT flags) {
+void *ml_mem_realloc(void *ptr, size_t size, UINT flags) {
     void *result = LocalReAlloc(ptr, size, flags);
     if (result != NULL) InterlockedIncrement64(&allocation_count);
     return result;
 }
 
-void yaer_mem_free(void *ptr) {
+void ml_mem_free(void *ptr) {
     LocalFree(ptr);
 }
 
-char *yaer_mem_strdup_a(const char *str) {
+char *ml_mem_strdup_a(const char *str) {
     char *result = StrDupA(str);
     if (result != NULL) InterlockedIncrement64(&allocation_count);
     return result;
 }
 
-wchar_t *yaer_mem_strdup_w(const wchar_t *str) {
+wchar_t *ml_mem_strdup_w(const wchar_t *str) {
     wchar_t *result = StrDupW(str);
     if (result != NULL) InterlockedIncrement64(&allocation_count);
     return result;

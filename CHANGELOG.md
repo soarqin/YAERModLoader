@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-07-24
+
+### Changed
+
+- Replaced the Elden Ring-specific launcher icon with a multi-game YAFSML mark and added its editable SVG source.
+- Synchronized BootBoost mount handling with me3 commit `6563ebb`.
+
+### Fixed
+
+- Release the Dantelion device-manager lock before invoking the game's mount routine, then reacquire it for mount extraction to avoid lock re-entry during BootBoost and fallback mounts.
+- Preserve variadic log arguments when writing the same message to both the console and the log file.
+- Fixed smoke-test linkage after the logging and allocator API changes.
+
 ## [0.7.3] - 2026-07-20
 
 ### Changed
@@ -185,7 +198,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/soarqin/YAFSML/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/soarqin/YAFSML/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/soarqin/YAFSML/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/soarqin/YAFSML/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/soarqin/YAFSML/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/soarqin/YAFSML/compare/v0.7.0...v0.7.1
