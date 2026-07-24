@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="steel" x1="80" y1="48" x2="432" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f4145"/>
+      <stop offset="0.55" stop-color="#1b282d"/>
+      <stop offset="1" stop-color="#10191e"/>
+    </linearGradient>
+    <linearGradient id="ember" x1="128" y1="104" x2="326" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe3a1"/>
+      <stop offset="0.48" stop-color="#e5ad55"/>
+      <stop offset="1" stop-color="#bd6e2f"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#steel)"/>
+  <rect x="28" y="28" width="456" height="456" rx="100" fill="none" stroke="#526164" stroke-width="12"/>
+
+  <path
+    d="M144 100H396L352 180H238V226H342L300 302H238V344H296L192 432 88 344H144Z"
+    fill="url(#ember)"/>
+  <path
+    d="M166 124H354L336 156H214V250H300L284 278H214V366L192 385 170 366V156H148Z"
+    fill="#fff1c5"
+    opacity="0.34"/>
+</svg>
